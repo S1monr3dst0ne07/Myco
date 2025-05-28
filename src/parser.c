@@ -1,528 +1,644 @@
-#include <stdio.h>
+#include "../include/parser.h"
 #include <stdlib.h>
 #include <string.h>
-#include "myco.h"
+#include <stdio.h>
 
-// Forward declarations
-static Node* parse_block();
-static Node* parse_statement();
-static Node* parse_expression();
-static Node* parse_primary();
-static Node* parse_declaration();
-static Node* parse_var_decl();
-static Node* parse_const_decl();
-static Node* parse_func_decl();
-static Node* parse_if();
-static Node* parse_while();
-static Node* parse_for();
-static Node* parse_switch();
-static Node* parse_try();
-static Node* parse_print();
-static Node* parse_assignment(Node* left);
-static Node* parse_binary(Node* left, int min_prec);
-static Node* parse_call(Node* callee);
-static Node* parse_return();
-static Node* make_binary(Node* left, Token op, Node* right);
-static Node* make_literal(double number, const char* string);
+static ASTNode* parse_expression(Parser* parser);
+static ASTNode* parse_equality(Parser* parser);
+static ASTNode* parse_comparison(Parser* parser);
+static ASTNode* parse_term(Parser* parser);
+static ASTNode* parse_factor(Parser* parser);
+static ASTNode* parse_unary(Parser* parser);
+static ASTNode* parse_primary(Parser* parser);
+static ASTNode* parse_statement(Parser* parser);
+static ASTNode* parse_block(Parser* parser);
+static ASTNode* parse_function_def(Parser* parser);
+static ASTNode* parse_var_decl(Parser* parser);
+static ASTNode* parse_if_stmt(Parser* parser);
+static ASTNode* parse_while_stmt(Parser* parser);
+static ASTNode* parse_for_stmt(Parser* parser);
+static ASTNode* parse_switch_stmt(Parser* parser);
+static ASTNode* parse_try_stmt(Parser* parser);
+static ASTNode* parse_print_stmt(Parser* parser);
 
-// Parser state
-static Lexer lexer;
-static Token current;
-static Token previous;
-
-static void advance() {
-    previous = current;
-    current = lexer_next_token(&lexer);
+Parser* parser_init(Lexer* lexer) {
+    Parser* parser = malloc(sizeof(Parser));
+    if (!parser) return NULL;
+    
+    parser->lexer = lexer;
+    parser->had_error = false;
+    parser->current = lexer_next_token(lexer);
+    parser->previous = parser->current;
+    
+    return parser;
 }
 
-static bool check(TokenType type) {
-    return current.type == type;
+void parser_free(Parser* parser) {
+    free(parser);
 }
 
-static bool match(TokenType type) {
-    if (!check(type)) return false;
-    advance();
-    return true;
+static void advance(Parser* parser) {
+    parser->previous = parser->current;
+    parser->current = lexer_next_token(parser->lexer);
 }
 
-static void expect(TokenType type, const char* msg) {
-    if (!match(type)) {
-        fprintf(stderr, "[Line %d] Error: %s\n", current.line, msg);
-        exit(1);
+static bool check(Parser* parser, TokenType type) {
+    return parser->current.type == type;
+}
+
+static bool match(Parser* parser, TokenType type) {
+    if (check(parser, type)) {
+        advance(parser);
+        return true;
     }
+    return false;
 }
 
-static Node* make_node(NodeType type) {
-    Node* node = calloc(1, sizeof(Node));
+static void consume(Parser* parser, TokenType type, const char* message) {
+    if (check(parser, type)) {
+        advance(parser);
+        return;
+    }
+    
+    parser->had_error = true;
+    fprintf(stderr, "Error at line %d: %s\n", parser->current.line, message);
+}
+
+static ASTNode* make_node(NodeType type) {
+    ASTNode* node = malloc(sizeof(ASTNode));
+    if (!node) return NULL;
+    memset(node, 0, sizeof(ASTNode));
     node->type = type;
+    node->next = NULL;
     return node;
 }
 
-// Precedence table for binary operators
-static int get_precedence(TokenType type) {
-    switch (type) {
-        case TOKEN_DOT_DOT: return 7; // string concat
-        case TOKEN_STAR: case TOKEN_SLASH: case TOKEN_PERCENT: return 6;
-        case TOKEN_PLUS: case TOKEN_MINUS: return 5;
-        case TOKEN_LESS: case TOKEN_LESS_EQUAL: case TOKEN_GREATER: case TOKEN_GREATER_EQUAL: return 4;
-        case TOKEN_EQUAL: case TOKEN_BANG_EQUAL: return 3;
-        case TOKEN_ASSIGN: return 2;
-        default: return 0;
-    }
+static ASTNode* parse_expression(Parser* parser) {
+    return parse_term(parser);
 }
 
-static Node* parse_primary() {
-    if (match(TOKEN_NUMBER)) {
-        char buf[64];
-        snprintf(buf, sizeof(buf), "%.*s", previous.length, previous.start);
-        double num = atof(buf);
-        Node* node = make_literal(num, NULL);
+static ASTNode* parse_term(Parser* parser) {
+    ASTNode* node = parse_factor(parser);
+    while (parser->current.type == TOKEN_PLUS || parser->current.type == TOKEN_MINUS) {
+        TokenType op = parser->current.type;
+        parser->previous = parser->current;
+        parser->current = lexer_next_token(parser->lexer);
+        ASTNode* right = parse_factor(parser);
+        ASTNode* bin = make_node(NODE_BINARY_OP);
+        bin->as.binary.left = node;
+        bin->as.binary.right = right;
+        bin->as.binary.operator = op;
+        node = bin;
+    }
+    return node;
+}
+
+static ASTNode* parse_factor(Parser* parser) {
+    ASTNode* node = parse_primary(parser);
+    while (parser->current.type == TOKEN_MULTIPLY || parser->current.type == TOKEN_DIVIDE) {
+        TokenType op = parser->current.type;
+        parser->previous = parser->current;
+        parser->current = lexer_next_token(parser->lexer);
+        ASTNode* right = parse_primary(parser);
+        ASTNode* bin = make_node(NODE_BINARY_OP);
+        bin->as.binary.left = node;
+        bin->as.binary.right = right;
+        bin->as.binary.operator = op;
+        node = bin;
+    }
+    return node;
+}
+
+static ASTNode* parse_primary(Parser* parser) {
+    if (parser->current.type == TOKEN_INTEGER) {
+        ASTNode* node = make_node(NODE_LITERAL);
+        node->as.literal.value_type = TOKEN_INTEGER;
+        node->as.literal.int_value = atoll(parser->current.lexeme);
+        parser->previous = parser->current;
+        parser->current = lexer_next_token(parser->lexer);
         return node;
     }
-    if (match(TOKEN_STRING)) {
-        char* str = malloc(previous.length + 1);
-        strncpy(str, previous.start, previous.length);
-        str[previous.length] = '\0';
-        Node* node = make_literal(0, str);
+    if (parser->current.type == TOKEN_IDENTIFIER) {
+        ASTNode* node = make_node(NODE_IDENTIFIER);
+        node->as.literal.string_value = strdup(parser->current.lexeme);
+        parser->previous = parser->current;
+        parser->current = lexer_next_token(parser->lexer);
         return node;
     }
-    if (match(TOKEN_IDENTIFIER)) {
-        Node* node = make_node(NODE_VARIABLE);
-        node->value.identifier = previous;
-        if (check(TOKEN_LEFT_PAREN)) {
-            return parse_call(node);
+    if (parser->current.type == TOKEN_LPAREN) {
+        parser->previous = parser->current;
+        parser->current = lexer_next_token(parser->lexer);
+        ASTNode* expr = parse_expression(parser);
+        if (parser->current.type != TOKEN_RPAREN) {
+            fprintf(stderr, "Expected ')'\n");
+            parser->had_error = true;
+            return NULL;
         }
-        return node;
-    }
-    if (match(TOKEN_LEFT_PAREN)) {
-        Node* expr = parse_expression();
-        expect(TOKEN_RIGHT_PAREN, "Expect ')' after expression");
+        parser->previous = parser->current;
+        parser->current = lexer_next_token(parser->lexer);
         return expr;
     }
-    if (match(TOKEN_LEFT_BRACKET)) {
-        // List literal
-        Node* list = make_node(NODE_LIST);
-        Node* head = NULL;
-        Node* tail = NULL;
-        if (!check(TOKEN_RIGHT_BRACKET)) {
-            do {
-                Node* elem = parse_expression();
-                if (!head) head = tail = elem;
-                else { tail->right = elem; tail = elem; }
-            } while (match(TOKEN_COMMA));
-        }
-        expect(TOKEN_RIGHT_BRACKET, "Expect ']' after list");
-        list->left = head;
-        return list;
+    fprintf(stderr, "Unexpected token in expression\n");
+    parser->had_error = true;
+    return NULL;
+}
+
+static ASTNode* parse_statement(Parser* parser) {
+    if (parser->current.type == TOKEN_LET) {
+        parser->previous = parser->current;
+        parser->current = lexer_next_token(parser->lexer);
+        return parse_var_decl(parser);
     }
-    if (match(TOKEN_LEFT_BRACE)) {
-        // Map literal
-        Node* map = make_node(NODE_MAP);
-        Node* head = NULL;
-        Node* tail = NULL;
-        if (!check(TOKEN_RIGHT_BRACE)) {
-            do {
-                Node* key = parse_expression();
-                expect(TOKEN_COLON, "Expect ':' after map key");
-                Node* value = parse_expression();
-                Node* pair = make_node(NODE_ASSIGNMENT);
-                pair->left = key;
-                pair->right = value;
-                if (!head) head = tail = pair;
-                else { tail->right = pair; tail = pair; }
-            } while (match(TOKEN_COMMA));
-        }
-        expect(TOKEN_RIGHT_BRACE, "Expect '}' after map");
-        map->left = head;
-        return map;
+    if (parser->current.type == TOKEN_FUNC) {
+        parser->previous = parser->current;
+        parser->current = lexer_next_token(parser->lexer);
+        return parse_function_def(parser);
     }
-    fprintf(stderr, "[Line %d] Error: Unexpected token in expression\n", current.line);
-    exit(1);
-}
-
-static Node* parse_call(Node* callee) {
-    Node* node = make_node(NODE_CALL);
-    node->value.call.callee = callee;
-    advance(); // consume '('
-    Node* arg_head = NULL;
-    Node* arg_tail = NULL;
-    if (!check(TOKEN_RIGHT_PAREN)) {
-        do {
-            Node* arg = parse_expression();
-            if (!arg_head) {
-                arg_head = arg_tail = arg;
-            } else {
-                arg_tail->right = arg;
-                arg_tail = arg;
-            }
-        } while (match(TOKEN_COMMA));
+    if (parser->current.type == TOKEN_IF) {
+        parser->previous = parser->current;
+        parser->current = lexer_next_token(parser->lexer);
+        return parse_if_stmt(parser);
     }
-    expect(TOKEN_RIGHT_PAREN, "Expect ')' after arguments");
-    node->value.call.args = arg_head;
-    return node;
-}
-
-static Node* parse_unary() {
-    if (match(TOKEN_MINUS) || match(TOKEN_BANG)) {
-        Node* node = make_node(NODE_UNARY);
-        node->left = parse_unary();
-        node->value.identifier = previous;
-        return node;
+    if (parser->current.type == TOKEN_WHILE) {
+        parser->previous = parser->current;
+        parser->current = lexer_next_token(parser->lexer);
+        return parse_while_stmt(parser);
     }
-    return parse_primary();
-}
-
-static Node* parse_binary(Node* left, int min_prec) {
-    while (1) {
-        int prec = get_precedence(current.type);
-        if (prec < min_prec) break;
-        Token op_token = current; // Save the operator token
-        advance();
-        Node* right = parse_unary();
-        int next_prec = get_precedence(current.type);
-        while (prec < next_prec) {
-            right = parse_binary(right, prec + 1);
-            next_prec = get_precedence(current.type);
-        }
-        Node* bin = make_binary(left, op_token, right); // Use op_token, not current
-        left = bin;
+    if (parser->current.type == TOKEN_FOR) {
+        parser->previous = parser->current;
+        parser->current = lexer_next_token(parser->lexer);
+        return parse_for_stmt(parser);
     }
-    return left;
-}
-
-static Node* make_binary(Node* left, Token op, Node* right) {
-    Node* node = malloc(sizeof(Node));
-    node->type = NODE_BINARY;
-    node->left = left;
-    node->right = right;
-    node->value.identifier = op;
-    return node;
-}
-
-static Node* parse_assignment(Node* left) {
-    if (match(TOKEN_ASSIGN)) {
-        Node* node = make_node(NODE_ASSIGNMENT);
-        node->left = left;
-        node->right = parse_expression();
-        return node;
+    if (parser->current.type == TOKEN_SWITCH) {
+        parser->previous = parser->current;
+        parser->current = lexer_next_token(parser->lexer);
+        return parse_switch_stmt(parser);
     }
-    return left;
-}
-
-static Node* parse_expression() {
-    Node* left = parse_unary();
-    left = parse_binary(left, 1);
-    left = parse_assignment(left);
-    return left;
-}
-
-static Node* parse_print() {
-    advance(); // consume 'print'
-    Node* node = make_node(NODE_PRINT);
-    node->left = parse_expression();
-    // Make semicolon optional after print statement
-    match(TOKEN_SEMICOLON);
-    return node;
-}
-
-static Node* parse_var_decl() {
-    advance(); // consume 'let' or 'var'
-    expect(TOKEN_IDENTIFIER, "Expect variable name");
-    Node* var = make_node(NODE_VARIABLE);
-    var->value.identifier = previous;
-    Node* init = NULL;
-    if (match(TOKEN_ASSIGN)) {
-        init = parse_expression();
+    if (parser->current.type == TOKEN_IDENTIFIER && strcmp(parser->current.lexeme, "print") == 0) {
+        parser->previous = parser->current;
+        parser->current = lexer_next_token(parser->lexer);
+        return parse_print_stmt(parser);
     }
-    match(TOKEN_SEMICOLON); // Semicolon is now optional
-    Node* node = make_node(NODE_VAR_DECL);
-    node->left = var;
-    node->right = init;
-    return node;
+    // Fallback: try to parse as expression
+    return parse_expression(parser);
 }
 
-static Node* parse_const_decl() {
-    advance(); // consume 'const'
-    expect(TOKEN_IDENTIFIER, "Expect constant name");
-    Node* var = make_node(NODE_VARIABLE);
-    var->value.identifier = previous;
-    expect(TOKEN_ASSIGN, "Expect '=' after constant name");
-    Node* init = parse_expression();
-    match(TOKEN_SEMICOLON); // Semicolon is now optional
-    Node* node = make_node(NODE_CONST_DECL);
-    node->left = var;
-    node->right = init;
-    return node;
-}
-
-static Node* parse_return() {
-    advance(); // consume 'return'
-    Node* expr = NULL;
-    if (!check(TOKEN_SEMICOLON)) {
-        expr = parse_expression();
-    }
-    match(TOKEN_SEMICOLON); // Semicolon is now optional
-    Node* node = make_node(NODE_RETURN);
-    node->left = expr;
-    return node;
-}
-
-// Helper to skip semicolons and newlines after a block header (colon)
-static void skip_block_separators() {
-    // Skip any semicolons or colons that might appear after a block header
-    while (check(TOKEN_SEMICOLON) || check(TOKEN_COLON)) {
-        advance();
-    }
-}
-
-static Node* parse_if() {
-    advance(); // consume 'if'
-    Node* cond = parse_expression();
-    expect(TOKEN_COLON, "Expect ':' after if condition");
-    skip_block_separators();
+ASTNode* parser_parse(Parser* parser) {
+    ASTNode* program = make_node(NODE_PROGRAM);
+    ASTNode* current = NULL;
     
-    // Parse the then block
-    Node* then_block = parse_block();
-    
-    // Parse the else block if it exists
-    Node* else_block = NULL;
-    if (check(TOKEN_ELSEIF)) {
-        else_block = parse_if(); // recursively build the chain
-    } else if (check(TOKEN_ELSE)) {
-        advance();
-        expect(TOKEN_COLON, "Expect ':' after else");
-        skip_block_separators();
-        else_block = parse_block();
-    }
-    
-    expect(TOKEN_END, "Expect 'end' after if block");
-    advance();
-    
-    // Create the if node
-    Node* node = make_node(NODE_IF);
-    node->left = cond;
-    node->right = then_block;
-    
-    // Link the else block if it exists
-    if (else_block) {
-        Node* else_node = make_node(NODE_BLOCK);
-        else_node->left = else_block;
-        node->right->right = else_node;
-    }
-    
-    return node;
-}
-
-static Node* parse_while() {
-    advance(); // consume 'while'
-    Node* cond = parse_expression();
-    expect(TOKEN_COLON, "Expect ':' after while condition");
-    skip_block_separators();
-    Node* body = parse_block();
-    expect(TOKEN_END, "Expect 'end' after while block");
-    advance();
-    Node* node = make_node(NODE_WHILE);
-    node->left = cond;
-    node->right = body;
-    return node;
-}
-
-static Node* parse_for() {
-    advance(); // consume 'for'
-    expect(TOKEN_IDENTIFIER, "Expect variable name after 'for'");
-    Node* var = make_node(NODE_VARIABLE);
-    var->value.identifier = previous;
-    expect(TOKEN_IN, "Expect 'in' after for variable");
-    Node* iterable = parse_expression();
-    expect(TOKEN_COLON, "Expect ':' after for-in");
-    skip_block_separators();
-    Node* body = parse_block();
-    expect(TOKEN_END, "Expect 'end' after for block");
-    advance();
-    Node* node = make_node(NODE_FOR);
-    node->left = var;
-    node->right = make_node(NODE_BLOCK);
-    node->right->left = iterable;
-    node->right->right = body;
-    return node;
-}
-
-static Node* parse_func_decl() {
-    advance(); // consume 'func'
-    expect(TOKEN_IDENTIFIER, "Expect function name");
-    Node* func = make_node(NODE_FUNCTION);
-    func->value.identifier = previous;
-    expect(TOKEN_LEFT_PAREN, "Expect '(' after function name");
-    // Parse parameters
-    Node* param_head = NULL;
-    Node* param_tail = NULL;
-    if (!check(TOKEN_RIGHT_PAREN)) {
-        do {
-            expect(TOKEN_IDENTIFIER, "Expect parameter name");
-            Node* param = make_node(NODE_VARIABLE);
-            param->value.identifier = previous;
-            if (!param_head) param_head = param_tail = param;
-            else { param_tail->right = param; param_tail = param; }
-        } while (match(TOKEN_COMMA));
-    }
-    expect(TOKEN_RIGHT_PAREN, "Expect ')' after parameters");
-    expect(TOKEN_COLON, "Expect ':' after function signature");
-    skip_block_separators();
-    Node* body = parse_block();
-    expect(TOKEN_END, "Expect 'end' after function block");
-    advance();
-    func->value.function.params = param_head;
-    func->value.function.body = body;
-    return func;
-}
-
-static Node* parse_switch() {
-    advance(); // consume 'switch'
-    Node* expr = parse_expression();
-    expect(TOKEN_COLON, "Expect ':' after switch expression");
-    skip_block_separators();
-    Node* head = NULL;
-    Node* tail = NULL;
-    while (check(TOKEN_CASE)) {
-        advance();
-        Node* case_val = parse_expression();
-        expect(TOKEN_COLON, "Expect ':' after case value");
-        skip_block_separators();
-        Node* case_block = parse_block();
-        Node* case_node = make_node(NODE_CASE);
-        case_node->left = case_val;
-        case_node->right = case_block;
-        if (!head) head = tail = case_node;
-        else { tail->right = case_node; tail = case_node; }
-    }
-    Node* default_block = NULL;
-    if (check(TOKEN_DEFAULT)) {
-        advance();
-        expect(TOKEN_COLON, "Expect ':' after default");
-        skip_block_separators();
-        default_block = parse_block();
-    }
-    expect(TOKEN_END, "Expect 'end' after switch block");
-    advance();
-    Node* node = make_node(NODE_SWITCH);
-    node->left = expr;
-    node->right = head;
-    if (default_block) {
-        Node* def = make_node(NODE_CASE);
-        def->left = NULL;
-        def->right = default_block;
-        if (!head) node->right = def;
-        else tail->right = def;
-    }
-    return node;
-}
-
-static Node* parse_try() {
-    advance(); // consume 'try'
-    skip_block_separators();
-    Node* try_block = parse_block();
-    Node* catch_block = NULL;
-    if (check(TOKEN_CATCH)) {
-        advance();
-        skip_block_separators();
-        catch_block = parse_block();
-    }
-    expect(TOKEN_END, "Expect 'end' after try/catch block");
-    advance();
-    Node* node = make_node(NODE_TRY);
-    node->left = try_block;
-    node->right = catch_block;
-    return node;
-}
-
-static bool is_expression_starter(TokenType type) {
-    // Exclude statement-only keywords like print, return, etc.
-    switch (type) {
-        case TOKEN_PRINT:
-        case TOKEN_RETURN:
-        case TOKEN_IF:
-        case TOKEN_WHILE:
-        case TOKEN_FOR:
-        case TOKEN_FUNC:
-        case TOKEN_SWITCH:
-        case TOKEN_TRY:
-        case TOKEN_LET:
-        case TOKEN_VAR:
-        case TOKEN_CONST:
-            return false;
-        default:
-            return type == TOKEN_NUMBER || type == TOKEN_STRING || type == TOKEN_IDENTIFIER ||
-                   type == TOKEN_LEFT_PAREN || type == TOKEN_LEFT_BRACKET || type == TOKEN_LEFT_BRACE ||
-                   type == TOKEN_MINUS || type == TOKEN_BANG;
-    }
-}
-
-static Node* parse_statement() {
-    if (check(TOKEN_PRINT)) return parse_print();
-    if (check(TOKEN_LET) || check(TOKEN_VAR)) return parse_var_decl();
-    if (check(TOKEN_CONST)) return parse_const_decl();
-    if (check(TOKEN_RETURN)) return parse_return();
-    if (check(TOKEN_IF)) return parse_if();
-    if (check(TOKEN_WHILE)) return parse_while();
-    if (check(TOKEN_FOR)) return parse_for();
-    if (check(TOKEN_FUNC)) return parse_func_decl();
-    if (check(TOKEN_SWITCH)) return parse_switch();
-    if (check(TOKEN_TRY)) return parse_try();
-    // Only parse an expression statement if the current token is a valid expression starter
-    if (is_expression_starter(current.type)) {
-        Node* expr = parse_expression();
-        // Make semicolon optional after expression statement
-        match(TOKEN_SEMICOLON);
-        return expr;
-    }
-    fprintf(stderr, "[Line %d] Error: Unexpected token in statement\n", current.line);
-    exit(1);
-}
-
-static Node* parse_block() {
-    Node* block = make_node(NODE_BLOCK);
-    Node* head = NULL;
-    Node* tail = NULL;
-    
-    while (!check(TOKEN_EOF) && !check(TOKEN_END) && !check(TOKEN_ELSE) && !check(TOKEN_ELSEIF) && !check(TOKEN_CATCH) && !check(TOKEN_CASE) && !check(TOKEN_DEFAULT)) {
-        // Skip any semicolons or colons between statements
-        while (check(TOKEN_SEMICOLON) || check(TOKEN_COLON)) {
-            advance();
-        }
+    while (!check(parser, TOKEN_EOF)) {
+        ASTNode* stmt = parse_statement(parser);
+        if (!stmt) break;
         
-        // Check if we've reached the end of the block
-        if (check(TOKEN_EOF) || check(TOKEN_END) || check(TOKEN_ELSE) || check(TOKEN_ELSEIF) || check(TOKEN_CATCH) || check(TOKEN_CASE) || check(TOKEN_DEFAULT)) {
-            break;
-        }
-        
-        // Parse the statement
-        Node* stmt = parse_statement();
-        
-        // Link the statement directly to the block
-        if (!head) {
-            head = tail = stmt;
+        if (!program->as.block.statements) {
+            program->as.block.statements = stmt;
+            current = stmt;
         } else {
-            tail->right = stmt;
-            tail = stmt;
+            current->next = stmt;
+            current = stmt;
+        }
+        
+        if (!match(parser, TOKEN_SEMICOLON)) {
+            consume(parser, TOKEN_SEMICOLON, "Expect ';' after statement.");
         }
     }
     
-    block->left = head;
-    return block;
+    return program;
 }
 
-static Node* make_literal(double number, const char* string) {
-    Node* node = malloc(sizeof(Node));
-    node->type = NODE_LITERAL;
-    node->left = NULL;
-    node->right = NULL;
-    node->number = number;
-    node->string = string;
+void ast_node_free(ASTNode* node) {
+    if (!node) return;
+    
+    switch (node->type) {
+        case NODE_BINARY_OP:
+            ast_node_free(node->as.binary.left);
+            ast_node_free(node->as.binary.right);
+            break;
+            
+        case NODE_UNARY_OP:
+            ast_node_free(node->as.unary.operand);
+            break;
+            
+        case NODE_LITERAL:
+            if (node->as.literal.value_type == TOKEN_STRING_LITERAL) {
+                free(node->as.literal.string_value);
+            }
+            break;
+            
+        case NODE_VAR_DECL:
+            free(node->as.var_decl.name);
+            ast_node_free(node->as.var_decl.initializer);
+            ast_node_free(node->as.var_decl.type_annotation);
+            break;
+            
+        case NODE_FUNCTION_DEF:
+            free(node->as.function.name);
+            ast_node_free(node->as.function.params);
+            ast_node_free(node->as.function.return_type);
+            ast_node_free(node->as.function.body);
+            break;
+            
+        case NODE_IF_STMT:
+            ast_node_free(node->as.if_stmt.condition);
+            ast_node_free(node->as.if_stmt.then_branch);
+            ast_node_free(node->as.if_stmt.else_branch);
+            break;
+            
+        case NODE_BLOCK:
+            ast_node_free(node->as.block.statements);
+            break;
+    }
+    
+    ast_node_free(node->next);
+    free(node);
+}
+
+// Minimal stub implementations for unimplemented parser functions
+static ASTNode* parse_var_decl(Parser* parser) {
+    // Assume 'let' already matched
+    ASTNode* node = make_node(NODE_VAR_DECL);
+    if (parser->current.type != TOKEN_IDENTIFIER) {
+        fprintf(stderr, "Expected identifier after 'let'\n");
+        parser->had_error = true;
+        return NULL;
+    }
+    node->as.var_decl.name = strdup(parser->current.lexeme);
+    // Advance past identifier
+    parser->previous = parser->current;
+    parser->current = lexer_next_token(parser->lexer);
+    // Expect '='
+    if (parser->current.type != TOKEN_ASSIGN) {
+        fprintf(stderr, "Expected '=' after variable name\n");
+        parser->had_error = true;
+        return NULL;
+    }
+    parser->previous = parser->current;
+    parser->current = lexer_next_token(parser->lexer);
+    // Parse initializer expression
+    node->as.var_decl.initializer = parse_expression(parser);
+    node->as.var_decl.is_const = 0;
     return node;
 }
 
-Node* parse(const char* source) {
-    lexer_init(&lexer, source);
-    advance();
-    return parse_block();
+static ASTNode* parse_function_def(Parser* parser) {
+    // Assume 'func' already matched
+    ASTNode* node = make_node(NODE_FUNCTION_DEF);
+    
+    // Parse function name
+    if (parser->current.type != TOKEN_IDENTIFIER) {
+        fprintf(stderr, "Expected function name\n");
+        parser->had_error = true;
+        return NULL;
+    }
+    node->as.function.name = strdup(parser->current.lexeme);
+    parser->previous = parser->current;
+    parser->current = lexer_next_token(parser->lexer);
+    
+    // Parse parameters
+    if (parser->current.type != TOKEN_LPAREN) {
+        fprintf(stderr, "Expected '(' after function name\n");
+        parser->had_error = true;
+        return NULL;
+    }
+    parser->previous = parser->current;
+    parser->current = lexer_next_token(parser->lexer);
+    
+    // Parse parameter list
+    ASTNode* params = NULL;
+    ASTNode* current_param = NULL;
+    
+    if (parser->current.type != TOKEN_RPAREN) {
+        do {
+            if (parser->current.type != TOKEN_IDENTIFIER) {
+                fprintf(stderr, "Expected parameter name\n");
+                parser->had_error = true;
+                return NULL;
+            }
+            
+            ASTNode* param = make_node(NODE_VAR_DECL);
+            param->as.var_decl.name = strdup(parser->current.lexeme);
+            parser->previous = parser->current;
+            parser->current = lexer_next_token(parser->lexer);
+            
+            // Optional type annotation
+            if (parser->current.type == TOKEN_COLON) {
+                parser->previous = parser->current;
+                parser->current = lexer_next_token(parser->lexer);
+                param->as.var_decl.type_annotation = parse_expression(parser);
+            }
+            
+            if (!params) {
+                params = param;
+                current_param = param;
+            } else {
+                current_param->next = param;
+                current_param = param;
+            }
+        } while (match(parser, TOKEN_COMMA));
+    }
+    
+    if (parser->current.type != TOKEN_RPAREN) {
+        fprintf(stderr, "Expected ')' after parameters\n");
+        parser->had_error = true;
+        return NULL;
+    }
+    parser->previous = parser->current;
+    parser->current = lexer_next_token(parser->lexer);
+    
+    // Optional return type
+    if (parser->current.type == TOKEN_ARROW) {
+        parser->previous = parser->current;
+        parser->current = lexer_next_token(parser->lexer);
+        node->as.function.return_type = parse_expression(parser);
+    }
+    
+    // Parse function body
+    if (parser->current.type != TOKEN_COLON) {
+        fprintf(stderr, "Expected ':' after function declaration\n");
+        parser->had_error = true;
+        return NULL;
+    }
+    parser->previous = parser->current;
+    parser->current = lexer_next_token(parser->lexer);
+    
+    node->as.function.params = params;
+    node->as.function.body = parse_block(parser);
+    
+    return node;
+}
+
+static ASTNode* parse_if_stmt(Parser* parser) {
+    // Assume 'if' already matched
+    ASTNode* node = make_node(NODE_IF_STMT);
+    
+    // Parse condition
+    node->as.if_stmt.condition = parse_expression(parser);
+    
+    // Parse then branch
+    if (parser->current.type != TOKEN_COLON) {
+        fprintf(stderr, "Expected ':' after if condition\n");
+        parser->had_error = true;
+        return NULL;
+    }
+    parser->previous = parser->current;
+    parser->current = lexer_next_token(parser->lexer);
+    node->as.if_stmt.then_branch = parse_block(parser);
+    
+    // Parse else/elseif branches
+    if (parser->current.type == TOKEN_ELSEIF) {
+        parser->previous = parser->current;
+        parser->current = lexer_next_token(parser->lexer);
+        node->as.if_stmt.else_branch = parse_if_stmt(parser);
+    } else if (parser->current.type == TOKEN_ELSE) {
+        parser->previous = parser->current;
+        parser->current = lexer_next_token(parser->lexer);
+        if (parser->current.type != TOKEN_COLON) {
+            fprintf(stderr, "Expected ':' after else\n");
+            parser->had_error = true;
+            return NULL;
+        }
+        parser->previous = parser->current;
+        parser->current = lexer_next_token(parser->lexer);
+        node->as.if_stmt.else_branch = parse_block(parser);
+    }
+    
+    return node;
+}
+
+static ASTNode* parse_while_stmt(Parser* parser) {
+    // Assume 'while' already matched
+    ASTNode* node = make_node(NODE_WHILE_STMT);
+    
+    // Parse condition
+    node->as.while_stmt.condition = parse_expression(parser);
+    
+    // Parse body
+    if (parser->current.type != TOKEN_COLON) {
+        fprintf(stderr, "Expected ':' after while condition\n");
+        parser->had_error = true;
+        return NULL;
+    }
+    parser->previous = parser->current;
+    parser->current = lexer_next_token(parser->lexer);
+    node->as.while_stmt.body = parse_block(parser);
+    
+    return node;
+}
+
+static ASTNode* parse_for_stmt(Parser* parser) {
+    // Assume 'for' already matched
+    ASTNode* node = make_node(NODE_FOR_STMT);
+    
+    // Parse range-based for loop
+    if (parser->current.type == TOKEN_IDENTIFIER) {
+        char* var_name = strdup(parser->current.lexeme);
+        parser->previous = parser->current;
+        parser->current = lexer_next_token(parser->lexer);
+        
+        if (parser->current.type != TOKEN_IN) {
+            fprintf(stderr, "Expected 'in' after for variable\n");
+            parser->had_error = true;
+            free(var_name);
+            return NULL;
+        }
+        parser->previous = parser->current;
+        parser->current = lexer_next_token(parser->lexer);
+        
+        // Parse range expression
+        node->as.for_stmt.start = parse_expression(parser);
+        
+        if (parser->current.type != TOKEN_COLON) {
+            fprintf(stderr, "Expected ':' after for range\n");
+            parser->had_error = true;
+            free(var_name);
+            return NULL;
+        }
+        parser->previous = parser->current;
+        parser->current = lexer_next_token(parser->lexer);
+        
+        node->as.for_stmt.end = parse_expression(parser);
+        
+        // Create loop body with variable declaration
+        ASTNode* var_decl = make_node(NODE_VAR_DECL);
+        var_decl->as.var_decl.name = var_name;
+        var_decl->as.var_decl.initializer = node->as.for_stmt.start;
+        
+        node->as.for_stmt.body = parse_block(parser);
+        
+        // Add variable declaration to start of body
+        var_decl->next = node->as.for_stmt.body->as.block.statements;
+        node->as.for_stmt.body->as.block.statements = var_decl;
+        
+        return node;
+    }
+    
+    fprintf(stderr, "Expected identifier after 'for'\n");
+    parser->had_error = true;
+    return NULL;
+}
+
+static ASTNode* parse_switch_stmt(Parser* parser) {
+    // Assume 'switch' already matched
+    ASTNode* node = make_node(NODE_SWITCH_STMT);
+    
+    // Parse switch value
+    node->as.switch_stmt.value = parse_expression(parser);
+    
+    if (parser->current.type != TOKEN_COLON) {
+        fprintf(stderr, "Expected ':' after switch value\n");
+        parser->had_error = true;
+        return NULL;
+    }
+    parser->previous = parser->current;
+    parser->current = lexer_next_token(parser->lexer);
+    
+    // Parse cases
+    bool has_default = false;
+    ASTNode* current_case = NULL;
+    
+    while (parser->current.type == TOKEN_CASE || parser->current.type == TOKEN_DEFAULT) {
+        if (parser->current.type == TOKEN_CASE) {
+            parser->previous = parser->current;
+            parser->current = lexer_next_token(parser->lexer);
+            
+            ASTNode* case_node = make_node(NODE_SWITCH_STMT);
+            case_node->as.switch_stmt.case_value = parse_expression(parser);
+            
+            if (parser->current.type != TOKEN_COLON) {
+                fprintf(stderr, "Expected ':' after case value\n");
+                parser->had_error = true;
+                return NULL;
+            }
+            parser->previous = parser->current;
+            parser->current = lexer_next_token(parser->lexer);
+            
+            case_node->as.switch_stmt.case_body = parse_block(parser);
+            
+            if (!current_case) {
+                node->as.switch_stmt.case_value = case_node->as.switch_stmt.case_value;
+                node->as.switch_stmt.case_body = case_node->as.switch_stmt.case_body;
+                current_case = node;
+            } else {
+                current_case->as.switch_stmt.default_body = case_node;
+                current_case = case_node;
+            }
+        } else { // TOKEN_DEFAULT
+            if (has_default) {
+                fprintf(stderr, "Multiple default cases not allowed\n");
+                parser->had_error = true;
+                return NULL;
+            }
+            has_default = true;
+            
+            parser->previous = parser->current;
+            parser->current = lexer_next_token(parser->lexer);
+            
+            if (parser->current.type != TOKEN_COLON) {
+                fprintf(stderr, "Expected ':' after default\n");
+                parser->had_error = true;
+                return NULL;
+            }
+            parser->previous = parser->current;
+            parser->current = lexer_next_token(parser->lexer);
+            
+            if (!current_case) {
+                node->as.switch_stmt.default_body = parse_block(parser);
+            } else {
+                current_case->as.switch_stmt.default_body = parse_block(parser);
+            }
+        }
+    }
+    
+    return node;
+}
+
+static ASTNode* parse_try_stmt(Parser* parser) {
+    // Assume 'try' already matched
+    ASTNode* node = make_node(NODE_TRY_STMT);
+    
+    if (parser->current.type != TOKEN_COLON) {
+        fprintf(stderr, "Expected ':' after try\n");
+        parser->had_error = true;
+        return NULL;
+    }
+    parser->previous = parser->current;
+    parser->current = lexer_next_token(parser->lexer);
+    
+    // Parse try block
+    node->as.try_stmt.try_body = parse_block(parser);
+    
+    // Parse catch block
+    if (parser->current.type != TOKEN_CATCH) {
+        fprintf(stderr, "Expected 'catch' after try block\n");
+        parser->had_error = true;
+        return NULL;
+    }
+    parser->previous = parser->current;
+    parser->current = lexer_next_token(parser->lexer);
+    
+    if (parser->current.type != TOKEN_COLON) {
+        fprintf(stderr, "Expected ':' after catch\n");
+        parser->had_error = true;
+        return NULL;
+    }
+    parser->previous = parser->current;
+    parser->current = lexer_next_token(parser->lexer);
+    
+    node->as.try_stmt.catch_body = parse_block(parser);
+    
+    return node;
+}
+
+// Minimal parse for print(expr);
+static ASTNode* parse_print_stmt(Parser* parser) {
+    // Assume 'print' already matched
+    if (parser->current.type != TOKEN_LPAREN) {
+        fprintf(stderr, "Expected '(' after 'print'\n");
+        parser->had_error = true;
+        return NULL;
+    }
+    parser->previous = parser->current;
+    parser->current = lexer_next_token(parser->lexer);
+    ASTNode* expr = parse_expression(parser);
+    if (parser->current.type != TOKEN_RPAREN) {
+        fprintf(stderr, "Expected ')' after print expression\n");
+        parser->had_error = true;
+        return NULL;
+    }
+    parser->previous = parser->current;
+    parser->current = lexer_next_token(parser->lexer);
+    ASTNode* node = make_node(NODE_FUNCTION_CALL);
+    node->as.function.name = strdup("print");
+    node->as.function.params = expr;
+    return node;
+}
+
+static ASTNode* parse_block(Parser* parser) {
+    ASTNode* block = make_node(NODE_BLOCK);
+    ASTNode* current = NULL;
+    
+    while (!check(parser, TOKEN_END) && !check(parser, TOKEN_EOF)) {
+        ASTNode* stmt = parse_statement(parser);
+        if (!stmt) break;
+        
+        if (!block->as.block.statements) {
+            block->as.block.statements = stmt;
+            current = stmt;
+        } else {
+            current->next = stmt;
+            current = stmt;
+        }
+        
+        if (!match(parser, TOKEN_SEMICOLON)) {
+            consume(parser, TOKEN_SEMICOLON, "Expect ';' after statement.");
+        }
+    }
+    
+    if (check(parser, TOKEN_END)) {
+        parser->previous = parser->current;
+        parser->current = lexer_next_token(parser->lexer);
+    }
+    
+    return block;
 } 

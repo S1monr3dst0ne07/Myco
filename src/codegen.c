@@ -1,411 +1,248 @@
-#include "codegen.h"
+#include "../include/codegen.h"
+#include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
-#define myco_error(msg) do { fprintf(stderr, "Error: %s\n", msg); exit(1); } while(0)
+CodeGenerator* codegen_init(const char* output_file) {
+    CodeGenerator* gen = malloc(sizeof(CodeGenerator));
+    if (!gen) return NULL;
+    
+    gen->output = fopen(output_file, "w");
+    if (!gen->output) {
+        free(gen);
+        return NULL;
+    }
+    
+    gen->indent_level = 0;
+    gen->had_error = false;
+    
+    return gen;
+}
 
-static void indent(CodeGen *gen) {
+void codegen_free(CodeGenerator* gen) {
+    if (gen->output) fclose(gen->output);
+    free(gen);
+}
+
+void codegen_indent(CodeGenerator* gen) {
+    gen->indent_level++;
+}
+
+void codegen_dedent(CodeGenerator* gen) {
+    if (gen->indent_level > 0) gen->indent_level--;
+}
+
+void codegen_write(CodeGenerator* gen, const char* format, ...) {
+    va_list args;
+    va_start(args, format);
+    vfprintf(gen->output, format, args);
+    va_end(args);
+}
+
+void codegen_write_line(CodeGenerator* gen, const char* format, ...) {
     for (int i = 0; i < gen->indent_level; i++) {
         fprintf(gen->output, "    ");
     }
-}
-
-static void generate_expression(CodeGen *gen, ASTNode *node);
-static void generate_statement(CodeGen *gen, ASTNode *node);
-
-static void generate_literal(CodeGen *gen, ASTNode *node) {
-    switch (node->type) {
-        case AST_LITERAL_NUMBER:
-            fprintf(gen->output, "%g", node->as.number);
-            break;
-        case AST_LITERAL_STRING:
-            fprintf(gen->output, "\"%s\"", node->as.string);
-            break;
-        case AST_LITERAL_BOOL:
-            fprintf(gen->output, "%s", node->as.boolean ? "true" : "false");
-            break;
-        default:
-            myco_error("Invalid literal type in code generation");
-    }
-}
-
-static void generate_identifier(CodeGen *gen, ASTNode *node) {
-    fprintf(gen->output, "%s", node->as.identifier);
-}
-
-static void generate_binary(CodeGen *gen, ASTNode *node) {
-    fprintf(gen->output, "(");
-    generate_expression(gen, node->as.binary.left);
     
-    switch (node->as.binary.op) {
-        case TOKEN_PLUS: fprintf(gen->output, " + "); break;
-        case TOKEN_MINUS: fprintf(gen->output, " - "); break;
-        case TOKEN_STAR: fprintf(gen->output, " * "); break;
-        case TOKEN_SLASH: fprintf(gen->output, " / "); break;
-        case TOKEN_PERCENT: fprintf(gen->output, " %% "); break;
-        case TOKEN_EQ: fprintf(gen->output, " == "); break;
-        case TOKEN_NEQ: fprintf(gen->output, " != "); break;
-        case TOKEN_LT: fprintf(gen->output, " < "); break;
-        case TOKEN_GT: fprintf(gen->output, " > "); break;
-        case TOKEN_LTE: fprintf(gen->output, " <= "); break;
-        case TOKEN_GTE: fprintf(gen->output, " >= "); break;
-        case TOKEN_AND: fprintf(gen->output, " && "); break;
-        case TOKEN_OR: fprintf(gen->output, " || "); break;
-        case TOKEN_DOTDOT: fprintf(gen->output, " .. "); break;
-        default: myco_error("Invalid binary operator in code generation");
-    }
-    
-    generate_expression(gen, node->as.binary.right);
-    fprintf(gen->output, ")");
-}
-
-static void generate_unary(CodeGen *gen, ASTNode *node) {
-    switch (node->as.unary.op) {
-        case TOKEN_MINUS: fprintf(gen->output, "-"); break;
-        case TOKEN_NOT: fprintf(gen->output, "!"); break;
-        default: myco_error("Invalid unary operator in code generation");
-    }
-    generate_expression(gen, node->as.unary.expr);
-}
-
-static void generate_call(CodeGen *gen, ASTNode *node) {
-    generate_expression(gen, node->as.call.callee);
-    fprintf(gen->output, "(");
-    
-    for (size_t i = 0; i < node->as.call.arg_count; i++) {
-        if (i > 0) fprintf(gen->output, ", ");
-        generate_expression(gen, node->as.call.args[i]);
-    }
-    
-    fprintf(gen->output, ")");
-}
-
-static void generate_member(CodeGen *gen, ASTNode *node) {
-    generate_expression(gen, node->as.member.object);
-    fprintf(gen->output, ".%s", node->as.member.property);
-}
-
-static void generate_index(CodeGen *gen, ASTNode *node) {
-    generate_expression(gen, node->as.index.array);
-    fprintf(gen->output, "[");
-    generate_expression(gen, node->as.index.index);
-    fprintf(gen->output, "]");
-}
-
-static void generate_expression(CodeGen *gen, ASTNode *node) {
-    switch (node->type) {
-        case AST_LITERAL_NUMBER:
-        case AST_LITERAL_STRING:
-        case AST_LITERAL_BOOL:
-            generate_literal(gen, node);
-            break;
-        case AST_IDENTIFIER:
-            generate_identifier(gen, node);
-            break;
-        case AST_BINARY:
-            generate_binary(gen, node);
-            break;
-        case AST_UNARY:
-            generate_unary(gen, node);
-            break;
-        case AST_CALL:
-            generate_call(gen, node);
-            break;
-        case AST_MEMBER:
-            generate_member(gen, node);
-            break;
-        case AST_INDEX:
-            generate_index(gen, node);
-            break;
-        default:
-            myco_error("Invalid expression type in code generation");
-    }
-}
-
-static void generate_var_decl(CodeGen *gen, ASTNode *node) {
-    indent(gen);
-    if (node->as.var_decl.is_const) {
-        fprintf(gen->output, "const ");
-    } else {
-        fprintf(gen->output, "let ");
-    }
-    
-    fprintf(gen->output, "%s", node->as.var_decl.name);
-    
-    if (node->as.var_decl.type != TOKEN_ERROR) {
-        fprintf(gen->output, ": ");
-        switch (node->as.var_decl.type) {
-            case TOKEN_INT: fprintf(gen->output, "int"); break;
-            case TOKEN_FLOAT: fprintf(gen->output, "float"); break;
-            case TOKEN_STRING_TYPE: fprintf(gen->output, "string"); break;
-            case TOKEN_BOOL: fprintf(gen->output, "bool"); break;
-            default: myco_error("Invalid type in variable declaration");
-        }
-    }
-    
-    if (node->as.var_decl.initializer) {
-        fprintf(gen->output, " = ");
-        generate_expression(gen, node->as.var_decl.initializer);
-    }
+    va_list args;
+    va_start(args, format);
+    vfprintf(gen->output, format, args);
+    va_end(args);
     
     fprintf(gen->output, "\n");
 }
 
-static void generate_if(CodeGen *gen, ASTNode *node) {
-    indent(gen);
-    fprintf(gen->output, "if ");
-    generate_expression(gen, node->as.if_stmt.condition);
-    fprintf(gen->output, ":\n");
+void codegen_generate_header(CodeGenerator* gen) {
+    codegen_write(gen, "#include <stdio.h>\n");
+    codegen_write(gen, "#include <stdlib.h>\n");
+    codegen_write(gen, "#include <string.h>\n");
+    codegen_write(gen, "#include <stdbool.h>\n");
+    codegen_write(gen, "#include <stdint.h>\n\n");
     
-    gen->indent_level++;
-    generate_statement(gen, node->as.if_stmt.then_branch);
-    gen->indent_level--;
-    
-    if (node->as.if_stmt.else_branch) {
-        indent(gen);
-        fprintf(gen->output, "else:\n");
-        gen->indent_level++;
-        generate_statement(gen, node->as.if_stmt.else_branch);
-        gen->indent_level--;
-    }
-    
-    indent(gen);
-    fprintf(gen->output, "end\n");
+    // Runtime functions
+    codegen_write(gen, "// Runtime functions\n");
+    codegen_write(gen, "void myco_print(const char* str) { printf(\"%%s\", str); }\n");
+    codegen_write(gen, "void myco_print_int(int64_t value) { printf(\"%%lld\", value); }\n");
+    codegen_write(gen, "void myco_print_float(double value) { printf(\"%%g\", value); }\n");
+    codegen_write(gen, "void myco_print_bool(bool value) { printf(value ? \"true\" : \"false\"); }\n");
+    codegen_write(gen, "char* myco_str_concat(const char* a, const char* b) {\n");
+    codegen_write(gen, "    size_t len_a = strlen(a);\n");
+    codegen_write(gen, "    size_t len_b = strlen(b);\n");
+    codegen_write(gen, "    char* result = malloc(len_a + len_b + 1);\n");
+    codegen_write(gen, "    strcpy(result, a);\n");
+    codegen_write(gen, "    strcat(result, b);\n");
+    codegen_write(gen, "    return result;\n");
+    codegen_write(gen, "}\n\n");
 }
 
-static void generate_while(CodeGen *gen, ASTNode *node) {
-    indent(gen);
-    fprintf(gen->output, "while ");
-    generate_expression(gen, node->as.while_stmt.condition);
-    fprintf(gen->output, ":\n");
-    
-    gen->indent_level++;
-    generate_statement(gen, node->as.while_stmt.body);
-    gen->indent_level--;
-    
-    indent(gen);
-    fprintf(gen->output, "end\n");
+void codegen_generate_footer(CodeGenerator* gen) {
+    codegen_write(gen, "\nint main() {\n");
+    codegen_write(gen, "    // Main program code will be inserted here\n");
+    codegen_write(gen, "    return 0;\n");
+    codegen_write(gen, "}\n");
 }
 
-static void generate_for(CodeGen *gen, ASTNode *node) {
-    indent(gen);
-    fprintf(gen->output, "for ");
-    generate_statement(gen, node->as.for_stmt.init);
-    fprintf(gen->output, "; ");
-    generate_expression(gen, node->as.for_stmt.condition);
-    fprintf(gen->output, "; ");
-    generate_expression(gen, node->as.for_stmt.update);
-    fprintf(gen->output, ":\n");
-    
-    gen->indent_level++;
-    generate_statement(gen, node->as.for_stmt.body);
-    gen->indent_level--;
-    
-    indent(gen);
-    fprintf(gen->output, "end\n");
-}
-
-static void generate_for_in(CodeGen *gen, ASTNode *node) {
-    indent(gen);
-    fprintf(gen->output, "for %s in ", node->as.for_in.var);
-    generate_expression(gen, node->as.for_in.iterable);
-    fprintf(gen->output, ":\n");
-    
-    gen->indent_level++;
-    generate_statement(gen, node->as.for_in.body);
-    gen->indent_level--;
-    
-    indent(gen);
-    fprintf(gen->output, "end\n");
-}
-
-static void generate_function(CodeGen *gen, ASTNode *node) {
-    indent(gen);
-    fprintf(gen->output, "func %s(", node->as.function.name);
-    
-    for (size_t i = 0; i < node->as.function.param_count; i++) {
-        if (i > 0) fprintf(gen->output, ", ");
-        fprintf(gen->output, "%s", node->as.function.params[i]);
-        
-        if (node->as.function.param_types[i] != TOKEN_ERROR) {
-            fprintf(gen->output, ": ");
-            switch (node->as.function.param_types[i]) {
-                case TOKEN_INT: fprintf(gen->output, "int"); break;
-                case TOKEN_FLOAT: fprintf(gen->output, "float"); break;
-                case TOKEN_STRING_TYPE: fprintf(gen->output, "string"); break;
-                case TOKEN_BOOL: fprintf(gen->output, "bool"); break;
-                default: myco_error("Invalid parameter type in function declaration");
+static void generate_expression(CodeGenerator* gen, ASTNode* node) {
+    switch (node->type) {
+        case NODE_LITERAL:
+            switch (node->as.literal.value_type) {
+                case TOKEN_INTEGER:
+                    codegen_write(gen, "%lld", node->as.literal.int_value);
+                    break;
+                case TOKEN_FLOAT_LITERAL:
+                    codegen_write(gen, "%g", node->as.literal.float_value);
+                    break;
+                case TOKEN_STRING_LITERAL:
+                    codegen_write(gen, "\"%s\"", node->as.literal.string_value);
+                    break;
+                case TOKEN_TRUE:
+                    codegen_write(gen, "true");
+                    break;
+                case TOKEN_FALSE:
+                    codegen_write(gen, "false");
+                    break;
+                default:
+                    gen->had_error = true;
+                    fprintf(stderr, "Error: Unknown literal type\n");
             }
-        }
-    }
-    
-    fprintf(gen->output, ")");
-    
-    if (node->as.function.return_type != TOKEN_ERROR) {
-        fprintf(gen->output, " -> ");
-        switch (node->as.function.return_type) {
-            case TOKEN_INT: fprintf(gen->output, "int"); break;
-            case TOKEN_FLOAT: fprintf(gen->output, "float"); break;
-            case TOKEN_STRING_TYPE: fprintf(gen->output, "string"); break;
-            case TOKEN_BOOL: fprintf(gen->output, "bool"); break;
-            default: myco_error("Invalid return type in function declaration");
-        }
-    }
-    
-    fprintf(gen->output, ":\n");
-    
-    gen->indent_level++;
-    generate_statement(gen, node->as.function.body);
-    gen->indent_level--;
-    
-    indent(gen);
-    fprintf(gen->output, "end\n");
-}
-
-static void generate_return(CodeGen *gen, ASTNode *node) {
-    indent(gen);
-    fprintf(gen->output, "return");
-    
-    if (node->as.return_stmt.value) {
-        fprintf(gen->output, " ");
-        generate_expression(gen, node->as.return_stmt.value);
-    }
-    
-    fprintf(gen->output, "\n");
-}
-
-static void generate_try(CodeGen *gen, ASTNode *node) {
-    indent(gen);
-    fprintf(gen->output, "try:\n");
-    
-    gen->indent_level++;
-    generate_statement(gen, node->as.try_stmt.try_block);
-    gen->indent_level--;
-    
-    indent(gen);
-    fprintf(gen->output, "catch %s:\n", node->as.try_stmt.catch_var);
-    
-    gen->indent_level++;
-    generate_statement(gen, node->as.try_stmt.catch_block);
-    gen->indent_level--;
-    
-    indent(gen);
-    fprintf(gen->output, "end\n");
-}
-
-static void generate_switch(CodeGen *gen, ASTNode *node) {
-    indent(gen);
-    fprintf(gen->output, "switch ");
-    generate_expression(gen, node->as.switch_stmt.value);
-    fprintf(gen->output, ":\n");
-    
-    for (size_t i = 0; i < node->as.switch_stmt.case_count; i++) {
-        ASTNode *case_node = node->as.switch_stmt.cases[i];
-        
-        indent(gen);
-        if (case_node->as.case_stmt.condition) {
-            fprintf(gen->output, "case ");
-            generate_expression(gen, case_node->as.case_stmt.condition);
-        } else {
-            fprintf(gen->output, "default");
-        }
-        fprintf(gen->output, ":\n");
-        
-        gen->indent_level++;
-        generate_statement(gen, case_node->as.case_stmt.body);
-        gen->indent_level--;
-    }
-    
-    indent(gen);
-    fprintf(gen->output, "end\n");
-}
-
-static void generate_multi_assign(CodeGen *gen, ASTNode *node) {
-    indent(gen);
-    
-    for (size_t i = 0; i < node->as.multi_assign.name_count; i++) {
-        if (i > 0) fprintf(gen->output, ", ");
-        fprintf(gen->output, "%s", node->as.multi_assign.names[i]);
-    }
-    
-    fprintf(gen->output, " = ");
-    
-    for (size_t i = 0; i < node->as.multi_assign.value_count; i++) {
-        if (i > 0) fprintf(gen->output, ", ");
-        generate_expression(gen, node->as.multi_assign.values[i]);
-    }
-    
-    fprintf(gen->output, "\n");
-}
-
-static void generate_statement(CodeGen *gen, ASTNode *node) {
-    switch (node->type) {
-        case AST_VAR_DECL:
-            generate_var_decl(gen, node);
             break;
-        case AST_IF:
-            generate_if(gen, node);
+            
+        case NODE_IDENTIFIER:
+            codegen_write(gen, "%s", node->as.literal.string_value);
             break;
-        case AST_WHILE:
-            generate_while(gen, node);
+            
+        case NODE_BINARY_OP:
+            codegen_write(gen, "(");
+            generate_expression(gen, node->as.binary.left);
+            
+            switch (node->as.binary.operator) {
+                case TOKEN_PLUS: codegen_write(gen, " + "); break;
+                case TOKEN_MINUS: codegen_write(gen, " - "); break;
+                case TOKEN_MULTIPLY: codegen_write(gen, " * "); break;
+                case TOKEN_DIVIDE: codegen_write(gen, " / "); break;
+                case TOKEN_MODULO: codegen_write(gen, " %% "); break;
+                case TOKEN_EQUALS: codegen_write(gen, " == "); break;
+                case TOKEN_NOT_EQUALS: codegen_write(gen, " != "); break;
+                case TOKEN_LESS: codegen_write(gen, " < "); break;
+                case TOKEN_GREATER: codegen_write(gen, " > "); break;
+                case TOKEN_LESS_EQUALS: codegen_write(gen, " <= "); break;
+                case TOKEN_GREATER_EQUALS: codegen_write(gen, " >= "); break;
+                case TOKEN_AND: codegen_write(gen, " && "); break;
+                case TOKEN_OR: codegen_write(gen, " || "); break;
+                case TOKEN_CONCAT: codegen_write(gen, "myco_str_concat("); break;
+                default:
+                    gen->had_error = true;
+                    fprintf(stderr, "Error: Unknown binary operator\n");
+            }
+            
+            generate_expression(gen, node->as.binary.right);
+            
+            if (node->as.binary.operator == TOKEN_CONCAT) {
+                codegen_write(gen, ")");
+            }
+            
+            codegen_write(gen, ")");
             break;
-        case AST_FOR:
-            generate_for(gen, node);
+            
+        case NODE_UNARY_OP:
+            switch (node->as.unary.operator) {
+                case TOKEN_MINUS: codegen_write(gen, "-"); break;
+                case TOKEN_NOT: codegen_write(gen, "!"); break;
+                default:
+                    gen->had_error = true;
+                    fprintf(stderr, "Error: Unknown unary operator\n");
+            }
+            generate_expression(gen, node->as.unary.operand);
             break;
-        case AST_FOR_IN:
-            generate_for_in(gen, node);
-            break;
-        case AST_FUNCTION:
-            generate_function(gen, node);
-            break;
-        case AST_RETURN:
-            generate_return(gen, node);
-            break;
-        case AST_TRY:
-            generate_try(gen, node);
-            break;
-        case AST_SWITCH:
-            generate_switch(gen, node);
-            break;
-        case AST_MULTI_ASSIGN:
-            generate_multi_assign(gen, node);
-            break;
-        case AST_LITERAL_NUMBER:
-        case AST_LITERAL_STRING:
-        case AST_LITERAL_BOOL:
-        case AST_IDENTIFIER:
-        case AST_BINARY:
-        case AST_UNARY:
-        case AST_CALL:
-        case AST_MEMBER:
-        case AST_INDEX:
-            indent(gen);
-            generate_expression(gen, node);
-            fprintf(gen->output, "\n");
-            break;
+            
         default:
-            myco_error("Invalid statement type in code generation");
+            gen->had_error = true;
+            fprintf(stderr, "Error: Unknown expression type\n");
     }
 }
 
-void codegen_init(CodeGen *gen, FILE *output) {
-    gen->output = output;
-    gen->indent_level = 0;
-    gen->in_function = false;
-    gen->current_function = NULL;
+static void generate_statement(CodeGenerator* gen, ASTNode* node) {
+    switch (node->type) {
+        case NODE_VAR_DECL:
+            if (node->as.var_decl.type_annotation) {
+                // TODO: Handle type annotations
+            }
+            
+            codegen_write_line(gen, "%s %s = ", 
+                node->as.var_decl.is_const ? "const" : "",
+                node->as.var_decl.name);
+            
+            if (node->as.var_decl.initializer) {
+                generate_expression(gen, node->as.var_decl.initializer);
+            } else {
+                codegen_write(gen, "0");
+            }
+            codegen_write(gen, ";\n");
+            break;
+            
+        case NODE_FUNCTION_DEF:
+            // TODO: Implement function definition generation
+            break;
+            
+        case NODE_IF_STMT:
+            codegen_write_line(gen, "if (");
+            generate_expression(gen, node->as.if_stmt.condition);
+            codegen_write(gen, ") {\n");
+            
+            codegen_indent(gen);
+            generate_statement(gen, node->as.if_stmt.then_branch);
+            codegen_dedent(gen);
+            
+            if (node->as.if_stmt.else_branch) {
+                codegen_write_line(gen, "} else {\n");
+                codegen_indent(gen);
+                generate_statement(gen, node->as.if_stmt.else_branch);
+                codegen_dedent(gen);
+            }
+            
+            codegen_write_line(gen, "}\n");
+            break;
+            
+        case NODE_BLOCK:
+            for (ASTNode* stmt = node->as.block.statements; stmt; stmt = stmt->next) {
+                generate_statement(gen, stmt);
+            }
+            break;
+            
+        default:
+            codegen_write_line(gen, "");
+            generate_expression(gen, node);
+            codegen_write(gen, ";\n");
+    }
 }
 
-void codegen_generate(CodeGen *gen, ASTNode *node) {
-    if (node->type != AST_PROGRAM) {
-        myco_error("Expected program node in code generation");
+bool codegen_generate(CodeGenerator* gen, ASTNode* ast) {
+    if (!ast) return false;
+    
+    codegen_generate_header(gen);
+    
+    // Generate global declarations
+    for (ASTNode* node = ast->as.block.statements; node; node = node->next) {
+        if (node->type == NODE_FUNCTION_DEF || node->type == NODE_VAR_DECL) {
+            generate_statement(gen, node);
+        }
     }
     
-    for (size_t i = 0; i < node->as.program.statement_count; i++) {
-        generate_statement(gen, node->as.program.statements[i]);
+    // Generate main function
+    codegen_write(gen, "\nint main() {\n");
+    codegen_indent(gen);
+    
+    // Generate statements
+    for (ASTNode* node = ast->as.block.statements; node; node = node->next) {
+        if (node->type != NODE_FUNCTION_DEF && node->type != NODE_VAR_DECL) {
+            generate_statement(gen, node);
+        }
     }
-}
-
-void codegen_free(CodeGen *gen) {
-    // Nothing to free
+    
+    codegen_dedent(gen);
+    codegen_write(gen, "    return 0;\n");
+    codegen_write(gen, "}\n");
+    
+    return !gen->had_error;
 } 

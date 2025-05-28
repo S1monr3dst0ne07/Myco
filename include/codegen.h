@@ -1,18 +1,26 @@
-#ifndef CODEGEN_H
-#define CODEGEN_H
+#ifndef MYCO_CODEGEN_H
+#define MYCO_CODEGEN_H
 
-#include "ast.h"
-#include <stdio.h>
+#include "parser.h"
+#include <stdbool.h>
 
 typedef struct {
-    FILE *output;
+    FILE* output;
     int indent_level;
-    bool in_function;
-    const char *current_function;
-} CodeGen;
+    bool had_error;
+} CodeGenerator;
 
-void codegen_init(CodeGen *gen, FILE *output);
-void codegen_generate(CodeGen *gen, ASTNode *ast);
-void codegen_free(CodeGen *gen);
+// Code generator functions
+CodeGenerator* codegen_init(const char* output_file);
+void codegen_free(CodeGenerator* gen);
+bool codegen_generate(CodeGenerator* gen, ASTNode* ast);
+void codegen_generate_header(CodeGenerator* gen);
+void codegen_generate_footer(CodeGenerator* gen);
 
-#endif // CODEGEN_H 
+// Helper functions for code generation
+void codegen_indent(CodeGenerator* gen);
+void codegen_dedent(CodeGenerator* gen);
+void codegen_write(CodeGenerator* gen, const char* format, ...);
+void codegen_write_line(CodeGenerator* gen, const char* format, ...);
+
+#endif // MYCO_CODEGEN_H 
