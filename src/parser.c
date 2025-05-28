@@ -20,6 +20,7 @@ static ASTNode* parse_for_stmt(Parser* parser);
 static ASTNode* parse_switch_stmt(Parser* parser);
 static ASTNode* parse_try_stmt(Parser* parser);
 static ASTNode* parse_print_stmt(Parser* parser);
+static ASTNode* parse_concat(Parser* parser);
 
 Parser* parser_init(Lexer* lexer) {
     Parser* parser = malloc(sizeof(Parser));
@@ -74,7 +75,7 @@ static ASTNode* make_node(NodeType type) {
 }
 
 static ASTNode* parse_expression(Parser* parser) {
-    return parse_term(parser);
+    return parse_concat(parser);
 }
 
 static ASTNode* parse_term(Parser* parser) {
@@ -118,6 +119,28 @@ static ASTNode* parse_primary(Parser* parser) {
         parser->current = lexer_next_token(parser->lexer);
         return node;
     }
+    if (parser->current.type == TOKEN_STRING_LITERAL) {
+        ASTNode* node = make_node(NODE_LITERAL);
+        node->as.literal.value_type = TOKEN_STRING_LITERAL;
+        // Remove quotes and copy string
+        char* str = parser->current.lexeme;
+        str++; // Skip opening quote
+        size_t len = strlen(str) - 1; // Remove closing quote
+        node->as.literal.string_value = malloc(len + 1);
+        strncpy(node->as.literal.string_value, str, len);
+        node->as.literal.string_value[len] = '\0';
+        parser->previous = parser->current;
+        parser->current = lexer_next_token(parser->lexer);
+        return node;
+    }
+    if (parser->current.type == TOKEN_TRUE || parser->current.type == TOKEN_FALSE) {
+        ASTNode* node = make_node(NODE_LITERAL);
+        node->as.literal.value_type = parser->current.type;
+        node->as.literal.bool_value = (parser->current.type == TOKEN_TRUE);
+        parser->previous = parser->current;
+        parser->current = lexer_next_token(parser->lexer);
+        return node;
+    }
     if (parser->current.type == TOKEN_IDENTIFIER) {
         ASTNode* node = make_node(NODE_IDENTIFIER);
         node->as.literal.string_value = strdup(parser->current.lexeme);
@@ -149,35 +172,25 @@ static ASTNode* parse_statement(Parser* parser) {
         parser->current = lexer_next_token(parser->lexer);
         return parse_var_decl(parser);
     }
-    if (parser->current.type == TOKEN_FUNC) {
-        parser->previous = parser->current;
-        parser->current = lexer_next_token(parser->lexer);
-        return parse_function_def(parser);
-    }
-    if (parser->current.type == TOKEN_IF) {
-        parser->previous = parser->current;
-        parser->current = lexer_next_token(parser->lexer);
-        return parse_if_stmt(parser);
-    }
-    if (parser->current.type == TOKEN_WHILE) {
-        parser->previous = parser->current;
-        parser->current = lexer_next_token(parser->lexer);
-        return parse_while_stmt(parser);
-    }
-    if (parser->current.type == TOKEN_FOR) {
-        parser->previous = parser->current;
-        parser->current = lexer_next_token(parser->lexer);
-        return parse_for_stmt(parser);
-    }
-    if (parser->current.type == TOKEN_SWITCH) {
-        parser->previous = parser->current;
-        parser->current = lexer_next_token(parser->lexer);
-        return parse_switch_stmt(parser);
-    }
     if (parser->current.type == TOKEN_IDENTIFIER && strcmp(parser->current.lexeme, "print") == 0) {
         parser->previous = parser->current;
         parser->current = lexer_next_token(parser->lexer);
         return parse_print_stmt(parser);
+    }
+    if (parser->current.type == TOKEN_IDENTIFIER && strcmp(parser->current.lexeme, "if") == 0) {
+        parser->previous = parser->current;
+        parser->current = lexer_next_token(parser->lexer);
+        return parse_if_stmt(parser);
+    }
+    if (parser->current.type == TOKEN_IDENTIFIER && strcmp(parser->current.lexeme, "while") == 0) {
+        parser->previous = parser->current;
+        parser->current = lexer_next_token(parser->lexer);
+        return parse_while_stmt(parser);
+    }
+    if (parser->current.type == TOKEN_IDENTIFIER && strcmp(parser->current.lexeme, "for") == 0) {
+        parser->previous = parser->current;
+        parser->current = lexer_next_token(parser->lexer);
+        return parse_for_stmt(parser);
     }
     // Fallback: try to parse as expression
     return parse_expression(parser);
@@ -282,10 +295,8 @@ static ASTNode* parse_var_decl(Parser* parser) {
 }
 
 static ASTNode* parse_function_def(Parser* parser) {
-    // Assume 'func' already matched
     ASTNode* node = make_node(NODE_FUNCTION_DEF);
-    
-    // Parse function name
+    // Expect function name
     if (parser->current.type != TOKEN_IDENTIFIER) {
         fprintf(stderr, "Expected function name\n");
         parser->had_error = true;
@@ -294,8 +305,7 @@ static ASTNode* parse_function_def(Parser* parser) {
     node->as.function.name = strdup(parser->current.lexeme);
     parser->previous = parser->current;
     parser->current = lexer_next_token(parser->lexer);
-    
-    // Parse parameters
+    // Expect opening parenthesis
     if (parser->current.type != TOKEN_LPAREN) {
         fprintf(stderr, "Expected '(' after function name\n");
         parser->had_error = true;
@@ -303,11 +313,8 @@ static ASTNode* parse_function_def(Parser* parser) {
     }
     parser->previous = parser->current;
     parser->current = lexer_next_token(parser->lexer);
-    
-    // Parse parameter list
-    ASTNode* params = NULL;
-    ASTNode* current_param = NULL;
-    
+    // Parse parameters
+    node->as.function.params = NULL;
     if (parser->current.type != TOKEN_RPAREN) {
         do {
             if (parser->current.type != TOKEN_IDENTIFIER) {
@@ -315,29 +322,15 @@ static ASTNode* parse_function_def(Parser* parser) {
                 parser->had_error = true;
                 return NULL;
             }
-            
-            ASTNode* param = make_node(NODE_VAR_DECL);
-            param->as.var_decl.name = strdup(parser->current.lexeme);
+            ASTNode* param = make_node(NODE_IDENTIFIER);
+            param->as.literal.string_value = strdup(parser->current.lexeme);
+            param->next = node->as.function.params;
+            node->as.function.params = param;
             parser->previous = parser->current;
             parser->current = lexer_next_token(parser->lexer);
-            
-            // Optional type annotation
-            if (parser->current.type == TOKEN_COLON) {
-                parser->previous = parser->current;
-                parser->current = lexer_next_token(parser->lexer);
-                param->as.var_decl.type_annotation = parse_expression(parser);
-            }
-            
-            if (!params) {
-                params = param;
-                current_param = param;
-            } else {
-                current_param->next = param;
-                current_param = param;
-            }
         } while (match(parser, TOKEN_COMMA));
     }
-    
+    // Expect closing parenthesis
     if (parser->current.type != TOKEN_RPAREN) {
         fprintf(stderr, "Expected ')' after parameters\n");
         parser->had_error = true;
@@ -345,26 +338,16 @@ static ASTNode* parse_function_def(Parser* parser) {
     }
     parser->previous = parser->current;
     parser->current = lexer_next_token(parser->lexer);
-    
-    // Optional return type
-    if (parser->current.type == TOKEN_ARROW) {
-        parser->previous = parser->current;
-        parser->current = lexer_next_token(parser->lexer);
-        node->as.function.return_type = parse_expression(parser);
-    }
-    
-    // Parse function body
+    // Expect colon
     if (parser->current.type != TOKEN_COLON) {
-        fprintf(stderr, "Expected ':' after function declaration\n");
+        fprintf(stderr, "Expected ':' after function definition\n");
         parser->had_error = true;
         return NULL;
     }
     parser->previous = parser->current;
     parser->current = lexer_next_token(parser->lexer);
-    
-    node->as.function.params = params;
+    // Parse function body
     node->as.function.body = parse_block(parser);
-    
     return node;
 }
 
@@ -373,34 +356,51 @@ static ASTNode* parse_if_stmt(Parser* parser) {
     ASTNode* node = make_node(NODE_IF_STMT);
     
     // Parse condition
-    node->as.if_stmt.condition = parse_expression(parser);
-    
-    // Parse then branch
-    if (parser->current.type != TOKEN_COLON) {
-        fprintf(stderr, "Expected ':' after if condition\n");
+    if (parser->current.type != TOKEN_LPAREN) {
+        fprintf(stderr, "Expected '(' after 'if'\n");
         parser->had_error = true;
         return NULL;
     }
     parser->previous = parser->current;
     parser->current = lexer_next_token(parser->lexer);
+    
+    node->as.if_stmt.condition = parse_expression(parser);
+    
+    if (parser->current.type != TOKEN_RPAREN) {
+        fprintf(stderr, "Expected ')' after if condition\n");
+        parser->had_error = true;
+        return NULL;
+    }
+    parser->previous = parser->current;
+    parser->current = lexer_next_token(parser->lexer);
+    
+    // Parse then branch
+    if (parser->current.type != TOKEN_LBRACE) {
+        fprintf(stderr, "Expected '{' after if condition\n");
+        parser->had_error = true;
+        return NULL;
+    }
+    parser->previous = parser->current;
+    parser->current = lexer_next_token(parser->lexer);
+    
     node->as.if_stmt.then_branch = parse_block(parser);
     
-    // Parse else/elseif branches
-    if (parser->current.type == TOKEN_ELSEIF) {
+    // Parse else branch if present
+    if (parser->current.type == TOKEN_ELSE) {
         parser->previous = parser->current;
         parser->current = lexer_next_token(parser->lexer);
-        node->as.if_stmt.else_branch = parse_if_stmt(parser);
-    } else if (parser->current.type == TOKEN_ELSE) {
-        parser->previous = parser->current;
-        parser->current = lexer_next_token(parser->lexer);
-        if (parser->current.type != TOKEN_COLON) {
-            fprintf(stderr, "Expected ':' after else\n");
+        
+        if (parser->current.type != TOKEN_LBRACE) {
+            fprintf(stderr, "Expected '{' after else\n");
             parser->had_error = true;
             return NULL;
         }
         parser->previous = parser->current;
         parser->current = lexer_next_token(parser->lexer);
+        
         node->as.if_stmt.else_branch = parse_block(parser);
+    } else {
+        node->as.if_stmt.else_branch = NULL;
     }
     
     return node;
@@ -411,184 +411,82 @@ static ASTNode* parse_while_stmt(Parser* parser) {
     ASTNode* node = make_node(NODE_WHILE_STMT);
     
     // Parse condition
-    node->as.while_stmt.condition = parse_expression(parser);
-    
-    // Parse body
-    if (parser->current.type != TOKEN_COLON) {
-        fprintf(stderr, "Expected ':' after while condition\n");
+    if (parser->current.type != TOKEN_LPAREN) {
+        fprintf(stderr, "Expected '(' after 'while'\n");
         parser->had_error = true;
         return NULL;
     }
     parser->previous = parser->current;
     parser->current = lexer_next_token(parser->lexer);
+    
+    node->as.while_stmt.condition = parse_expression(parser);
+    
+    if (parser->current.type != TOKEN_RPAREN) {
+        fprintf(stderr, "Expected ')' after while condition\n");
+        parser->had_error = true;
+        return NULL;
+    }
+    parser->previous = parser->current;
+    parser->current = lexer_next_token(parser->lexer);
+    
+    // Parse body
+    if (parser->current.type != TOKEN_LBRACE) {
+        fprintf(stderr, "Expected '{' after while condition\n");
+        parser->had_error = true;
+        return NULL;
+    }
+    parser->previous = parser->current;
+    parser->current = lexer_next_token(parser->lexer);
+    
     node->as.while_stmt.body = parse_block(parser);
     
     return node;
 }
 
 static ASTNode* parse_for_stmt(Parser* parser) {
-    // Assume 'for' already matched
     ASTNode* node = make_node(NODE_FOR_STMT);
-    
-    // Parse range-based for loop
-    if (parser->current.type == TOKEN_IDENTIFIER) {
-        char* var_name = strdup(parser->current.lexeme);
-        parser->previous = parser->current;
-        parser->current = lexer_next_token(parser->lexer);
-        
-        if (parser->current.type != TOKEN_IN) {
-            fprintf(stderr, "Expected 'in' after for variable\n");
-            parser->had_error = true;
-            free(var_name);
-            return NULL;
-        }
-        parser->previous = parser->current;
-        parser->current = lexer_next_token(parser->lexer);
-        
-        // Parse range expression
-        node->as.for_stmt.start = parse_expression(parser);
-        
-        if (parser->current.type != TOKEN_COLON) {
-            fprintf(stderr, "Expected ':' after for range\n");
-            parser->had_error = true;
-            free(var_name);
-            return NULL;
-        }
-        parser->previous = parser->current;
-        parser->current = lexer_next_token(parser->lexer);
-        
-        node->as.for_stmt.end = parse_expression(parser);
-        
-        // Create loop body with variable declaration
-        ASTNode* var_decl = make_node(NODE_VAR_DECL);
-        var_decl->as.var_decl.name = var_name;
-        var_decl->as.var_decl.initializer = node->as.for_stmt.start;
-        
-        node->as.for_stmt.body = parse_block(parser);
-        
-        // Add variable declaration to start of body
-        var_decl->next = node->as.for_stmt.body->as.block.statements;
-        node->as.for_stmt.body->as.block.statements = var_decl;
-        
-        return node;
+    // Expect variable name
+    if (parser->current.type != TOKEN_IDENTIFIER) {
+        fprintf(stderr, "Expected variable name in for loop\n");
+        parser->had_error = true;
+        return NULL;
     }
-    
-    fprintf(stderr, "Expected identifier after 'for'\n");
-    parser->had_error = true;
-    return NULL;
-}
-
-static ASTNode* parse_switch_stmt(Parser* parser) {
-    // Assume 'switch' already matched
-    ASTNode* node = make_node(NODE_SWITCH_STMT);
-    
-    // Parse switch value
-    node->as.switch_stmt.value = parse_expression(parser);
-    
-    if (parser->current.type != TOKEN_COLON) {
-        fprintf(stderr, "Expected ':' after switch value\n");
+    node->as.for_stmt.var_name = strdup(parser->current.lexeme);
+    parser->previous = parser->current;
+    parser->current = lexer_next_token(parser->lexer);
+    // Expect 'in'
+    if (parser->current.type != TOKEN_IDENTIFIER || strcmp(parser->current.lexeme, "in") != 0) {
+        fprintf(stderr, "Expected 'in' in for loop\n");
         parser->had_error = true;
         return NULL;
     }
     parser->previous = parser->current;
     parser->current = lexer_next_token(parser->lexer);
-    
-    // Parse cases
-    bool has_default = false;
-    ASTNode* current_case = NULL;
-    
-    while (parser->current.type == TOKEN_CASE || parser->current.type == TOKEN_DEFAULT) {
-        if (parser->current.type == TOKEN_CASE) {
-            parser->previous = parser->current;
-            parser->current = lexer_next_token(parser->lexer);
-            
-            ASTNode* case_node = make_node(NODE_SWITCH_STMT);
-            case_node->as.switch_stmt.case_value = parse_expression(parser);
-            
-            if (parser->current.type != TOKEN_COLON) {
-                fprintf(stderr, "Expected ':' after case value\n");
-                parser->had_error = true;
-                return NULL;
-            }
-            parser->previous = parser->current;
-            parser->current = lexer_next_token(parser->lexer);
-            
-            case_node->as.switch_stmt.case_body = parse_block(parser);
-            
-            if (!current_case) {
-                node->as.switch_stmt.case_value = case_node->as.switch_stmt.case_value;
-                node->as.switch_stmt.case_body = case_node->as.switch_stmt.case_body;
-                current_case = node;
-            } else {
-                current_case->as.switch_stmt.default_body = case_node;
-                current_case = case_node;
-            }
-        } else { // TOKEN_DEFAULT
-            if (has_default) {
-                fprintf(stderr, "Multiple default cases not allowed\n");
-                parser->had_error = true;
-                return NULL;
-            }
-            has_default = true;
-            
-            parser->previous = parser->current;
-            parser->current = lexer_next_token(parser->lexer);
-            
-            if (parser->current.type != TOKEN_COLON) {
-                fprintf(stderr, "Expected ':' after default\n");
-                parser->had_error = true;
-                return NULL;
-            }
-            parser->previous = parser->current;
-            parser->current = lexer_next_token(parser->lexer);
-            
-            if (!current_case) {
-                node->as.switch_stmt.default_body = parse_block(parser);
-            } else {
-                current_case->as.switch_stmt.default_body = parse_block(parser);
-            }
-        }
+    // Parse range
+    node->as.for_stmt.start = parse_expression(parser);
+    if (parser->current.type != TOKEN_COLON) {
+        fprintf(stderr, "Expected ':' in for loop range\n");
+        parser->had_error = true;
+        return NULL;
     }
-    
+    parser->previous = parser->current;
+    parser->current = lexer_next_token(parser->lexer);
+    node->as.for_stmt.end = parse_expression(parser);
+    // Expect colon
+    if (parser->current.type != TOKEN_COLON) {
+        fprintf(stderr, "Expected ':' after for loop range\n");
+        parser->had_error = true;
+        return NULL;
+    }
+    parser->previous = parser->current;
+    parser->current = lexer_next_token(parser->lexer);
+    // Parse loop body
+    node->as.for_stmt.body = parse_block(parser);
     return node;
 }
 
-static ASTNode* parse_try_stmt(Parser* parser) {
-    // Assume 'try' already matched
-    ASTNode* node = make_node(NODE_TRY_STMT);
-    
-    if (parser->current.type != TOKEN_COLON) {
-        fprintf(stderr, "Expected ':' after try\n");
-        parser->had_error = true;
-        return NULL;
-    }
-    parser->previous = parser->current;
-    parser->current = lexer_next_token(parser->lexer);
-    
-    // Parse try block
-    node->as.try_stmt.try_body = parse_block(parser);
-    
-    // Parse catch block
-    if (parser->current.type != TOKEN_CATCH) {
-        fprintf(stderr, "Expected 'catch' after try block\n");
-        parser->had_error = true;
-        return NULL;
-    }
-    parser->previous = parser->current;
-    parser->current = lexer_next_token(parser->lexer);
-    
-    if (parser->current.type != TOKEN_COLON) {
-        fprintf(stderr, "Expected ':' after catch\n");
-        parser->had_error = true;
-        return NULL;
-    }
-    parser->previous = parser->current;
-    parser->current = lexer_next_token(parser->lexer);
-    
-    node->as.try_stmt.catch_body = parse_block(parser);
-    
-    return node;
-}
+static ASTNode* parse_switch_stmt(Parser* parser) { return NULL; }
+static ASTNode* parse_try_stmt(Parser* parser) { return NULL; }
 
 // Minimal parse for print(expr);
 static ASTNode* parse_print_stmt(Parser* parser) {
@@ -600,7 +498,9 @@ static ASTNode* parse_print_stmt(Parser* parser) {
     }
     parser->previous = parser->current;
     parser->current = lexer_next_token(parser->lexer);
+    
     ASTNode* expr = parse_expression(parser);
+    
     if (parser->current.type != TOKEN_RPAREN) {
         fprintf(stderr, "Expected ')' after print expression\n");
         parser->had_error = true;
@@ -608,6 +508,7 @@ static ASTNode* parse_print_stmt(Parser* parser) {
     }
     parser->previous = parser->current;
     parser->current = lexer_next_token(parser->lexer);
+    
     ASTNode* node = make_node(NODE_FUNCTION_CALL);
     node->as.function.name = strdup("print");
     node->as.function.params = expr;
@@ -618,7 +519,7 @@ static ASTNode* parse_block(Parser* parser) {
     ASTNode* block = make_node(NODE_BLOCK);
     ASTNode* current = NULL;
     
-    while (!check(parser, TOKEN_END) && !check(parser, TOKEN_EOF)) {
+    while (!check(parser, TOKEN_RBRACE) && !check(parser, TOKEN_EOF)) {
         ASTNode* stmt = parse_statement(parser);
         if (!stmt) break;
         
@@ -635,10 +536,26 @@ static ASTNode* parse_block(Parser* parser) {
         }
     }
     
-    if (check(parser, TOKEN_END)) {
-        parser->previous = parser->current;
-        parser->current = lexer_next_token(parser->lexer);
+    if (!match(parser, TOKEN_RBRACE)) {
+        consume(parser, TOKEN_RBRACE, "Expect '}' after block.");
     }
     
     return block;
+}
+
+// Parse concatenation (.. operator)
+static ASTNode* parse_concat(Parser* parser) {
+    ASTNode* node = parse_term(parser);
+    while (parser->current.type == TOKEN_DOT_DOT) {
+        TokenType op = parser->current.type;
+        parser->previous = parser->current;
+        parser->current = lexer_next_token(parser->lexer);
+        ASTNode* right = parse_term(parser);
+        ASTNode* bin = make_node(NODE_BINARY_OP);
+        bin->as.binary.left = node;
+        bin->as.binary.right = right;
+        bin->as.binary.operator = op;
+        node = bin;
+    }
+    return node;
 } 

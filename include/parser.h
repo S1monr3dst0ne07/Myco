@@ -83,6 +83,7 @@ typedef struct ASTNode {
         
         // For statement
         struct {
+            char* var_name;
             struct ASTNode* start;
             struct ASTNode* end;
             struct ASTNode* body;

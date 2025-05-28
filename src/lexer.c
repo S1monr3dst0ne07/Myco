@@ -212,7 +212,7 @@ Token lexer_next_token(Lexer* lexer) {
         case ']': return make_token(lexer, TOKEN_RBRACKET);
         case ';': return make_token(lexer, TOKEN_SEMICOLON);
         case ',': return make_token(lexer, TOKEN_COMMA);
-        case '.': return make_token(lexer, TOKEN_DOT);
+        case '.': return match(lexer, '.') ? make_token(lexer, TOKEN_DOT_DOT) : make_token(lexer, TOKEN_DOT);
         case '-': return match(lexer, '>') ? make_token(lexer, TOKEN_ARROW) : make_token(lexer, TOKEN_MINUS);
         case '+': return make_token(lexer, TOKEN_PLUS);
         case '/': return make_token(lexer, TOKEN_DIVIDE);

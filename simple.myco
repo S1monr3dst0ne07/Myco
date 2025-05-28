@@ -1,4 +1,30 @@
-let x = 10;
-let y = 20;
-let sum = x + y;
-print(sum);
+func factorial(n: int) -> int:
+    if n <= 1:
+        return 1;
+    end
+    return n * factorial(n - 1);
+end
+
+let result = factorial(5);
+print(result);
+
+for i in 1:10:
+    if i % 2 == 0:
+        print("Even:", i);
+    else:
+        print("Odd:", i);
+    end
+end
+
+switch result:
+    case 120:
+        print("Correct!");
+    else:
+        print("Wrong!");
+end
+
+try:
+    let x = 10 / 0;
+catch err:
+    print("Error:", err);
+end

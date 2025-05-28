@@ -1,5 +1,7 @@
 CC = gcc
 CFLAGS = -Wall -Wextra -g -I./include
+LDFLAGS = 
+
 SRC_DIR = src
 OBJ_DIR = obj
 BIN_DIR = bin
@@ -19,7 +21,7 @@ all: $(TARGET)
 
 # Link object files to create executable
 $(TARGET): $(OBJS)
-	$(CC) $(CFLAGS) -o $@ $^
+	$(CC) $(CFLAGS) -o $@ $^ $(LDFLAGS)
 
 # Compile source files to object files
 $(OBJ_DIR)/%.o: $(SRC_DIR)/%.c
@@ -31,8 +33,8 @@ clean:
 
 .PHONY: all clean
 
-test: all
-	./$(TARGET) test.myco
+test: $(TARGET)
+	$(TARGET) test.myco
 
 test-build: all
 	./$(TARGET) --build test.myco 
