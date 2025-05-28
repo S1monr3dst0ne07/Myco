@@ -1,0 +1,61 @@
+# Example Myco program demonstrating various features
+
+# Variable declarations
+let x = 42;
+let y = "Hello, World!";
+let z = true;
+
+# Function definition
+func add(a, b):
+    return a + b;
+end
+
+x = add(x, x - 2)
+
+# Control flow
+if x > 40:
+    print("x is greater than 40");
+else:
+    print("x is not greater than 40");
+end
+
+# While loop
+let i = 0;
+while i < 5:
+    print(i);
+    i = i + 1;
+end
+
+# For loop
+for j = 0; j < 3; j = j + 1:
+    print("j =", j);
+end
+
+# For-in loop
+let arr = [1, 2, 3, 4, 5];
+for item in arr:
+    print("item =", item);
+end
+
+# Try-catch block
+try:
+    let result = add(10, 20);
+    print("Result:", result);
+catch e:
+    print("Error:", e);
+end
+
+# Switch statement
+let day = "Monday";
+switch day:
+    case "Monday":
+        print("Start of the week");
+    case "Friday":
+        print("End of the week");
+    default:
+        print("Middle of the week");
+end
+
+# Function call
+let sum = add(5, 3);
+print("Sum:", sum);
