@@ -1,4 +1,4 @@
-func factorial(n: int) -> int:
+func factorial(n: int):
     if n <= 1:
         return 1;
     end
@@ -19,8 +19,9 @@ end
 switch result:
     case 120:
         print("Correct!");
-    else:
+    default:
         print("Wrong!");
+    end
 end
 
 try:

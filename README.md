@@ -35,4 +35,3 @@ greet(name)
 for item in [1, 2, 3]:
     print("Found a mushroom with ID:", item)
 end
-```
