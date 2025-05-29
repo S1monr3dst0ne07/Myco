@@ -1,352 +1,332 @@
-# Myco Programming Language Reference
+# 🍄 Myco Language Documentation
 
-## Variable Declarations
+Welcome to the official documentation for **Myco**, the mystical mushroom-themed scripting language. This document serves as a comprehensive reference for Myco’s syntax, features, and design philosophy.
 
-Myco supports multiple ways to declare and manipulate variables with flexibility and type safety.
+---
 
-### Implicit Declaration
+## 🌿 Table of Contents
 
-```myco
-x = 10
-name = "Ivy"
-```
+1. [Introduction](#introduction)
+2. [Basic Syntax](#basic-syntax)
+3. [Variables](#variables)
+4. [Data Types](#data-types)
+5. [Operators](#operators)
+6. [Control Flow](#control-flow)
+7. [Functions](#functions)
+8. [Collections](#collections)
+9. [Error Handling](#error-handling)
+10. [Comments](#comments)
+11. [Advanced Features](#advanced-features)
+12. [Best Practices](#best-practices)
+13. [Tooling & Extensions](#tooling--extensions)
+14. [Examples](#examples)
 
-* Type is inferred from the value.
+---
 
-### Explicit Declaration
+## 🌱 Introduction
 
-```myco
-let x: int = 10
-let name: str = "Ivy"
-```
+Myco is designed to be readable, expressive, and fun. It takes cues from Lua, Python, and functional languages while adding its own twist with a forest-themed aesthetic. It’s perfect for beginners and pros alike.
 
-* Type is specified using `:`.
-* Supported types: `int`, `float`, `str`, `bool`, `list`, `map`, `none`
+---
 
-### Constants
-
-```myco
-const PI = 3.14
-```
-
-* `const` variables cannot be reassigned.
-
-### Changing Variables
+## 🍁 Basic Syntax
 
 ```myco
-x = 5
-x = x + 1
-x++
-x--
+# Single-line comment
+let x = 10
+
+# Block-like structure
+if x > 5:
+    print("x is greater than 5")
+end
 ```
 
-* Arithmetic and post-increment/decrement are supported.
+* Indentation is optional but recommended.
+* Blocks are delimited with `:` and `end`.
+* You can separate multiple statements on a single line with semicolons:
 
-### Multiple Variable Assignment
+  ```myco
+  let a = 1; let b = 2; print(a + b)
+  ```
+
+---
+
+## 🌾 Variables
 
 ```myco
-let a, b = 1, 2
-let x: int, y: int = 5, 10
-const width, height = 1920, 1080
-let name, age, is_admin = "Ivy", 15, false
+let a = 5
+var b = 10
+const c = 15
 ```
 
-* Declare multiple variables in one line.
-* Works with or without type annotations.
-* Tuple unpacking supported.
+* `let` is for regular mutable bindings.
+* `var` is more explicit for mutable vars.
+* `const` defines immutable values.
+* Multi-variable assignments:
 
-## String Concatenation
+  ```myco
+  let a, b, c = 1, 2, 3
+  let (x, y, z) = (10, 5, 2)
+  let name = "Ivy"; let age = 15; let city = "New York"
+  ```
+
+---
+
+## 🍂 Data Types
+
+* **Numbers**: `let n = 42`
+* **Strings**: `let s = "hello"`
+* **Booleans**: `true`, `false`
+* **Lists**: `let l = [1, 2, 3]`
+* **Maps**: `let m = {"key": "value"}`
+* **Null/None**: `nil`
+
+---
+
+## 🌙 Operators
+
+### Arithmetic
 
 ```myco
-let name = "Ivy"
-print("Hello, " .. name)
-print("Age: " + str(15))
-print("User:", name)  # comma-separated
++, -, *, /, %, ^  # addition, subtraction, multiplication, division, modulo, power
 ```
 
-* `..` for native concat, `+` for casted concat, `,` in print.
-
-## Modules and Imports
+### Logical
 
 ```myco
-import "utils.myco"
-import "math.myco"
+and, or, not
 ```
 
-* Imports another `.myco` file.
+### Comparison
 
-## Functions
+```myco
+==, !=, <, >, <=, >=
+```
 
-### Basic Declaration
+### String Concatenation
+
+```myco
+"Hello" .. "World"  # => HelloWorld
+```
+
+---
+
+## 🍃 Control Flow
+
+### If-Else
+
+```myco
+if condition:
+    ...
+elseif other:
+    ...
+else:
+    ...
+end
+```
+
+### While
+
+```myco
+while condition:
+    ...
+end
+```
+
+### For Loops
+
+```myco
+for i = 0; i < 5; i = i + 1:
+    print(i)
+end
+
+for item in [1, 2, 3]:
+    print(item)
+end
+
+for i in 1:10:
+    if i % 2 == 0:
+        print("Even:", i);
+    else:
+        print("Odd:", i);
+    end
+end
+```
+
+### Switch
+
+```myco
+switch variable:
+case value:
+    ...
+default:
+    ...
+end
+
+switch result:
+    case 120:
+        print("Correct!");
+    else:
+        print("Wrong!");
+end
+```
+
+---
+
+## 🔮 Functions
 
 ```myco
 func greet(name):
     print("Hello, " .. name)
 end
+
+greet("Ivy")
 ```
 
-### With Return Type
+* Supports recursion, default parameters (planned), and closures (planned).
+* Functions with type signatures:
+
+  ```myco
+  func square(x: number) -> number:
+      return x * x
+  end
+  ```
+* More examples:
+
+  ```myco
+  func foo() -> string:
+      print("void function")
+  end
+
+  func bar() -> int:
+      return 42;
+  end
+  ```
+
+  ```myco
+  func factorial(n: int):
+      if n <= 1:
+          return 1;
+      end
+      return n * factorial(n - 1);
+  end
+  ```
+
+---
+
+## 🍄 Collections
+
+### Lists
 
 ```myco
-func add(x: int, y: int) -> int:
-    return x + y
-end
+let fruits = ["apple", "banana"]
+fruits[0]  # "apple"
 ```
 
-### Return Type First
+### Maps
 
 ```myco
-int add(x: int, y: int):
-    return x + y
-end
+let obj = {"name": "Myco", "type": "lang"}
+print(obj["name"])
 ```
 
-### Inferred Parameters
+---
 
-```myco
-func log(msg):
-    print(msg)
-end
-```
-
-### Multiple Return Values
-
-```myco
-func minmax(nums: list) -> int, int:
-    return min(nums), max(nums)
-end
-```
-
-### Lambdas
-
-```myco
-let square = (x) => x * x
-```
-
-## Loops
-
-### While Loop
-
-```myco
-let i = 0
-while i < 10:
-    print(i)
-    i++
-end
-```
-
-### Conditional End Loop
-
-```myco
-let i = 0
-while true:
-    print(i)
-    i++
-end when i == 10
-```
-
-### For-Each Loop
-
-```myco
-for item in list:
-    print(item)
-end
-```
-
-### Classic For Loop (C-style)
-
-```myco
-for let i = 0; i++; i < 10:
-    print(i)
-end
-```
-
-* Supports scoped variables and post-increments.
-
-## Conditionals
-
-### If-Else
-
-```myco
-if x > 5:
-    print("High")
-elseif x == 5:
-    print("Equal")
-else:
-    print("Low")
-end
-```
-
-### Switch-Case
-
-```myco
-switch fruit:
-    case "apple":
-        print("Red")
-    case "banana":
-        print("Yellow")
-    else:
-        print("Unknown")
-end
-```
-
-## Exception Handling
+## 🌧️ Error Handling
 
 ```myco
 try:
-    let content = read_file("data.txt")
-catch err:
-    print("Error: " .. err)
-end
-```
-
-## File I/O
-
-```myco
-write_file("log.txt", "Hello!")
-let lines = read_lines("file.txt")
-```
-
-## Built-in Functions
-
-* `print()`, `len()`, `str()`, `int()`, `float()`
-* `read_file()`, `write_file()`, `read_lines()`
-* `random()`, `min()`, `max()`
-* String: `split()`, `upper()`, `lower()`, `replace()`, `trim()`
-* List: `append()`, `insert()`, `remove()`
-
-## Nullable Types and None
-
-```myco
-let ghost = none
-if ghost == none:
-    print("No value")
-```
-
-## Type Conversion
-
-```myco
-str(123)
-int("42")
-float("3.14")
-```
-
-## Memory Management
-
-* Myco uses automatic garbage collection for simplicity and speed.
-* Manual memory management is not exposed.
-
-## Concurrency and Async
-
-Myco supports async syntax with cooperative scheduling determined at compile-time.
-
-```myco
-async wait(ms: int):
-    print("Waiting " .. ms)
-    wait(ms)
-end
-```
-
-## Comments and Docstrings
-
-```myco
-# This is a comment
-"""This is a docstring"""
-```
-
-## All-in-One Example Script
-
-```myco
-# Showcase of Myco logic and features
-
-const PI = 3.1415
-let name = "Ivy"
-let age = 15
-let score: float = 88.5
-
-print("Welcome, " .. name)
-print("Your age is:", age)
-print("Score:", score)
-
-if age >= 18:
-    print("Adult")
-else:
-    print("Minor")
-end
-
-func greet(user):
-    return "Hi, " .. user
-end
-
-print(greet(name))
-
-func factorial(n: int) -> int:
-    let result = 1
-    for let i = 1; i++; i <= n:
-        result *= i
-    end
-    return result
-end
-
-print("5! =", factorial(5))
-
-let fruits = ["apple", "banana", "cherry"]
-for fruit in fruits:
-    print("Fruit:", fruit)
-end
-
-switch age:
-    case 13:
-        print("Teen")
-    case 15:
-        print("Sophomore")
-    else:
-        print("Other")
+    let result = 1 / 0
+catch e:
+    print("Caught error:", e)
 end
 
 try:
-    let data = read_file("file.txt")
-    print("File:", data)
+    let x = 10 / 0;
 catch err:
-    print("Failed to read file:", err)
+    print("Error:", err);
 end
-
-func test_logic(a: int, b: int):
-    if a == b:
-        print("Equal")
-    elseif a > b:
-        print("A is greater")
-    else:
-        print("B is greater")
-    end
-end
-
-test_logic(10, 20)
-
-a, b = 5, 10
-b, a = a, b  # swap
-print("a:", a, "b:", b)
 ```
 
-## Myco Overview
+* Catch block variable `e` is optional.
 
-Myco is a compiled programming language designed for speed, simplicity, and minimal binary size. It’s ideal for developers who need expressive, readable code that compiles into compact, fast executables.
+---
 
-### Key Features:
+## 🍃 Comments
 
-* **Very Small Size**: Compiled programs are usually between 50–150 KB.
-* **Extremely Fast Compilation**: Myco compiles source files nearly instantly.
-* **Windowed and CLI Support**: Myco can target graphical apps and command-line tools alike.
-* **Hot Reloading**: Changes can be reflected during runtime for development.
-* **Distributable**: A single Myco executable (`myco.exe` on Windows, `myco` on macOS/Linux) can be used to run `.myco` files instantly.
-* **Human Readable, Machine Fast**: Easy to write, powerful to use.
+```myco
+# This is a single-line comment
+let x = 10  # Inline comment
+```
 
-### Use Cases:
+---
 
-* Embedded utilities
-* Tools and scripts
-* Educational software
-* Lightweight games
-* Modular desktop utilities
+## 🎐 Advanced Features (planned)
 
-Myco helps developers build and distribute high-performance applications with minimal complexity, while maintaining expressiveness and robust functionality.
+* Modules and Imports
+* Pattern Matching
+* Coroutines / async
+* File I/O
+* Type Hints (gradual typing)
+* Meta-programming (macros)
+
+---
+
+## 🌲 Best Practices
+
+* Use descriptive names: `let user_age` over `let a`
+* Keep indentation consistent
+* Limit complex expressions per line
+* Use `const` for immutable values
+* Prefer pure functions when possible
+
+---
+
+## 👩‍🔭 Tooling & Extensions
+
+* **VS Code Extension**: Syntax highlighting, autocomplete, forest-themed UI
+* **CLI Interpreter (planned)**: `myco run script.myco`
+* **File Association**: Use Platypus on macOS to bundle `.myco` with a custom icon
+
+---
+
+## 🧪 Examples
+
+```myco
+let x = 10
+let y = 20
+func add(a, b):
+    return a + b
+end
+print("Sum:", add(x, y))
+```
+
+```myco
+let animals = ["deer", "fox", "owl"]
+for a in animals:
+    print("Seen a", a)
+end
+```
+
+```myco
+switch weather:
+case "rain":
+    print("Bring a cloak")
+case "sun":
+    print("Wear a hat")
+default:
+    print("Who knows!")
+end
+```
+
+```myco
+let str1 = "Hello, "; let str2 = "World"; let concat = str1 .. str2; print(concat);
+```
+
+---
+
+## 🪵 Final Notes
+
+Myco is a living language — evolving like a fungal network. This doc will grow alongside it.
+
+🌸 Made by Ivy, with moss and love.
