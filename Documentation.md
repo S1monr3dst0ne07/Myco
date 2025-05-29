@@ -156,17 +156,10 @@ end
 ### Switch
 
 ```myco
-switch variable:
-case value:
-    ...
-default:
-    ...
-end
-
 switch result:
     case 120:
         print("Correct!");
-    else:
+    default:
         print("Wrong!");
 end
 ```
