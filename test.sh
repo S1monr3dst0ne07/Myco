@@ -2,9 +2,9 @@
 
 # Test interpretation
 echo "Testing basic compilation..."
-./myco test.myco
+./myco.exe test.myco
 
 # Test executable building
 echo "Testing executable building..."
-./myco test.myco --build
+./myco.exe test.myco --build
 ./test.exe
