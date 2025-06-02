@@ -1,10 +1,10 @@
 #!/bin/bash
 
-# Test basic compilation
+# Test interpretation
 echo "Testing basic compilation..."
-./bin/myco test.myco
+./myco test.myco
 
 # Test executable building
 echo "Testing executable building..."
-./bin/myco --build test.myco
-./test
+./myco test.myco --build
+./test.exe
