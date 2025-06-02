@@ -3,6 +3,8 @@
 > A whimsical, mystical programming language rooted deep in the forest floor.  
 > 🌿 Think Lisp meets Lua — but with mushrooms.
 
+Discord: https://discord.gg/CR8xcKb3zM
+
 ---
 
 ## 🌟 What is Myco?
