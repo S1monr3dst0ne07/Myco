@@ -258,12 +258,12 @@ static ASTNode* parse_statement(Token* tokens, int* current) {
         return NULL;
     }
 
-    // Handle 'use <path> as <identifier>'
+    // Handle 'use <path|string|identifier> as <identifier>'
     if (tokens[*current].type == TOKEN_USE) {
         int line = tokens[*current].line;
         (*current)++; // skip 'use'
-        if (tokens[*current].type != TOKEN_PATH && tokens[*current].type != TOKEN_STRING) {
-            fprintf(stderr, "Error: Expected module path after 'use' at line %d\n", tokens[*current].line);
+        if (tokens[*current].type != TOKEN_PATH && tokens[*current].type != TOKEN_STRING && tokens[*current].type != TOKEN_IDENTIFIER) {
+            fprintf(stderr, "Error: Expected module path or name after 'use' at line %d\n", tokens[*current].line);
             free(node); return NULL;
         }
         char* path = strdup(tokens[*current].text);

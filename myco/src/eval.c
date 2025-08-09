@@ -4,7 +4,9 @@
 #include <ctype.h>
 #include "parser.h"
 #include <sys/stat.h>
+#ifndef _WIN32
 #include <unistd.h>
+#endif
 
 // Forward declarations for functions defined later in this file
 static struct ASTNode* find_function_in_module(struct ASTNode* mod, const char* name);
@@ -458,25 +460,22 @@ long long eval_expression(ASTNode* ast) {
                 const char* name = ast->children[0].text; // function identifier
                 // Built-in input(prompt): prompt user and map to an action code
                 if (name && strcmp(name, "input") == 0) {
-                    // Choose input/output stream: prefer stdin/stdout when interactive; otherwise read from $MYCO_TTY/ctermid()/dev/tty
+                    // Choose input/output stream
                     FILE* inp = stdin;
                     FILE* outp = stdout;
+#ifndef _WIN32
                     FILE* opened_tty = NULL;
+                    // Prefer interactive stdin; else try a TTY device on POSIX
                     if (!isatty(STDIN_FILENO)) {
                         const char* tty_env = getenv("MYCO_TTY");
-                        if (tty_env && tty_env[0]) {
-                            opened_tty = fopen(tty_env, "r+");
-                        }
-                        if (!opened_tty) {
-                            char tty_path[L_ctermid];
-                            ctermid(tty_path);
-                            if (tty_path[0]) opened_tty = fopen(tty_path, "r+");
-                        }
-                        if (!opened_tty) {
-                            opened_tty = fopen("/dev/tty", "r+");
-                        }
+                        if (tty_env && tty_env[0]) opened_tty = fopen(tty_env, "r+");
+#ifdef L_ctermid
+                        if (!opened_tty) { char tty_path[L_ctermid]; ctermid(tty_path); if (tty_path[0]) opened_tty = fopen(tty_path, "r+"); }
+#endif
+                        if (!opened_tty) opened_tty = fopen("/dev/tty", "r+");
                         if (opened_tty) { inp = opened_tty; outp = opened_tty; }
                     }
+#endif
 
                     // Print prompt if provided
                     if (ast->children[1].child_count > 0) {
@@ -492,12 +491,16 @@ long long eval_expression(ASTNode* ast) {
 
                     char buf[256];
                     if (!fgets(buf, sizeof(buf), inp)) {
-                        if (opened_tty) fclose(opened_tty);
+#ifndef _WIN32
+                        if (inp != stdin) fclose(inp);
+#endif
                         error_occurred = 1;
                         error_value = ERROR_INPUT_FAILED;
                         return ERROR_INPUT_FAILED;
                     }
-                    if (opened_tty) fclose(opened_tty);
+#ifndef _WIN32
+                    if (inp != stdin) fclose(inp);
+#endif
 
                     // Trim whitespace
                     size_t bl = strlen(buf);

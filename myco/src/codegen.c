@@ -257,13 +257,62 @@ int codegen_generate(ASTNode* ast, const char* input_file, int keep_output) {
     char* ext = strrchr(base_name, '.');
     if (ext) *ext = '\0';
 
-#ifdef __APPLE__
-    char command[512]; snprintf(command, sizeof(command), "cc -Os -o %s output.c", base_name);
+    char command[1024];
+    int ok = 0;
+
+    // Allow environment override first (universal): MYCO_CC, MYCO_CFLAGS, MYCO_LDFLAGS
+    const char* env_cc = getenv("MYCO_CC");
+    const char* env_cflags = getenv("MYCO_CFLAGS");
+    const char* env_ldflags = getenv("MYCO_LDFLAGS");
+
+#ifdef _WIN32
+    const char* exe = ".exe";
 #else
-    char command[512]; snprintf(command, sizeof(command), "cc -Os -ffunction-sections -fdata-sections -Wl,--gc-sections -o %s output.c", base_name);
+    const char* exe = "";
 #endif
-    if (system(command) != 0) {
-        fprintf(stderr, "Error: Compilation failed\n");
+
+    if (env_cc && env_cc[0]) {
+        snprintf(command, sizeof(command), "%s %s -o %s%s output.c %s",
+                 env_cc,
+                 (env_cflags && env_cflags[0]) ? env_cflags : "",
+                 base_name, exe,
+                 (env_ldflags && env_ldflags[0]) ? env_ldflags : "");
+        if (system(command) == 0) ok = 1;
+    }
+
+    if (!ok) {
+#ifdef _WIN32
+        // Try MSVC cl first if present
+        snprintf(command, sizeof(command), "cl /nologo /O2 /EHsc output.c /Fe:%s.exe", base_name);
+        if (system(command) == 0) ok = 1;
+        if (!ok) {
+            // Try common MinGW/Clang toolchains and Zig
+            const char* tries[] = {
+                "gcc -O2 -std=c99 -o %s.exe output.c",
+                "clang -O2 -std=c99 -o %s.exe output.c",
+                "zig cc -O2 -std=c99 -o %s.exe output.c"
+            };
+            for (int i = 0; i < 3 && !ok; i++) {
+                snprintf(command, sizeof(command), tries[i], base_name);
+                if (system(command) == 0) ok = 1;
+            }
+        }
+#else
+        // POSIX: prefer cc, allow link-time GC flags if available
+        const char* tries[] = {
+            "cc -Os -o %s output.c",
+            "clang -Os -o %s output.c",
+            "gcc -Os -o %s output.c"
+        };
+        for (int i = 0; i < 3 && !ok; i++) {
+            snprintf(command, sizeof(command), tries[i], base_name);
+            if (system(command) == 0) ok = 1;
+        }
+#endif
+    }
+
+    if (!ok) {
+        fprintf(stderr, "Error: Compilation failed. Set MYCO_CC/MYCO_CFLAGS/MYCO_LDFLAGS to customize compiler.\n");
         free(base_name);
         return 1;
     }
