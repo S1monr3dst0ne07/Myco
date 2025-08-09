@@ -1,0 +1,64 @@
+# Test various error conditions
+
+# 1. Division by zero (outside try block)
+let x = 10 / 0;
+
+# 2. Division by zero (inside try block)
+try:
+    let y = 20 / 0;
+catch err:
+    print("Error in division:", err);
+end
+
+# 3. Modulo by zero
+try:
+    let z = 30 % 0;
+catch err:
+    print("Error in modulo:", err);
+end
+
+# 4. Undefined variable
+try:
+    let result = undefined_var;
+catch err:
+    print("Error with variable:", err);
+end
+
+# 5. Type mismatch
+try:
+    let str = "hello";
+    let num = 42;
+    let result = str + num;  # Should cause type mismatch
+catch err:
+    print("Error in type operation:", err);
+end
+
+# 6. Invalid operation
+try:
+    let a = 10;
+    let b = "world";
+    let result = a * b;  # Should cause invalid operation
+catch err:
+    print("Error in operation:", err);
+end
+
+# 7. Recursion depth test
+func recursive(n: int): int:
+    if n <= 0:
+        return 1;
+    end
+    return recursive(n - 1);
+end
+
+try:
+    let result = recursive(1000);  # Should cause recursion depth exceeded
+catch err:
+    print("Error in recursion:", err);
+end
+
+# 8. Invalid arguments
+try:
+    let result = factorial("hello");  # Should cause invalid arguments
+catch err:
+    print("Error in function call:", err);
+end 
