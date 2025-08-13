@@ -1,3 +1,34 @@
+/**
+ * @file main.c
+ * @brief Myco Language Interpreter - Main Entry Point
+ * @version 1.0.0
+ * @author Myco Development Team
+ * 
+ * This file contains the main entry point for the Myco interpreter.
+ * It orchestrates the complete interpretation process from source file
+ * to execution, handling command line arguments and coordinating
+ * all phases of interpretation.
+ * 
+ * Program Flow:
+ * 1. Command line argument parsing
+ * 2. Source file loading and validation
+ * 3. Lexical analysis (tokenization)
+ * 4. Parsing (AST construction)
+ * 5. Execution (AST evaluation)
+ * 6. Cleanup and memory management
+ * 
+ * Command Line Options:
+ * - <input_file>: Myco source file to interpret
+ * - --build: Generate C output instead of interpreting
+ * - --output <file>: Specify output file for build mode
+ * 
+ * Error Handling:
+ * - File I/O errors with descriptive messages
+ * - Memory allocation failure handling
+ * - Lexical and parsing error propagation
+ * - Graceful cleanup on failure
+ */
+
 #define _POSIX_C_SOURCE 200809L
 
 #include <stdio.h>
@@ -10,6 +41,23 @@
 #include "memory_tracker.h"
 #include "config.h"
 
+/*******************************************************************************
+ * MAIN ENTRY POINT
+ ******************************************************************************/
+
+/**
+ * @brief Main entry point for the Myco interpreter
+ * @param argc Number of command line arguments
+ * @param argv Array of command line argument strings
+ * @return Exit code (0 for success, non-zero for errors)
+ * 
+ * This function orchestrates the complete interpretation process:
+ * - Parses command line arguments
+ * - Loads and validates source files
+ * - Coordinates lexical analysis, parsing, and execution
+ * - Handles errors and provides cleanup
+ * - Supports both interpretation and build modes
+ */
 int main(int argc, char* argv[]) {
     #if DEBUG_MEMORY_TRACKING
     memory_tracker_init();
@@ -27,7 +75,11 @@ int main(int argc, char* argv[]) {
     int build_mode = 0;
     const char* output_file = NULL;
 
-    // Parse command line arguments
+    /*******************************************************************************
+     * COMMAND LINE ARGUMENT PARSING
+     ******************************************************************************/
+    
+    // Parse command line arguments for build mode and output file specification
     for (int i = 2; i < argc; i++) {
         if (strcmp(argv[i], "--build") == 0) {
             build_mode = 1;
@@ -36,7 +88,11 @@ int main(int argc, char* argv[]) {
         }
     }
 
-    // Open and read input file
+    /*******************************************************************************
+     * SOURCE FILE LOADING AND VALIDATION
+     ******************************************************************************/
+    
+    // Open and read input file with error handling
     FILE* file = fopen(input_file, "r");
     if (!file) {
         fprintf(stderr, "Error: Could not open file %s\n", input_file);
@@ -68,7 +124,11 @@ int main(int argc, char* argv[]) {
     }
     #endif
     
-    // Lexical analysis
+    /*******************************************************************************
+     * INTERPRETATION PIPELINE
+     ******************************************************************************/
+    
+    // Phase 1: Lexical Analysis - Convert source code to tokens
     Token* tokens = lexer_tokenize(source_code);
     if (!tokens) {
         fprintf(stderr, "Error: Lexical analysis failed\n");
@@ -76,7 +136,11 @@ int main(int argc, char* argv[]) {
         return 1;
     }
     
-    // Set base directory for imports
+    /*******************************************************************************
+     * MODULE IMPORT PATH RESOLUTION
+     ******************************************************************************/
+    
+    // Set base directory for resolving relative module imports
     {
         // derive directory part from input_file
         const char* last_slash = strrchr(input_file, '/');
@@ -95,7 +159,7 @@ int main(int argc, char* argv[]) {
     // Initialize environments for clean execution
     // (Don't call eval_reset_environments here as it tries to cleanup uninitialized environments)
 
-    // Parsing
+    // Phase 2: Parsing - Convert tokens to Abstract Syntax Tree (AST)
     ASTNode* ast = parser_parse(tokens);
     if (!ast) {
         fprintf(stderr, "Error: Parsing failed\n");

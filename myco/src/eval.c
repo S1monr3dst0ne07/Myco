@@ -1,3 +1,36 @@
+/**
+ * @file eval.c
+ * @brief Myco Language Evaluator - Executes Abstract Syntax Tree (AST)
+ * @version 1.0.0
+ * @author Myco Development Team
+ * 
+ * This file implements the evaluation phase of the Myco interpreter.
+ * It takes the parsed AST and executes the program, handling all runtime
+ * operations including variable management, function calls, and control flow.
+ * 
+ * Evaluator Features:
+ * - AST execution with scope management
+ * - Variable environment with reassignment support
+ * - Function call handling with parameter binding
+ * - Module system with import/export
+ * - Error handling and reporting
+ * - Memory management and cleanup
+ * - Loop execution with safety limits
+ * 
+ * Core Components:
+ * - Variable environment (local and global scope)
+ * - Function registry and lookup
+ * - Module registry and management
+ * - Error state management
+ * - Loop execution state management
+ * 
+ * Architecture:
+ * - Recursive AST traversal
+ * - Dynamic scope management
+ * - Memory-efficient variable storage
+ * - Cross-platform compatibility
+ */
+
 #define _POSIX_C_SOURCE 200809L
 
 #include <stdio.h>
@@ -28,17 +61,36 @@
 #include <curl/curl.h>
 #endif
 
-// Global loop execution state
+/*******************************************************************************
+ * LOOP EXECUTION STATE MANAGEMENT
+ ******************************************************************************/
+
+/**
+ * @brief Global loop execution state for managing loop safety
+ * 
+ * This state tracks active loops and enforces safety limits to prevent
+ * infinite loops and excessive resource consumption during execution.
+ */
 static LoopExecutionState* global_loop_state = NULL;
 
-// Initialize loop execution state
+/**
+ * @brief Initializes the global loop execution state
+ * 
+ * Creates and sets up the loop execution state if it doesn't exist.
+ * This ensures loop safety features are available during execution.
+ */
 static void init_loop_execution_state(void) {
     if (!global_loop_state) {
         global_loop_state = create_loop_execution_state();
     }
 }
 
-// Cleanup loop execution state
+/**
+ * @brief Cleans up the global loop execution state
+ * 
+ * Destroys the loop execution state and frees associated memory.
+ * Should be called during interpreter shutdown to prevent memory leaks.
+ */
 void cleanup_loop_execution_state(void) {
     if (global_loop_state) {
         destroy_loop_execution_state(global_loop_state);
@@ -46,7 +98,17 @@ void cleanup_loop_execution_state(void) {
     }
 }
 
-// Helper function to determine if loop should continue
+/**
+ * @brief Determines if a loop should continue executing
+ * @param context The loop context containing iteration state
+ * @return 1 if loop should continue, 0 if it should stop
+ * 
+ * This function implements loop safety logic:
+ * - Checks iteration limits to prevent infinite loops
+ * - Handles positive and negative step values
+ * - Prevents zero-step infinite loops
+ * - Ensures loop termination conditions are met
+ */
 static int should_continue_loop(LoopContext* context) {
     if (!context) return 0;
     
@@ -68,12 +130,27 @@ static int should_continue_loop(LoopContext* context) {
     }
 }
 
-// Forward declarations for functions defined later in this file
+/*******************************************************************************
+ * FORWARD DECLARATIONS
+ ******************************************************************************/
+
+/**
+ * Forward declarations for functions defined later in this file.
+ * These are organized by functionality for better code organization.
+ */
+
+// Module and function management
 static struct ASTNode* find_function_in_module(struct ASTNode* mod, const char* name);
+static struct ASTNode* resolve_module(const char* alias);
+
+// Core evaluation functions
 long long eval_expression(struct ASTNode* ast);
 void eval_evaluate(struct ASTNode* ast);
-static struct ASTNode* resolve_module(const char* alias);
+
+// Function execution
 static long long eval_user_function_call(struct ASTNode* fn, struct ASTNode* args_node);
+
+// Variable and string management
 static const char* get_str_value(const char* name);
 
 // Add new function for finding functions with module prefix
@@ -84,10 +161,24 @@ static ASTNode* find_function_in_any_module(const char* name);
 #define RED "\033[31m"
 #define RESET "\033[0m"
 
-// Error code structure: 0xMY[SEV][MOD][ERR]
-// SEV: Severity (0=Info, 1=Warning, 2=Error, F=Fatal)
-// MOD: Module (0=Runtime, 1=Math, 2=Type, 3=Syntax, 4=IO)
-// ERR: Specific error code
+/*******************************************************************************
+ * ERROR HANDLING SYSTEM
+ ******************************************************************************/
+
+/**
+ * Myco uses a structured error code system for comprehensive error reporting.
+ * 
+ * Error Code Structure: 0xMY[SEV][MOD][ERR]
+ * - SEV: Severity (0=Info, 1=Warning, 2=Error, F=Fatal)
+ * - MOD: Module (0=Runtime, 1=Math, 2=Type, 3=Syntax, 4=IO)
+ * - ERR: Specific error code within the module
+ * 
+ * This system allows for:
+ * - Categorized error reporting
+ * - Severity-based error handling
+ * - Module-specific error recovery
+ * - Consistent error format across the interpreter
+ */
 
 // Severity levels
 #define SEV_INFO    0x00

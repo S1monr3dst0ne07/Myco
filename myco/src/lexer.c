@@ -1,3 +1,20 @@
+/**
+ * @file lexer.c
+ * @brief Myco Language Lexer - Tokenizes source code into tokens
+ * @version 1.0.0
+ * @author Myco Development Team
+ * 
+ * This file implements the lexical analysis phase of the Myco interpreter.
+ * It converts raw source code into a stream of tokens that the parser can process.
+ * 
+ * Key Features:
+ * - Supports all Myco language tokens (keywords, operators, identifiers, etc.)
+ * - Handles comments (# single-line, multi-line comments)
+ * - Processes strings, numbers, and paths
+ * - Maintains line number tracking for error reporting
+ * - Memory-efficient token generation
+ */
+
 #define _POSIX_C_SOURCE 200809L
 
 #include <stdio.h>
@@ -6,7 +23,19 @@
 #include <ctype.h>
 #include "lexer.h"
 
-// Helper function to check if an identifier is a keyword
+/*******************************************************************************
+ * KEYWORD IDENTIFICATION
+ ******************************************************************************/
+
+/**
+ * @brief Determines if an identifier is a Myco language keyword
+ * @param text The identifier text to check
+ * @return The appropriate token type (keyword or identifier)
+ * 
+ * This function checks if a given identifier matches any of the Myco language
+ * keywords and returns the appropriate token type. If no keyword match is found,
+ * it returns TOKEN_IDENTIFIER.
+ */
 static MycoTokenType get_keyword_type(const char* text) {
     if (strcmp(text, "func") == 0) return TOKEN_FUNC;
     if (strcmp(text, "let") == 0) return TOKEN_LET;
@@ -30,8 +59,38 @@ static MycoTokenType get_keyword_type(const char* text) {
     return TOKEN_IDENTIFIER;
 }
 
-#define MAX_TOKENS 1000
+/*******************************************************************************
+ * CONSTANTS AND CONFIGURATION
+ ******************************************************************************/
 
+#define MAX_TOKENS 1000  // Maximum number of tokens per source file
+
+/*******************************************************************************
+ * MAIN LEXER FUNCTION
+ ******************************************************************************/
+
+/**
+ * @brief Tokenizes Myco source code into a stream of tokens
+ * @param source The source code string to tokenize
+ * @return Array of tokens, or NULL on failure
+ * 
+ * This is the main entry point for lexical analysis. It processes the source
+ * code character by character, identifying tokens and building the token stream.
+ * 
+ * Token Types Handled:
+ * - Keywords (func, let, if, etc.)
+ * - Identifiers (variable names, function names)
+ * - Literals (strings, numbers)
+ * - Operators (+, -, *, /, ==, !=, etc.)
+ * - Delimiters (parentheses, braces, semicolons)
+ * - Comments (# and multi-line)
+ * - Paths (./relative/path)
+ * 
+ * Memory Management:
+ * - Allocates token array dynamically
+ * - Each token's text is allocated separately
+ * - Caller is responsible for freeing tokens with lexer_free_tokens()
+ */
 Token* lexer_tokenize(const char* source) {
     Token* tokens = (Token*)malloc(MAX_TOKENS * sizeof(Token));
     if (!tokens) {
@@ -273,6 +332,21 @@ Token* lexer_tokenize(const char* source) {
     return tokens;
 }
 
+/*******************************************************************************
+ * MEMORY MANAGEMENT
+ ******************************************************************************/
+
+/**
+ * @brief Frees all memory allocated for tokens
+ * @param tokens Array of tokens to free
+ * 
+ * This function properly cleans up all memory allocated during tokenization:
+ * - Frees each token's text string
+ * - Frees the token array itself
+ * - Handles NULL tokens gracefully
+ * 
+ * Call this function when you're done processing tokens to prevent memory leaks.
+ */
 void lexer_free_tokens(Token* tokens) {
     if (!tokens) return;
     for (int i = 0; tokens[i].type != TOKEN_EOF; i++) {

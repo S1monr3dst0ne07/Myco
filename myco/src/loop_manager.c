@@ -1,13 +1,77 @@
+/**
+ * @file loop_manager.c
+ * @brief Myco Loop Management System - Safe Loop Execution
+ * @version 1.0.0
+ * @author Myco Development Team
+ * 
+ * This file implements a comprehensive loop management system that ensures
+ * safe execution of loops in the Myco interpreter. It provides protection
+ * against infinite loops, excessive resource consumption, and stack overflow.
+ * 
+ * Loop Safety Features:
+ * - Maximum iteration limits to prevent infinite loops
+ * - Maximum loop depth to prevent stack overflow
+ * - Range validation to ensure loop termination
+ * - Step value validation to prevent zero-step loops
+ * - Loop context management and cleanup
+ * - Break, continue, and return flow control
+ * 
+ * Loop Types Supported:
+ * - For loops with range and step
+ * - While loops with condition checking
+ * - Nested loops with depth tracking
+ * - Loop variable management
+ * 
+ * Safety Mechanisms:
+ * - Iteration counting and limits
+ * - Memory-efficient context storage
+ * - Automatic cleanup on loop exit
+ * - Error reporting and warnings
+ * - Cross-platform compatibility
+ */
+
 #include "loop_manager.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <inttypes.h>
 
-// Global loop statistics
+/*******************************************************************************
+ * GLOBAL LOOP STATISTICS
+ ******************************************************************************/
+
+/**
+ * Global statistics tracking for all loops executed in the program.
+ * This provides insights into loop behavior and helps identify
+ * potential performance issues or infinite loop patterns.
+ */
 static LoopStatistics global_loop_stats = {0};
 
-// Create a new loop context
+/*******************************************************************************
+ * LOOP CONTEXT MANAGEMENT
+ ******************************************************************************/
+
+/**
+ * @brief Creates a new loop execution context
+ * @param var_name Name of the loop variable
+ * @param start Starting value for the loop
+ * @param end Ending value for the loop
+ * @param step Step value between iterations
+ * @param line Source line number for error reporting
+ * @return New loop context, or NULL on failure
+ * 
+ * A loop context contains all the information needed to execute a loop:
+ * - Loop variable name and current value
+ * - Range boundaries and step size
+ * - Iteration counting and limits
+ * - Parent loop reference for nesting
+ * - Source location for debugging
+ * 
+ * The context is validated to ensure safe execution:
+ * - Step value cannot be zero
+ * - Range size is within safe limits
+ * - Loop will terminate naturally
+ */
 LoopContext* create_loop_context(const char* var_name, int64_t start, int64_t end, int64_t step, int line) {
     LoopContext* context = (LoopContext*)malloc(sizeof(LoopContext));
     if (!context) {
@@ -35,7 +99,18 @@ LoopContext* create_loop_context(const char* var_name, int64_t start, int64_t en
     return context;
 }
 
-// Destroy a loop context
+/**
+ * @brief Destroys a loop context and frees associated memory
+ * @param context The loop context to destroy
+ * 
+ * Performs cleanup operations:
+ * - Frees the loop variable name string
+ * - Frees the context structure itself
+ * - Handles NULL contexts gracefully
+ * 
+ * This function should be called when a loop exits
+ * to prevent memory leaks.
+ */
 void destroy_loop_context(LoopContext* context) {
     if (!context) return;
     
@@ -45,7 +120,25 @@ void destroy_loop_context(LoopContext* context) {
     free(context);
 }
 
-// Validate loop range parameters
+/**
+ * @brief Validates loop range parameters for safety
+ * @param start Starting value for the loop
+ * @param end Ending value for the loop
+ * @param step Step value between iterations
+ * @return 1 if valid, 0 if invalid
+ * 
+ * Performs comprehensive validation to ensure loop safety:
+ * - Prevents zero-step infinite loops
+ * - Ensures range size is within safe limits
+ * - Verifies loop will terminate naturally
+ * - Checks for positive/negative step compatibility
+ * 
+ * Safety checks:
+ * - Step cannot be zero (infinite loop prevention)
+ * - Range size must be within MAX_LOOP_RANGE
+ * - Step size must be within MAX_LOOP_RANGE
+ * - Loop direction must match step direction
+ */
 int validate_loop_range(int64_t start, int64_t end, int64_t step) {
     if (step == 0) return 0;  // Prevent infinite loops
     if (llabs(end - start) > MAX_LOOP_RANGE) return 0;
@@ -58,7 +151,24 @@ int validate_loop_range(int64_t start, int64_t end, int64_t step) {
     return 1;
 }
 
-// Create loop execution state
+/*******************************************************************************
+ * LOOP EXECUTION STATE MANAGEMENT
+ ******************************************************************************/
+
+/**
+ * @brief Creates a new loop execution state manager
+ * @return New loop execution state, or NULL on failure
+ * 
+ * The execution state manages the global loop execution environment:
+ * - Tracks active loops in a stack structure
+ * - Manages loop depth and nesting limits
+ * - Handles break, continue, and return requests
+ * - Provides loop body execution state
+ * - Maintains loop context hierarchy
+ * 
+ * This state is shared across all loops in the program
+ * and ensures proper loop flow control.
+ */
 LoopExecutionState* create_loop_execution_state(void) {
     LoopExecutionState* state = (LoopExecutionState*)malloc(sizeof(LoopExecutionState));
     if (!state) {

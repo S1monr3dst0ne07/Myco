@@ -1,3 +1,33 @@
+/**
+ * @file parser.c
+ * @brief Myco Language Parser - Converts tokens into Abstract Syntax Tree (AST)
+ * @version 1.0.0
+ * @author Myco Development Team
+ * 
+ * This file implements the parsing phase of the Myco interpreter.
+ * It converts a stream of tokens into a structured Abstract Syntax Tree
+ * that represents the program's structure and can be evaluated.
+ * 
+ * Parser Features:
+ * - Recursive descent parsing with operator precedence
+ * - AST construction for all language constructs
+ * - Error handling with line number reporting
+ * - Memory-efficient AST node management
+ * - Support for complex expressions and statements
+ * 
+ * AST Node Types:
+ * - AST_FUNC: Function definitions
+ * - AST_LET: Variable declarations
+ * - AST_IF: Conditional statements
+ * - AST_FOR: Loop constructs
+ * - AST_WHILE: While loops
+ * - AST_RETURN: Return statements
+ * - AST_EXPR: Expressions and operators
+ * - AST_BLOCK: Code blocks and scopes
+ * - AST_DOT: Member access (module.function)
+ * - AST_ASSIGN: Variable reassignment
+ */
+
 #define _POSIX_C_SOURCE 200809L
 
 #include <stdio.h>
@@ -15,7 +45,26 @@ static ASTNode* parse_statement(Token* tokens, int* current);
 static ASTNode* parse_block(Token* tokens, int* current);
 static void deep_copy_ast_node(ASTNode* dest, ASTNode* src);
 
-// Helper function to get operator precedence
+/*******************************************************************************
+ * OPERATOR PRECEDENCE
+ ******************************************************************************/
+
+/**
+ * @brief Determines the precedence level of operators for parsing
+ * @param op The operator string to check
+ * @return Precedence level (higher = higher precedence)
+ * 
+ * Operator precedence determines the order of operations in expressions.
+ * Higher precedence operators are parsed first, ensuring correct
+ * mathematical and logical evaluation order.
+ * 
+ * Precedence Levels:
+ * - Level 1: Logical operators (and, or)
+ * - Level 2: Equality operators (==, !=)
+ * - Level 3: Comparison operators (<, >, <=, >=)
+ * - Level 4: Additive operators (+, -)
+ * - Level 5: Multiplicative operators (*, /, %)
+ */
 static int get_precedence(const char* op) {
     if (strcmp(op, "and") == 0 || strcmp(op, "or") == 0) return 1;
     if (strcmp(op, "==") == 0 || strcmp(op, "!=") == 0) return 2;
@@ -26,7 +75,27 @@ static int get_precedence(const char* op) {
     return 0;
 }
 
-// Helper function to parse primary expressions
+/*******************************************************************************
+ * PRIMARY EXPRESSION PARSING
+ ******************************************************************************/
+
+/**
+ * @brief Parses primary expressions (atoms) in the language
+ * @param tokens Array of tokens to parse
+ * @param current Pointer to current token position
+ * @return AST node representing the primary expression, or NULL on error
+ * 
+ * Primary expressions are the basic building blocks of the language:
+ * - Numbers (integers, negative numbers)
+ * - Identifiers (variable names, function names)
+ * - String literals
+ * - Parenthesized expressions
+ * - Dot expressions (member access)
+ * - Function calls
+ * 
+ * This function handles the lowest level of expression parsing,
+ * creating leaf nodes in the AST tree.
+ */
 static ASTNode* parse_primary(Token* tokens, int* current) {
     ASTNode* node = (ASTNode*)tracked_malloc(sizeof(ASTNode), __FILE__, __LINE__, "parse_primary");
     if (!node) {

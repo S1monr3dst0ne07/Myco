@@ -1,3 +1,37 @@
+/**
+ * @file codegen.c
+ * @brief Myco Language Code Generator - C Output Generation
+ * @version 1.0.0
+ * @author Myco Development Team
+ * 
+ * This file implements the code generation phase of the Myco interpreter.
+ * It converts the parsed Abstract Syntax Tree (AST) into equivalent C code
+ * that can be compiled and executed, providing an alternative to interpretation.
+ * 
+ * Code Generation Features:
+ * - AST to C code translation
+ * - Module import handling and resolution
+ * - Expression and statement generation
+ * - Function call translation
+ * - Variable declaration and assignment
+ * - Control flow structure generation
+ * - String literal handling
+ * - Cross-platform C output
+ * 
+ * Output Capabilities:
+ * - Standard C99 compliant code
+ * - Module dependency resolution
+ * - Optimized expression generation
+ * - Error handling and validation
+ * - Memory management integration
+ * 
+ * Usage:
+ * - Activated with --build command line flag
+ * - Generates compilable C source code
+ * - Supports all Myco language constructs
+ * - Maintains program semantics and behavior
+ */
+
 #define _POSIX_C_SOURCE 200809L
 
 #include <stdio.h>
@@ -6,15 +40,34 @@
 #include "parser.h"
 #include "lexer.h"
 
-// Track imported modules
+/*******************************************************************************
+ * MODULE MANAGEMENT
+ ******************************************************************************/
+
+/**
+ * Module tracking structure for code generation.
+ * Each imported module is tracked with its alias and AST representation
+ * to enable proper C code generation with module dependencies.
+ */
 typedef struct {
-    char* alias;
-    ASTNode* module_ast;
+    char* alias;        // Module alias (e.g., "math" from "use math as math")
+    ASTNode* module_ast; // Parsed AST of the imported module
 } CGModule;
 static CGModule* cg_modules = NULL;
 static int cg_modules_size = 0;
 static int cg_modules_cap = 0;
 
+/**
+ * @brief Registers a module for code generation
+ * @param alias The module alias to register
+ * @param ast The parsed AST of the module
+ * 
+ * Adds a module to the code generation module registry:
+ * - Expands the module array if needed
+ * - Stores the alias and AST for later use
+ * - Enables module-aware code generation
+ * - Maintains module dependency information
+ */
 static void cg_register_module(const char* alias, ASTNode* ast) {
     if (cg_modules_size >= cg_modules_cap) {
         cg_modules_cap = cg_modules_cap ? cg_modules_cap * 2 : 4;
@@ -58,14 +111,43 @@ static ASTNode* cg_load_module(const char* path) {
     return ast;
 }
 
-// Helper to check if a string is a string literal (starts and ends with ")
+/*******************************************************************************
+ * UTILITY FUNCTIONS
+ ******************************************************************************/
+
+/**
+ * @brief Checks if a string represents a string literal
+ * @param text The text to check
+ * @return 1 if it's a string literal, 0 otherwise
+ * 
+ * String literals in Myco are enclosed in double quotes.
+ * This function identifies string literals for proper C code generation.
+ */
 static int is_string_literal(const char* text) {
     if (!text) return 0;
     size_t len = strlen(text);
     return len >= 2 && text[0] == '"' && text[len-1] == '"';
 }
 
-// Helper function to generate C code for an expression
+/*******************************************************************************
+ * EXPRESSION CODE GENERATION
+ ******************************************************************************/
+
+/**
+ * @brief Generates C code for Myco expressions
+ * @param file Output file for generated C code
+ * @param ast The AST node representing the expression
+ * 
+ * Recursively generates C code for Myco expressions:
+ * - Handles arithmetic and logical operators
+ * - Generates function calls with proper syntax
+ * - Processes string literals and identifiers
+ * - Maintains operator precedence with parentheses
+ * - Supports module function calls
+ * 
+ * Generated code maintains the semantic meaning
+ * of the original Myco expression.
+ */
 static void generate_expression(FILE* file, ASTNode* ast) {
     if (!ast) return;
 

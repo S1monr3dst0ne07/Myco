@@ -1,3 +1,35 @@
+/**
+ * @file memory_tracker.c
+ * @brief Myco Memory Tracking System - Debug Memory Management
+ * @version 1.0.0
+ * @author Myco Development Team
+ * 
+ * This file implements a comprehensive memory tracking system for debugging
+ * and development purposes. It tracks all memory allocations, deallocations,
+ * and provides detailed statistics to identify memory leaks and usage patterns.
+ * 
+ * Memory Tracking Features:
+ * - Allocation tracking with source location (file, line, function)
+ * - Memory leak detection and reporting
+ * - Peak memory usage monitoring
+ * - Allocation statistics and summaries
+ * - Memory usage visualization
+ * - Automatic cleanup verification
+ * 
+ * Debug Capabilities:
+ * - Tracked malloc/realloc/free functions
+ * - Memory allocation history
+ * - Leak detection on program exit
+ * - Performance impact monitoring
+ * - Cross-platform compatibility
+ * 
+ * Usage:
+ * - Automatically enabled in debug builds
+ * - Provides detailed memory reports
+ * - Helps identify memory management issues
+ * - Zero impact in release builds
+ */
+
 #include "memory_tracker.h"
 #include "config.h"
 #include <stdio.h>
@@ -5,7 +37,15 @@
 #include <string.h>
 #include <assert.h>
 
-// Memory tracking state
+/*******************************************************************************
+ * MEMORY TRACKING STATE
+ ******************************************************************************/
+
+/**
+ * Global state variables for memory tracking system.
+ * These maintain the current state of all tracked allocations
+ * and provide statistics for debugging and monitoring.
+ */
 static int tracking_enabled = 1;
 static MemoryAllocation* allocations = NULL;
 static size_t allocations_capacity = 0;
@@ -13,7 +53,22 @@ static size_t allocations_count = 0;
 static uint64_t next_allocation_id = 1;
 static MemoryStats stats = {0};
 
-// Initialize memory tracking system
+/*******************************************************************************
+ * SYSTEM INITIALIZATION AND CLEANUP
+ ******************************************************************************/
+
+/**
+ * @brief Initializes the memory tracking system
+ * 
+ * Sets up the memory tracking infrastructure:
+ * - Allocates the allocations tracking array
+ * - Initializes statistics counters
+ * - Sets up the allocation ID sequence
+ * - Enables tracking functionality
+ * 
+ * This function should be called once at program startup
+ * to enable memory tracking capabilities.
+ */
 void memory_tracker_init(void) {
     if (allocations) {
         // Already initialized
@@ -35,7 +90,18 @@ void memory_tracker_init(void) {
     printf("Memory tracker initialized with capacity for %zu allocations\n", allocations_capacity);
 }
 
-// Cleanup memory tracking system
+/**
+ * @brief Cleans up the memory tracking system
+ * 
+ * Performs cleanup operations:
+ * - Frees the allocations tracking array
+ * - Resets all counters and statistics
+ * - Disables tracking functionality
+ * - Reports cleanup status in debug mode
+ * 
+ * This function should be called during program shutdown
+ * to prevent memory leaks in the tracking system itself.
+ */
 void memory_tracker_cleanup(void) {
     #if DEBUG_MEMORY_TRACKING
     printf("Memory tracker cleaned up\n");
@@ -52,7 +118,22 @@ void memory_tracker_cleanup(void) {
     memset(&stats, 0, sizeof(MemoryStats));
 }
 
-// Expand allocations array if needed
+/*******************************************************************************
+ * UTILITY FUNCTIONS
+ ******************************************************************************/
+
+/**
+ * @brief Expands the allocations tracking array when needed
+ * 
+ * Dynamically grows the tracking array to accommodate more allocations:
+ * - Doubles the capacity when expansion is needed
+ * - Reallocates memory and preserves existing data
+ * - Initializes new space to prevent undefined behavior
+ * - Reports expansion status for debugging
+ * 
+ * This function is called automatically when the current
+ * array capacity is insufficient for new allocations.
+ */
 static void expand_allocations_array(void) {
     size_t new_capacity = allocations_capacity * 2;
     MemoryAllocation* new_allocations = realloc(allocations, new_capacity * sizeof(MemoryAllocation));
@@ -72,7 +153,15 @@ static void expand_allocations_array(void) {
     printf("Memory tracker expanded to capacity %zu\n", new_capacity);
 }
 
-// Find allocation by pointer
+/**
+ * @brief Finds a tracked allocation by its memory pointer
+ * @param ptr The memory pointer to search for
+ * @return Pointer to the allocation record, or NULL if not found
+ * 
+ * Searches through all tracked allocations to find a specific
+ * memory pointer. This is used for deallocation tracking
+ * and memory leak detection.
+ */
 static MemoryAllocation* find_allocation(void* ptr) {
     for (size_t i = 0; i < allocations_count; i++) {
         if (allocations[i].ptr == ptr) {
@@ -82,7 +171,21 @@ static MemoryAllocation* find_allocation(void* ptr) {
     return NULL;
 }
 
-// Add new allocation to tracking
+/**
+ * @brief Adds a new memory allocation to the tracking system
+ * @param ptr The memory pointer returned by malloc/realloc
+ * @param size The size of the allocated memory block
+ * @param file Source file where allocation occurred
+ * @param line Line number where allocation occurred
+ * @param function Function name where allocation occurred
+ * 
+ * Records a new memory allocation for tracking purposes:
+ * - Assigns a unique allocation ID
+ * - Records source location information
+ * - Updates memory usage statistics
+ * - Expands tracking array if necessary
+ * - Maintains chronological allocation order
+ */
 static void add_allocation(void* ptr, size_t size, const char* file, int line, const char* function) {
     if (!tracking_enabled || !allocations) {
         return;
