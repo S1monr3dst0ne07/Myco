@@ -1,8 +1,34 @@
+#define _POSIX_C_SOURCE 200809L
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
 #include "lexer.h"
+
+// Helper function to check if an identifier is a keyword
+static MycoTokenType get_keyword_type(const char* text) {
+    if (strcmp(text, "func") == 0) return TOKEN_FUNC;
+    if (strcmp(text, "let") == 0) return TOKEN_LET;
+    if (strcmp(text, "if") == 0) return TOKEN_IF;
+    if (strcmp(text, "else") == 0) return TOKEN_ELSE;
+    if (strcmp(text, "for") == 0) return TOKEN_FOR;
+    if (strcmp(text, "while") == 0) return TOKEN_WHILE;
+    if (strcmp(text, "end") == 0) return TOKEN_END;
+    if (strcmp(text, "return") == 0) return TOKEN_RETURN;
+    if (strcmp(text, "switch") == 0) return TOKEN_SWITCH;
+    if (strcmp(text, "case") == 0) return TOKEN_CASE;
+    if (strcmp(text, "default") == 0) return TOKEN_DEFAULT;
+    if (strcmp(text, "try") == 0) return TOKEN_TRY;
+    if (strcmp(text, "catch") == 0) return TOKEN_CATCH;
+    if (strcmp(text, "print") == 0) return TOKEN_PRINT;
+    if (strcmp(text, "in") == 0) return TOKEN_IN;
+    if (strcmp(text, "use") == 0) return TOKEN_USE;
+    if (strcmp(text, "as") == 0) return TOKEN_AS;
+    if (strcmp(text, "int") == 0) return TOKEN_TYPE_MARKER;
+    if (strcmp(text, "string") == 0) return TOKEN_STRING_TYPE;
+    return TOKEN_IDENTIFIER;
+}
 
 #define MAX_TOKENS 1000
 
@@ -57,10 +83,20 @@ Token* lexer_tokenize(const char* source) {
             continue;
         }
 
+        // Single dot for member access
+        if (*p == '.' && *(p + 1) != '/' && *(p + 1) != '.') {
+            tokens[token_count].type = TOKEN_DOT;
+            tokens[token_count].text = strdup(".");
+            tokens[token_count].line = line;
+            token_count++;
+            p++;
+            continue;
+        }
+
         // Keywords and identifiers
         if (isalpha(*p) || *p == '_') {
             const char* start = p;
-            while (isalnum(*p) || *p == '_') p++;
+            while (isalnum(*p) || *p == '_' || *p == '-') p++;
             int len = p - start;
             char* text = (char*)malloc(len + 1);
             strncpy(text, start, len);
@@ -81,7 +117,8 @@ Token* lexer_tokenize(const char* source) {
             else if (strcmp(text, "try") == 0) tokens[token_count].type = TOKEN_TRY;
             else if (strcmp(text, "catch") == 0) tokens[token_count].type = TOKEN_CATCH;
             else if (strcmp(text, "print") == 0) tokens[token_count].type = TOKEN_PRINT;
-            else if (strcmp(text, "int") == 0) tokens[token_count].type = TOKEN_TYPE;
+            else if (strcmp(text, "int") == 0) tokens[token_count].type = TOKEN_TYPE_MARKER;
+            else if (strcmp(text, "string") == 0) tokens[token_count].type = TOKEN_STRING_TYPE;
             else if (strcmp(text, "in") == 0) tokens[token_count].type = TOKEN_IN;
             else if (strcmp(text, "use") == 0) tokens[token_count].type = TOKEN_USE;
             else if (strcmp(text, "as") == 0) tokens[token_count].type = TOKEN_AS;
@@ -108,27 +145,43 @@ Token* lexer_tokenize(const char* source) {
             continue;
         }
 
-        // Strings (assuming strings are enclosed in double quotes)
+        // Strings with simple escapes (\n, \t, \", \\) enclosed in double quotes
         if (*p == '"') {
-            p++;
-            const char* start = p;
-            while (*p && *p != '"') p++;
-            if (*p == '"') {
-                int len = p - start;
-                char* text = (char*)malloc(len + 1);
-                strncpy(text, start, len);
-                text[len] = '\0';
-                tokens[token_count].type = TOKEN_STRING;
-                tokens[token_count].text = text;
-                tokens[token_count].line = line;
-                token_count++;
-                p++;
-                continue;
-            } else {
+            p++; // skip opening quote
+            char* buf = NULL; int cap = 0; int len = 0;
+            while (*p) {
+                if (*p == '"') { // closing quote
+                    p++;
+                    break;
+                }
+                char ch = *p++;
+                if (ch == '\\' && *p) {
+                    char esc = *p++;
+                    switch (esc) {
+                        case 'n': ch = '\n'; break;
+                        case 't': ch = '\t'; break;
+                        case '\\': ch = '\\'; break;
+                        case '"': ch = '"'; break;
+                        default: ch = esc; break;
+                    }
+                }
+                if (len + 1 >= cap) { cap = cap ? cap * 2 : 32; buf = (char*)realloc(buf, cap); }
+                buf[len++] = ch;
+            }
+            if (!buf) { buf = (char*)malloc(1); buf[0] = '\0'; }
+            if (*(p-1) != '"') { // no closing quote found
                 fprintf(stderr, "Error: Unterminated string at line %d\n", line);
                 free(tokens);
+                free(buf);
                 return NULL;
             }
+            if (len + 1 >= cap) { cap = len + 1; buf = (char*)realloc(buf, cap); }
+            buf[len] = '\0';
+            tokens[token_count].type = TOKEN_STRING;
+            tokens[token_count].text = buf;
+            tokens[token_count].line = line;
+            token_count++;
+            continue;
         }
 
         // Operators and symbols

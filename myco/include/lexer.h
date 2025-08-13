@@ -27,15 +27,17 @@ typedef enum {
     TOKEN_TRY,
     TOKEN_CATCH,
     TOKEN_PRINT,
-    TOKEN_TYPE,
+    TOKEN_TYPE_MARKER,
+    TOKEN_STRING_TYPE,
     TOKEN_IN,
     TOKEN_USE,
     TOKEN_AS,
-    TOKEN_PATH
-} TokenType;
+    TOKEN_PATH,
+    TOKEN_DOT
+} MycoTokenType;
 
 typedef struct {
-    TokenType type;
+    MycoTokenType type;
     char* text;
     int line;
 } Token;

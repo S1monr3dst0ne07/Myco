@@ -1,3 +1,5 @@
+#define _POSIX_C_SOURCE 200809L
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -68,6 +70,9 @@ int main(int argc, char* argv[]) {
         eval_set_base_dir(dirbuf);
     }
 
+    // Initialize environments for clean execution
+    // (Don't call eval_reset_environments here as it tries to cleanup uninitialized environments)
+
     // Parsing
     ASTNode* ast = parser_parse(tokens);
     if (!ast) {
@@ -86,10 +91,25 @@ int main(int argc, char* argv[]) {
         printf("Executable generated successfully.\n");
     } else {
         // Evaluate the AST
-        eval_evaluate(ast);
+            eval_evaluate(ast);
     }
 
     // Cleanup
     free(source);
+    lexer_free_tokens(tokens);
+    
+    if (!build_mode) {
+        // Clear module AST references before freeing main AST to prevent double-free
+        extern void eval_clear_module_asts();
+        extern void eval_clear_function_asts();
+        eval_clear_module_asts();
+        eval_clear_function_asts();
+        
+        // Don't call eval_reset_environments() as it causes double-free issues
+        // The environments will be cleaned up when the program exits
+    }
+    
+    parser_free_ast(ast);
+    
     return 0;
 } 
