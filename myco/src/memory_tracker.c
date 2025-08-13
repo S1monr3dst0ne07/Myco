@@ -1,4 +1,5 @@
 #include "memory_tracker.h"
+#include "config.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -36,23 +37,19 @@ void memory_tracker_init(void) {
 
 // Cleanup memory tracking system
 void memory_tracker_cleanup(void) {
-    if (!allocations) {
-        return;
-    }
-    
-    // Print final memory statistics
-    print_memory_usage();
-    
-    // Detect any remaining memory leaks
-    detect_memory_leaks();
-    
-    // Free the tracking array itself
-    free(allocations);
-    allocations = NULL;
-    allocations_capacity = 0;
-    allocations_count = 0;
-    
+    #if DEBUG_MEMORY_TRACKING
     printf("Memory tracker cleaned up\n");
+    #endif
+    
+    if (allocations) {
+        free(allocations);
+        allocations = NULL;
+    }
+    allocations_count = 0;
+    allocations_capacity = 0;
+    
+    // Reset statistics
+    memset(&stats, 0, sizeof(MemoryStats));
 }
 
 // Expand allocations array if needed
@@ -180,21 +177,40 @@ void* tracked_realloc(void* ptr, size_t size, const char* file, int line, const 
 }
 
 void tracked_free(void* ptr, const char* file, int line, const char* function) {
-    if (!ptr) {
-        return;
+    if (!ptr) return;
+    
+    // Find and remove the allocation
+    for (size_t i = 0; i < allocations_count; i++) {
+        if (allocations[i].ptr == ptr) {
+            // Update statistics
+            stats.total_freed += allocations[i].size;
+            stats.free_count++;
+            stats.current_usage -= allocations[i].size;
+            
+            // Remove from tracking array
+            if (i < allocations_count - 1) {
+                allocations[i] = allocations[allocations_count - 1];
+            }
+            allocations_count--;
+            
+            // Free the actual memory
+            free(ptr);
+            return;
+        }
     }
     
-    MemoryAllocation* alloc = find_allocation(ptr);
-    if (alloc) {
-        size_t size = alloc->size;
-        mark_allocation_freed(ptr, size);
-    }
+    // If we get here, the pointer wasn't tracked
+    #if DEBUG_MEMORY_TRACKING
+    fprintf(stderr, "Warning: Attempting to free untracked pointer %p\n", ptr);
+    #endif
     
     free(ptr);
 }
 
 // Print current memory usage
 void print_memory_usage(void) {
+    #if ENABLE_MEMORY_STATS
+    MemoryStats stats = get_memory_stats();
     printf("\n=== Memory Usage Report ===\n");
     printf("Current Usage: %zu bytes\n", stats.current_usage);
     printf("Peak Usage: %zu bytes\n", stats.peak_usage);
@@ -204,41 +220,40 @@ void print_memory_usage(void) {
     printf("Free Count: %zu\n", stats.free_count);
     printf("Active Allocations: %zu\n", allocations_count);
     printf("===========================\n\n");
+    #else
+    // Minimal output in release mode
+    printf("Memory tracking disabled in release mode\n");
+    #endif
 }
 
 // Detect memory leaks
 void detect_memory_leaks(void) {
-    if (!allocations) {
+    #if DEBUG_MEMORY_TRACKING
+    printf("\n=== Memory Leak Detection ===\n");
+    
+    if (allocations_count == 0) {
+        printf("No memory leaks detected! 🎉\n");
+        printf("=============================\n\n");
         return;
     }
     
     int leak_count = 0;
     size_t total_leaked = 0;
     
-    printf("\n=== Memory Leak Detection ===\n");
-    
     for (size_t i = 0; i < allocations_count; i++) {
-        if (!allocations[i].is_freed) {
-            leak_count++;
-            total_leaked += allocations[i].size;
-            
-            printf("LEAK #%d: %zu bytes at %p\n", leak_count, allocations[i].size, allocations[i].ptr);
-            printf("  Allocated in %s:%d (%s)\n", 
-                   allocations[i].file ? allocations[i].file : "unknown",
-                   allocations[i].line,
-                   allocations[i].function ? allocations[i].function : "unknown");
-        }
+        leak_count++;
+        total_leaked += allocations[i].size;
+        printf("LEAK #%d: %zu bytes at %p\n", leak_count, allocations[i].size, allocations[i].ptr);
+        printf("  Allocated in %s:%d (%s)\n",
+               allocations[i].file, allocations[i].line, allocations[i].function);
     }
     
-    if (leak_count == 0) {
-        printf("No memory leaks detected! 🎉\n");
-    } else {
-        printf("Total leaks: %d, Total leaked: %zu bytes\n", leak_count, total_leaked);
-    }
-    
+    printf("=============================\n");
+    printf("Total leaks: %d, Total leaked: %zu bytes\n", leak_count, total_leaked);
     printf("=============================\n\n");
-    
-    stats.leak_count = leak_count;
+    #else
+    printf("Memory leak detection disabled in release mode\n");
+    #endif
 }
 
 // Get current memory statistics

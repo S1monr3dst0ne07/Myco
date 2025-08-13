@@ -17,11 +17,12 @@ static void deep_copy_ast_node(ASTNode* dest, ASTNode* src);
 
 // Helper function to get operator precedence
 static int get_precedence(const char* op) {
-    if (strcmp(op, "==") == 0 || strcmp(op, "!=") == 0) return 1;
+    if (strcmp(op, "and") == 0 || strcmp(op, "or") == 0) return 1;
+    if (strcmp(op, "==") == 0 || strcmp(op, "!=") == 0) return 2;
     if (strcmp(op, "<") == 0 || strcmp(op, ">") == 0 || 
-        strcmp(op, "<=") == 0 || strcmp(op, ">=") == 0) return 2;
-    if (strcmp(op, "+") == 0 || strcmp(op, "-") == 0) return 3;
-    if (strcmp(op, "*") == 0 || strcmp(op, "/") == 0 || strcmp(op, "%") == 0) return 4;
+        strcmp(op, "<=") == 0 || strcmp(op, ">=") == 0) return 3;
+    if (strcmp(op, "+") == 0 || strcmp(op, "-") == 0) return 4;
+    if (strcmp(op, "*") == 0 || strcmp(op, "/") == 0 || strcmp(op, "%") == 0) return 5;
     return 0;
 }
 
@@ -47,6 +48,36 @@ static ASTNode* parse_primary(Token* tokens, int* current) {
             (*current)++;
             break;
 
+        case TOKEN_OPERATOR:
+            // Handle unary minus (negative numbers)
+            if (strcmp(tokens[*current].text, "-") == 0) {
+                (*current)++; // Skip '-'
+                
+                // Parse the number after the minus
+                if (tokens[*current].type != TOKEN_NUMBER) {
+                    fprintf(stderr, "Error: Expected number after '-' at line %d\n", tokens[*current].line);
+                    tracked_free(node, __FILE__, __LINE__, "parse_primary_unary_minus");
+                    return NULL;
+                }
+                
+                // Create a negative number by combining '-' and the number
+                char* negative_num = (char*)malloc(strlen(tokens[*current].text) + 2);
+                sprintf(negative_num, "-%s", tokens[*current].text);
+                
+                node->type = AST_EXPR;
+                node->text = negative_num;
+                node->children = NULL;
+                node->child_count = 0;
+                node->next = NULL;
+                (*current)++;
+                break;
+            } else {
+                fprintf(stderr, "Error: Unexpected operator '%s' in expression at line %d\n", 
+                        tokens[*current].text, tokens[*current].line);
+                tracked_free(node, __FILE__, __LINE__, "parse_primary_unexpected_operator");
+                return NULL;
+            }
+
         case TOKEN_STRING:
             node->type = AST_EXPR;
             // Wrap the string literal in quotes
@@ -66,6 +97,7 @@ static ASTNode* parse_primary(Token* tokens, int* current) {
             if (tokens[*current].type != TOKEN_RPAREN) {
                 fprintf(stderr, "Error: Expected ')' at line %d\n", tokens[*current].line);
                 parser_free_ast(node);
+                tracked_free(node, __FILE__, __LINE__, "parse_primary");
                 return NULL;
             }
             (*current)++; // Skip ')'
@@ -115,6 +147,8 @@ static ASTNode* parse_primary(Token* tokens, int* current) {
         dot_node->children[1].line = tokens[*current].line;
 
         (*current)++; // Skip member identifier
+        
+
         
         // Free the original node since we're replacing it
         tracked_free(node, __FILE__, __LINE__, "parse_primary_dot_replace");
@@ -170,8 +204,6 @@ static ASTNode* parse_primary(Token* tokens, int* current) {
         node = call_node;
     }
 
-
-
     return node;
 }
 
@@ -186,6 +218,7 @@ static ASTNode* parse_expression(Token* tokens, int* current) {
         char* op = tokens[*current].text;
         int op_prec = get_precedence(op);
         int op_line = tokens[*current].line;  // Store operator line number
+        
         (*current)++;
 
         ASTNode* right = parse_primary(tokens, current);
@@ -284,10 +317,12 @@ static ASTNode* parse_block(Token* tokens, int* current) {
     block->children = NULL;
     block->child_count = 0;
     block->next = NULL;
+    block->for_type = AST_FOR_RANGE;  // Initialize for_type field
 
     while (tokens[*current].type != TOKEN_END && 
            tokens[*current].type != TOKEN_ELSE && 
            tokens[*current].type != TOKEN_CATCH) {
+        
         // Skip any semicolons at the start
         while (tokens[*current].type == TOKEN_SEMICOLON) {
             (*current)++;
@@ -303,17 +338,54 @@ static ASTNode* parse_block(Token* tokens, int* current) {
             parser_free_ast(block);
             return NULL;
         }
+        
         // Allocate space for the new statement
         block->children = (ASTNode*)tracked_realloc(block->children, (block->child_count + 1) * sizeof(ASTNode), __FILE__, __LINE__, "parse_block");
         
         // Move the statement directly instead of deep copying
         block->children[block->child_count] = *stmt;
+        
+        // Deep copy the text to prevent corruption
+        if (stmt->text) {
+            block->children[block->child_count].text = strdup(stmt->text);
+        }
+        
+        // Deep copy all children to prevent corruption
+        if (stmt->children && stmt->child_count > 0) {
+            block->children[block->child_count].children = (ASTNode*)tracked_malloc(stmt->child_count * sizeof(ASTNode), __FILE__, __LINE__, "parse_block");
+            block->children[block->child_count].child_count = stmt->child_count;
+            
+            for (int j = 0; j < stmt->child_count; j++) {
+                // Copy the child node
+                block->children[block->child_count].children[j] = stmt->children[j];
+                
+                // Deep copy the child's text
+                if (stmt->children[j].text) {
+                    block->children[block->child_count].children[j].text = strdup(stmt->children[j].text);
+                }
+                
+                // Deep copy the child's children recursively
+                if (stmt->children[j].children && stmt->children[j].child_count > 0) {
+                    block->children[block->child_count].children[j].children = (ASTNode*)tracked_malloc(stmt->children[j].child_count * sizeof(ASTNode), __FILE__, __LINE__, "parse_block");
+                    block->children[block->child_count].children[j].child_count = stmt->children[j].child_count;
+                    
+                    for (int k = 0; k < stmt->children[j].child_count; k++) {
+                        block->children[block->child_count].children[j].children[k] = stmt->children[j].children[k];
+                        
+                        if (stmt->children[j].children[k].text) {
+                            block->children[block->child_count].children[j].children[k].text = strdup(stmt->children[j].children[k].text);
+                        }
+                    }
+                }
+            }
+        }
+        
         block->child_count++;
         
-        // Clean up the source statement
-        if (stmt->text) free(stmt->text);
-        if (stmt->children) free(stmt->children);
-        free(stmt);
+        // Clean up the source statement using tracked_free
+        if (stmt->text) tracked_free(stmt->text, __FILE__, __LINE__, "parse_block");
+        if (stmt->children) tracked_free(stmt->children, __FILE__, __LINE__, "parse_block");
+        tracked_free(stmt, __FILE__, __LINE__, "parse_block");
 
         // Skip semicolon if present
         if (tokens[*current].type == TOKEN_SEMICOLON) {
@@ -364,11 +436,14 @@ static void deep_copy_ast_node(ASTNode* dest, ASTNode* src) {
 
 // Helper function to parse statements
 static ASTNode* parse_statement(Token* tokens, int* current) {
-            ASTNode* node = (ASTNode*)tracked_malloc(sizeof(ASTNode), __FILE__, __LINE__, "parse_statement");
+    ASTNode* node = (ASTNode*)tracked_malloc(sizeof(ASTNode), __FILE__, __LINE__, "parse_statement");
     if (!node) {
         fprintf(stderr, "Error: Memory allocation failed\n");
         return NULL;
     }
+
+    // Initialize for_type field
+    node->for_type = AST_FOR_RANGE;
 
 
     
@@ -550,6 +625,7 @@ static ASTNode* parse_statement(Token* tokens, int* current) {
 
         case TOKEN_FOR: {
             node->type = AST_FOR;
+            node->for_type = AST_FOR_RANGE;  // Default to range loop
             node->text = strdup("for");
             node->children = NULL;
             node->child_count = 0;
@@ -564,18 +640,24 @@ static ASTNode* parse_statement(Token* tokens, int* current) {
             }
 
             ASTNode* loop_var = (ASTNode*)tracked_malloc(sizeof(ASTNode), __FILE__, __LINE__, "parse_statement_for");
+            if (!loop_var) {
+                parser_free_ast(node);
+                return NULL;
+            }
+            
             loop_var->type = AST_EXPR;
             loop_var->text = strdup(tokens[*current].text);
             loop_var->children = NULL;
             loop_var->child_count = 0;
             loop_var->next = NULL;
+            loop_var->for_type = AST_FOR_RANGE;  // Not used for this node type
             (*current)++; // Skip loop variable
 
             // Parse 'in' keyword
             if (tokens[*current].type != TOKEN_IN) {
                 fprintf(stderr, "Error: Expected 'in' keyword at line %d\n", tokens[*current].line);
                 parser_free_ast(node);
-                parser_free_ast(loop_var);
+                tracked_free(loop_var, __FILE__, __LINE__, "parse_statement_for");
                 return NULL;
             }
             (*current)++; // Skip 'in'
@@ -584,16 +666,16 @@ static ASTNode* parse_statement(Token* tokens, int* current) {
             ASTNode* range_start = parse_expression(tokens, current);
             if (!range_start) {
                 parser_free_ast(node);
-                parser_free_ast(loop_var);
+                tracked_free(loop_var, __FILE__, __LINE__, "parse_statement_for");
                 return NULL;
             }
 
-            // Parse range separator
+            // Parse range separator (first colon)
             if (tokens[*current].type != TOKEN_COLON) {
-                fprintf(stderr, "Error: Expected ':' at line %d\n", tokens[*current].line);
+                fprintf(stderr, "Error: Expected ':' after range start at line %d\n", tokens[*current].line);
                 parser_free_ast(node);
-                parser_free_ast(loop_var);
-                parser_free_ast(range_start);
+                tracked_free(loop_var, __FILE__, __LINE__, "parse_statement_for");
+                tracked_free(range_start, __FILE__, __LINE__, "parse_statement_for");
                 return NULL;
             }
             (*current)++; // Skip ':'
@@ -602,38 +684,86 @@ static ASTNode* parse_statement(Token* tokens, int* current) {
             ASTNode* range_end = parse_expression(tokens, current);
             if (!range_end) {
                 parser_free_ast(node);
-                parser_free_ast(loop_var);
-                parser_free_ast(range_start);
+                tracked_free(loop_var, __FILE__, __LINE__, "parse_statement_for");
+                tracked_free(range_start, __FILE__, __LINE__, "parse_statement_for");
                 return NULL;
             }
 
+            // Check for optional step (second colon) - but only if we're not at the final colon
+            ASTNode* step = NULL;
+            
+            // A step separator is a colon followed by a number (not by a statement)
+            // Handle both positive numbers (TOKEN_NUMBER) and negative numbers (TOKEN_OPERATOR + TOKEN_NUMBER)
+            if (tokens[*current].type == TOKEN_COLON && 
+                (tokens[*current + 1].type == TOKEN_NUMBER || 
+                 (tokens[*current + 1].type == TOKEN_OPERATOR && tokens[*current + 1].text[0] == '-' && tokens[*current + 2].type == TOKEN_NUMBER))) {
+                (*current)++; // Skip second ':'
+                step = parse_expression(tokens, current);
+                if (!step) {
+                    parser_free_ast(node);
+                    tracked_free(loop_var, __FILE__, __LINE__, "parse_statement_for");
+                    tracked_free(range_start, __FILE__, __LINE__, "parse_statement_for");
+                    tracked_free(range_end, __FILE__, __LINE__, "parse_statement_for");
+                    return NULL;
+                }
+                node->for_type = AST_FOR_STEP;  // This is a step loop
+            }
+
+            // Parse final colon (required for all for loops)
             if (tokens[*current].type != TOKEN_COLON) {
-                fprintf(stderr, "Error: Expected ':' at line %d\n", tokens[*current].line);
+                fprintf(stderr, "Error: Expected ':' after range end at line %d\n", tokens[*current].line);
                 parser_free_ast(node);
-                parser_free_ast(loop_var);
-                parser_free_ast(range_start);
-                parser_free_ast(range_end);
+                tracked_free(loop_var, __FILE__, __LINE__, "parse_statement_for");
+                tracked_free(range_start, __FILE__, __LINE__, "parse_statement_for");
+                tracked_free(range_end, __FILE__, __LINE__, "parse_statement_for");
+                if (step) tracked_free(step, __FILE__, __LINE__, "parse_statement_for");
                 return NULL;
             }
-            (*current)++; // Skip ':'
+            (*current)++; // Skip final ':'
 
             // Parse loop body
             ASTNode* loop_body = parse_block(tokens, current);
             if (!loop_body) {
                 parser_free_ast(node);
-                parser_free_ast(loop_var);
-                parser_free_ast(range_start);
-                parser_free_ast(range_end);
+                tracked_free(loop_var, __FILE__, __LINE__, "parse_statement_for");
+                tracked_free(range_start, __FILE__, __LINE__, "parse_statement_for");
+                tracked_free(range_end, __FILE__, __LINE__, "parse_statement_for");
+                if (step) tracked_free(step, __FILE__, __LINE__, "parse_statement_for");
                 return NULL;
             }
 
-            // Add loop variable, range, and body as children
-            node->children = (ASTNode*)tracked_malloc(4 * sizeof(ASTNode), __FILE__, __LINE__, "parse_statement_for");
+            // Allocate children array based on whether we have a step
+            int child_count = step ? 5 : 4;
+            node->children = (ASTNode*)tracked_malloc(child_count * sizeof(ASTNode), __FILE__, __LINE__, "parse_statement_for");
+            if (!node->children) {
+                parser_free_ast(node);
+                tracked_free(loop_var, __FILE__, __LINE__, "parse_statement_for");
+                tracked_free(range_start, __FILE__, __LINE__, "parse_statement_for");
+                tracked_free(range_end, __FILE__, __LINE__, "parse_statement_for");
+                if (step) tracked_free(step, __FILE__, __LINE__, "parse_statement_for");
+                tracked_free(loop_body, __FILE__, __LINE__, "parse_statement_for");
+                return NULL;
+            }
+
+            // Add children: [loop_var, start, end, step?, body]
             node->children[0] = *loop_var;
             node->children[1] = *range_start;
             node->children[2] = *range_end;
-            node->children[3] = *loop_body;
-            node->child_count = 4;
+            if (step) {
+                node->children[3] = *step;
+                node->children[4] = *loop_body;
+            } else {
+                node->children[3] = *loop_body;
+            }
+            node->child_count = child_count;
+
+            // Clean up individual nodes (they're now copied to children array)
+            tracked_free(loop_var, __FILE__, __LINE__, "parse_statement_for");
+            tracked_free(range_start, __FILE__, __LINE__, "parse_statement_for");
+            tracked_free(range_end, __FILE__, __LINE__, "parse_statement_for");
+            if (step) tracked_free(step, __FILE__, __LINE__, "parse_statement_for");
+            tracked_free(loop_body, __FILE__, __LINE__, "parse_statement_for");
+            
             break;
         }
 
@@ -1012,15 +1142,22 @@ static ASTNode* parse_statement(Token* tokens, int* current) {
             (*current)++; // Skip '('
 
             while (tokens[*current].type != TOKEN_RPAREN) {
+                
                 ASTNode* arg = parse_expression(tokens, current);
                 if (!arg) {
                     parser_free_ast(node);
                     return NULL;
                 }
-
+                
                 node->children = (ASTNode*)tracked_realloc(node->children, (node->child_count + 1) * sizeof(ASTNode), __FILE__, __LINE__, "parse_statement_print");
                 // Move the arg node directly instead of deep copying
                 node->children[node->child_count] = *arg;
+                
+                // Deep copy the text to prevent corruption
+                if (arg->text) {
+                    node->children[node->child_count].text = strdup(arg->text);
+                }
+                
                 node->child_count++;
 
                 if (tokens[*current].type == TOKEN_COMMA) {
@@ -1039,10 +1176,58 @@ static ASTNode* parse_statement(Token* tokens, int* current) {
                 return NULL;
             }
             (*current)++; // Skip ';'
+            
             break;
         }
 
         case TOKEN_IDENTIFIER: {
+            // Check if this is an assignment statement (identifier = expression)
+            if (tokens[*current + 1].type == TOKEN_ASSIGN) {
+                // This is an assignment statement
+                char* var_name = strdup(tokens[*current].text);
+                (*current)++; // Skip identifier
+                (*current)++; // Skip '='
+                
+                // Parse the value expression
+                ASTNode* value_expr = parse_expression(tokens, current);
+                if (!value_expr) {
+                    free(var_name);
+                    parser_free_ast(node);
+                    return NULL;
+                }
+                
+                // Check for semicolon
+                if (tokens[*current].type != TOKEN_SEMICOLON) {
+                    fprintf(stderr, "Error: Expected ';' after assignment at line %d\n", tokens[*current].line);
+                    free(var_name);
+                    parser_free_ast(node);
+                    parser_free_ast(value_expr);
+                    return NULL;
+                }
+                (*current)++; // Skip ';'
+                
+                // Create assignment node
+                node->type = AST_ASSIGN;
+                node->text = strdup("assign");
+                node->children = (ASTNode*)tracked_malloc(2 * sizeof(ASTNode), __FILE__, __LINE__, "parse_statement_assignment");
+                node->child_count = 2;
+                node->next = NULL;
+                node->line = tokens[*current - 2].line; // Line of the identifier
+                
+                // Set variable name and value
+                node->children[0].type = AST_EXPR;
+                node->children[0].text = var_name;
+                node->children[0].children = NULL;
+                node->children[0].child_count = 0;
+                node->children[0].next = NULL;
+                node->children[0].line = node->line;
+                
+                // Copy the value expression
+                deep_copy_ast_node(&node->children[1], value_expr);
+                parser_free_ast(value_expr);
+                break;
+            }
+            
             // This might be a function call statement like "bot.send_embed(...)"
             // Save the current position to restore if this isn't a function call
             int saved_current = *current;

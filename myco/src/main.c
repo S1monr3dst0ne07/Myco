@@ -8,10 +8,12 @@
 #include "eval.h"
 #include "codegen.h"
 #include "memory_tracker.h"
+#include "config.h"
 
 int main(int argc, char* argv[]) {
-    // Initialize memory tracking system
+    #if DEBUG_MEMORY_TRACKING
     memory_tracker_init();
+    #endif
     
     // Make prompts visible immediately in interactive mode
     setvbuf(stdout, NULL, _IOLBF, 0);
@@ -23,41 +25,57 @@ int main(int argc, char* argv[]) {
 
     const char* input_file = argv[1];
     int build_mode = 0;
-    int keep_output = 0;
+    const char* output_file = NULL;
 
-    // Parse command-line arguments
+    // Parse command line arguments
     for (int i = 2; i < argc; i++) {
         if (strcmp(argv[i], "--build") == 0) {
             build_mode = 1;
-        } else if (strcmp(argv[i], "--output") == 0) {
-            keep_output = 1;
+        } else if (strcmp(argv[i], "--output") == 0 && i + 1 < argc) {
+            output_file = argv[++i];
         }
     }
 
-    // Open the input file
+    // Open and read input file
     FILE* file = fopen(input_file, "r");
     if (!file) {
         fprintf(stderr, "Error: Could not open file %s\n", input_file);
         return 1;
     }
-
-    // Read the file content
+    
+    // Get file size
     fseek(file, 0, SEEK_END);
     long file_size = ftell(file);
     fseek(file, 0, SEEK_SET);
-    char* source = malloc(file_size + 1);
-    fread(source, 1, file_size, file);
-    source[file_size] = '\0';
-    fclose(file);
-
-    // Lexical analysis
-    Token* tokens = lexer_tokenize(source);
-    if (!tokens) {
-        fprintf(stderr, "Error: Lexical analysis failed\n");
-        free(source);
+    
+    // Allocate buffer and read file
+    char* source_code = malloc(file_size + 1);
+    if (!source_code) {
+        fprintf(stderr, "Error: Memory allocation failed\n");
+        fclose(file);
         return 1;
     }
-
+    
+    size_t bytes_read = fread(source_code, 1, file_size, file);
+    source_code[bytes_read] = '\0';
+    fclose(file);
+    
+    #if DEBUG_MEMORY_TRACKING
+    if (build_mode) {
+        printf("Building executable from %s...\n", input_file);
+    } else {
+        printf("Interpreting %s...\n", input_file);
+    }
+    #endif
+    
+    // Lexical analysis
+    Token* tokens = lexer_tokenize(source_code);
+    if (!tokens) {
+        fprintf(stderr, "Error: Lexical analysis failed\n");
+        free(source_code);
+        return 1;
+    }
+    
     // Set base directory for imports
     {
         // derive directory part from input_file
@@ -81,43 +99,37 @@ int main(int argc, char* argv[]) {
     ASTNode* ast = parser_parse(tokens);
     if (!ast) {
         fprintf(stderr, "Error: Parsing failed\n");
-        free(source);
+        free(tokens);
+        free(source_code);
         return 1;
     }
-
+    
     if (build_mode) {
-        // Generate executable
-        if (codegen_generate(ast, input_file, keep_output) != 0) {
+        // Code generation mode
+        const char* output_name = output_file ? output_file : "output.c";
+        if (codegen_generate(ast, output_name, 0) == 0) {
+            printf("Executable generated successfully.\n");
+        } else {
             fprintf(stderr, "Error: Code generation failed\n");
-            free(source);
-            return 1;
         }
-        printf("Executable generated successfully.\n");
     } else {
         // Evaluate the AST
             eval_evaluate(ast);
     }
-
+    
     // Cleanup
-    free(source);
-    lexer_free_tokens(tokens);
-    
-    if (!build_mode) {
-        // Clear module AST references before freeing main AST to prevent double-free
-        extern void eval_clear_module_asts();
-        extern void eval_clear_function_asts();
-        eval_clear_module_asts();
-        eval_clear_function_asts();
-        
-        // Clean up environments to prevent memory leaks
-        extern void cleanup_all_environments();
-        cleanup_all_environments();
-    }
-    
     parser_free_ast(ast);
+    free(tokens);
+    free(source_code);
     
-    // Cleanup memory tracking system
+    #if DEBUG_MEMORY_TRACKING
+    cleanup_all_environments();
     memory_tracker_cleanup();
+    #endif
+    
+    // Cleanup loop execution state
+    extern void cleanup_loop_execution_state(void);
+    cleanup_loop_execution_state();
     
     return 0;
 } 

@@ -93,6 +93,23 @@ Token* lexer_tokenize(const char* source) {
             continue;
         }
 
+        // Multi-character operators (must come before identifier detection)
+        if (strncmp(p, "and", 3) == 0 && (p[3] == ' ' || p[3] == '\t' || p[3] == '\n' || p[3] == '\r' || p[3] == '\0')) {
+            tokens[token_count].type = TOKEN_OPERATOR;
+            tokens[token_count].text = strdup("and");
+            p += 3; // Skip 'and' completely, no need for loop increment
+            tokens[token_count].line = line;
+            token_count++;
+            continue;
+        } else if (strncmp(p, "or", 2) == 0 && (p[2] == ' ' || p[2] == '\t' || p[2] == '\n' || p[2] == '\r' || p[2] == '\0')) {
+            tokens[token_count].type = TOKEN_OPERATOR;
+            tokens[token_count].text = strdup("or");
+            p += 2; // Skip 'or' completely, no need for loop increment
+            tokens[token_count].line = line;
+            token_count++;
+            continue;
+        }
+
         // Keywords and identifiers
         if (isalpha(*p) || *p == '_') {
             const char* start = p;
@@ -185,6 +202,7 @@ Token* lexer_tokenize(const char* source) {
         }
 
         // Operators and symbols
+        // Check for multi-character operators first
         switch (*p) {
             case '+': tokens[token_count].type = TOKEN_OPERATOR; tokens[token_count].text = strdup("+"); break;
             case '-': tokens[token_count].type = TOKEN_OPERATOR; tokens[token_count].text = strdup("-"); break;
