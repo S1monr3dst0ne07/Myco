@@ -5,6 +5,7 @@
 #include <string.h>
 #include "parser.h"
 #include "lexer.h"
+#include "memory_tracker.h"
 
 #define MAX_CHILDREN 100
 
@@ -26,7 +27,7 @@ static int get_precedence(const char* op) {
 
 // Helper function to parse primary expressions
 static ASTNode* parse_primary(Token* tokens, int* current) {
-    ASTNode* node = (ASTNode*)malloc(sizeof(ASTNode));
+    ASTNode* node = (ASTNode*)tracked_malloc(sizeof(ASTNode), __FILE__, __LINE__, "parse_primary");
     if (!node) {
         fprintf(stderr, "Error: Memory allocation failed\n");
         return NULL;
@@ -75,7 +76,7 @@ static ASTNode* parse_primary(Token* tokens, int* current) {
                     tokens[*current].text ? tokens[*current].text : "NULL", 
                     tokens[*current].line, 
                     tokens[*current].type);
-            free(node);
+            tracked_free(node, __FILE__, __LINE__, "parse_primary");
             return NULL;
     }
 
@@ -90,10 +91,10 @@ static ASTNode* parse_primary(Token* tokens, int* current) {
             return NULL;
         }
 
-        ASTNode* dot_node = (ASTNode*)malloc(sizeof(ASTNode));
+        ASTNode* dot_node = (ASTNode*)tracked_malloc(sizeof(ASTNode), __FILE__, __LINE__, "parse_primary_dot");
         dot_node->type = AST_DOT;
         dot_node->text = strdup("dot");
-        dot_node->children = (ASTNode*)malloc(2 * sizeof(ASTNode));
+        dot_node->children = (ASTNode*)tracked_malloc(2 * sizeof(ASTNode), __FILE__, __LINE__, "parse_primary_dot");
         dot_node->child_count = 2;
         dot_node->next = NULL;
         dot_node->line = node->line;
@@ -116,17 +117,17 @@ static ASTNode* parse_primary(Token* tokens, int* current) {
         (*current)++; // Skip member identifier
         
         // Free the original node since we're replacing it
-        free(node);
+        tracked_free(node, __FILE__, __LINE__, "parse_primary_dot_replace");
         node = dot_node;
     }
 
     // Handle function calls - do this AFTER dot expressions
     if (tokens[*current].type == TOKEN_LPAREN) {
         (*current)++; // Skip '('
-        ASTNode* call_node = (ASTNode*)malloc(sizeof(ASTNode));
+        ASTNode* call_node = (ASTNode*)tracked_malloc(sizeof(ASTNode), __FILE__, __LINE__, "parse_primary_call");
         call_node->type = AST_EXPR;
         call_node->text = strdup("call");
-        call_node->children = (ASTNode*)malloc(2 * sizeof(ASTNode));
+        call_node->children = (ASTNode*)tracked_malloc(2 * sizeof(ASTNode), __FILE__, __LINE__, "parse_primary_call");
         call_node->child_count = 2;
         call_node->next = NULL;
         call_node->line = node->line;  // Preserve line number
@@ -145,27 +146,27 @@ static ASTNode* parse_primary(Token* tokens, int* current) {
         while (tokens[*current].type != TOKEN_RPAREN) {
             ASTNode* arg = parse_expression(tokens, current);
             if (!arg) {
-                free(call_node);
+                tracked_free(call_node, __FILE__, __LINE__, "parse_primary_call_error");
                 return NULL;
             }
-            call_node->children[1].children = (ASTNode*)realloc(call_node->children[1].children, (call_node->children[1].child_count + 1) * sizeof(ASTNode));
+            call_node->children[1].children = (ASTNode*)tracked_realloc(call_node->children[1].children, (call_node->children[1].child_count + 1) * sizeof(ASTNode), __FILE__, __LINE__, "parse_primary_call_args");
             // Use deep copy to properly copy the argument node
             deep_copy_ast_node(&call_node->children[1].children[call_node->children[1].child_count], arg);
             call_node->children[1].child_count++;
-            free(arg);
+            tracked_free(arg, __FILE__, __LINE__, "parse_primary_call_arg");
 
             if (tokens[*current].type == TOKEN_COMMA) {
                 (*current)++;
             } else if (tokens[*current].type != TOKEN_RPAREN) {
                 fprintf(stderr, "Error: Expected ',' or ')' at line %d\n", tokens[*current].line);
-                free(call_node);
+                tracked_free(call_node, __FILE__, __LINE__, "parse_primary_call_syntax_error");
                 return NULL;
             }
         }
         (*current)++; // Skip ')'
         
         // Free the original node since we're replacing it
-        free(node);
+        tracked_free(node, __FILE__, __LINE__, "parse_primary_call_replace");
         node = call_node;
     }
 
@@ -194,7 +195,7 @@ static ASTNode* parse_expression(Token* tokens, int* current) {
         }
 
         // Create operator node
-        ASTNode* operator_node = (ASTNode*)malloc(sizeof(ASTNode));
+        ASTNode* operator_node = (ASTNode*)tracked_malloc(sizeof(ASTNode), __FILE__, __LINE__, "parse_expression_operator");
         if (!operator_node) {
             fprintf(stderr, "Error: Memory allocation failed\n");
             parser_free_ast(left);
@@ -204,20 +205,20 @@ static ASTNode* parse_expression(Token* tokens, int* current) {
 
         operator_node->type = AST_EXPR;
         operator_node->text = strdup(op);
-        operator_node->children = (ASTNode*)malloc(2 * sizeof(ASTNode));
+        operator_node->children = (ASTNode*)tracked_malloc(2 * sizeof(ASTNode), __FILE__, __LINE__, "parse_expression_operator");
         operator_node->child_count = 2;
         operator_node->next = NULL;
         operator_node->line = op_line;  // Set operator line number
         
 
         
-        // Use deep copy to properly copy the left and right nodes
-        deep_copy_ast_node(&operator_node->children[0], left);
-        deep_copy_ast_node(&operator_node->children[1], right);
+        // Move the left and right nodes directly instead of deep copying
+        operator_node->children[0] = *left;
+        operator_node->children[1] = *right;
         
-        // Free the original nodes since we've copied their content
-        free(left);
-        free(right);
+        // Free the original nodes since we've moved their content
+        tracked_free(left, __FILE__, __LINE__, "parse_expression_operator_move");
+        tracked_free(right, __FILE__, __LINE__, "parse_expression_operator_move");
         
         left = operator_node;
 
@@ -238,7 +239,7 @@ static ASTNode* parse_expression(Token* tokens, int* current) {
             }
 
             // Create new operator node for higher precedence operator
-            ASTNode* next_operator = (ASTNode*)malloc(sizeof(ASTNode));
+            ASTNode* next_operator = (ASTNode*)tracked_malloc(sizeof(ASTNode), __FILE__, __LINE__, "parse_expression_next_operator");
             if (!next_operator) {
                 fprintf(stderr, "Error: Memory allocation failed\n");
                 parser_free_ast(left);
@@ -248,23 +249,23 @@ static ASTNode* parse_expression(Token* tokens, int* current) {
 
             next_operator->type = AST_EXPR;
             next_operator->text = strdup(next_op);
-            next_operator->children = (ASTNode*)malloc(2 * sizeof(ASTNode));
+            next_operator->children = (ASTNode*)tracked_malloc(2 * sizeof(ASTNode), __FILE__, __LINE__, "parse_expression_next_operator");
             next_operator->child_count = 2;
             next_operator->next = NULL;
             next_operator->line = next_op_line;  // Set next operator line number
             
-            // Use deep copy to properly copy the nodes
-            deep_copy_ast_node(&next_operator->children[0], &left->children[1]);
-            deep_copy_ast_node(&next_operator->children[1], next_right);
+            // Move the nodes directly instead of deep copying
+            next_operator->children[0] = left->children[1];
+            next_operator->children[1] = *next_right;
             
-            // Free the new right node since we've copied its content
-            free(next_right);
+            // Free the new right node since we've moved its content
+            tracked_free(next_right, __FILE__, __LINE__, "parse_expression_next_operator_move");
             
-            // Update the right child of current operator using deep copy
-            deep_copy_ast_node(&left->children[1], next_operator);
+            // Update the right child of current operator by moving
+            left->children[1] = *next_operator;
             
-            // Free the next operator node since we've copied its content
-            free(next_operator);
+            // Free the next operator node since we've moved its content
+            tracked_free(next_operator, __FILE__, __LINE__, "parse_expression_next_operator_move");
         }
     }
 
@@ -273,7 +274,7 @@ static ASTNode* parse_expression(Token* tokens, int* current) {
 
 // Helper function to parse a block of statements
 static ASTNode* parse_block(Token* tokens, int* current) {
-    ASTNode* block = (ASTNode*)malloc(sizeof(ASTNode));
+    ASTNode* block = (ASTNode*)tracked_malloc(sizeof(ASTNode), __FILE__, __LINE__, "parse_block");
     if (!block) {
         fprintf(stderr, "Error: Memory allocation failed\n");
         return NULL;
@@ -303,10 +304,10 @@ static ASTNode* parse_block(Token* tokens, int* current) {
             return NULL;
         }
         // Allocate space for the new statement
-        block->children = (ASTNode*)realloc(block->children, (block->child_count + 1) * sizeof(ASTNode));
+        block->children = (ASTNode*)tracked_realloc(block->children, (block->child_count + 1) * sizeof(ASTNode), __FILE__, __LINE__, "parse_block");
         
-        // Use deep copy to safely copy the entire statement
-        deep_copy_ast_node(&block->children[block->child_count], stmt);
+        // Move the statement directly instead of deep copying
+        block->children[block->child_count] = *stmt;
         block->child_count++;
         
         // Clean up the source statement
@@ -349,7 +350,7 @@ static void deep_copy_ast_node(ASTNode* dest, ASTNode* src) {
     
     // Deep copy children recursively
     if (src->children && src->child_count > 0) {
-        dest->children = (ASTNode*)malloc(src->child_count * sizeof(ASTNode));
+        dest->children = (ASTNode*)tracked_malloc(src->child_count * sizeof(ASTNode), __FILE__, __LINE__, "deep_copy_ast_node");
         dest->child_count = src->child_count;
         
         for (int i = 0; i < src->child_count; i++) {
@@ -363,7 +364,7 @@ static void deep_copy_ast_node(ASTNode* dest, ASTNode* src) {
 
 // Helper function to parse statements
 static ASTNode* parse_statement(Token* tokens, int* current) {
-    ASTNode* node = (ASTNode*)malloc(sizeof(ASTNode));
+            ASTNode* node = (ASTNode*)tracked_malloc(sizeof(ASTNode), __FILE__, __LINE__, "parse_statement");
     if (!node) {
         fprintf(stderr, "Error: Memory allocation failed\n");
         return NULL;
@@ -377,25 +378,30 @@ static ASTNode* parse_statement(Token* tokens, int* current) {
         (*current)++; // skip 'use'
         if (tokens[*current].type != TOKEN_PATH && tokens[*current].type != TOKEN_STRING && tokens[*current].type != TOKEN_IDENTIFIER) {
             fprintf(stderr, "Error: Expected module path or name after 'use' at line %d\n", tokens[*current].line);
-            free(node); return NULL;
+            tracked_free(node, __FILE__, __LINE__, "parse_statement_use_error");
+            return NULL;
         }
         char* path = strdup(tokens[*current].text);
         (*current)++;
         if (tokens[*current].type != TOKEN_AS) {
             fprintf(stderr, "Error: Expected 'as' after module path at line %d\n", tokens[*current].line);
-            free(node); free(path); return NULL;
+            tracked_free(node, __FILE__, __LINE__, "parse_statement_use_as_error");
+            free(path);
+            return NULL;
         }
         (*current)++; // skip 'as'
         if (tokens[*current].type != TOKEN_IDENTIFIER) {
             fprintf(stderr, "Error: Expected identifier after 'as' at line %d\n", tokens[*current].line);
-            free(node); free(path); return NULL;
+            tracked_free(node, __FILE__, __LINE__, "parse_statement_use_alias_error");
+            free(path);
+            return NULL;
         }
         char* alias = strdup(tokens[*current].text);
         (*current)++;
         if (tokens[*current].type == TOKEN_SEMICOLON) (*current)++;
         node->type = AST_BLOCK;
         node->text = strdup("use");
-        node->children = (ASTNode*)malloc(2 * sizeof(ASTNode));
+        node->children = (ASTNode*)tracked_malloc(2 * sizeof(ASTNode), __FILE__, __LINE__, "parse_statement_use");
         node->child_count = 2;
         node->next = NULL;
         node->line = line;
@@ -429,7 +435,7 @@ static ASTNode* parse_statement(Token* tokens, int* current) {
         }
 
         // Add block as child of default node
-        node->children = (ASTNode*)malloc(sizeof(ASTNode));
+        node->children = (ASTNode*)tracked_malloc(sizeof(ASTNode), __FILE__, __LINE__, "parse_statement_default");
         deep_copy_ast_node(&node->children[0], block);
         node->child_count = 1;
 
@@ -470,9 +476,9 @@ static ASTNode* parse_statement(Token* tokens, int* current) {
             }
 
             // Add condition and body as children
-            node->children = (ASTNode*)malloc(2 * sizeof(ASTNode));
-            deep_copy_ast_node(&node->children[0], condition);
-            deep_copy_ast_node(&node->children[1], while_body);
+            node->children = (ASTNode*)tracked_malloc(2 * sizeof(ASTNode), __FILE__, __LINE__, "parse_statement_while");
+            node->children[0] = *condition;
+            node->children[1] = *while_body;
             node->child_count = 2;
             break;
         }
@@ -530,11 +536,11 @@ static ASTNode* parse_statement(Token* tokens, int* current) {
             }
 
             // Add condition and bodies as children
-            node->children = (ASTNode*)malloc((else_body ? 3 : 2) * sizeof(ASTNode));
-            deep_copy_ast_node(&node->children[0], condition);
-            deep_copy_ast_node(&node->children[1], if_body);
+            node->children = (ASTNode*)tracked_malloc((else_body ? 3 : 2) * sizeof(ASTNode), __FILE__, __LINE__, "parse_statement_if");
+            node->children[0] = *condition;
+            node->children[1] = *if_body;
             if (else_body) {
-                deep_copy_ast_node(&node->children[2], else_body);
+                node->children[2] = *else_body;
                 node->child_count = 3;
             } else {
                 node->child_count = 2;
@@ -557,7 +563,7 @@ static ASTNode* parse_statement(Token* tokens, int* current) {
                 return NULL;
             }
 
-            ASTNode* loop_var = (ASTNode*)malloc(sizeof(ASTNode));
+            ASTNode* loop_var = (ASTNode*)tracked_malloc(sizeof(ASTNode), __FILE__, __LINE__, "parse_statement_for");
             loop_var->type = AST_EXPR;
             loop_var->text = strdup(tokens[*current].text);
             loop_var->children = NULL;
@@ -622,11 +628,11 @@ static ASTNode* parse_statement(Token* tokens, int* current) {
             }
 
             // Add loop variable, range, and body as children
-            node->children = (ASTNode*)malloc(4 * sizeof(ASTNode));
-            deep_copy_ast_node(&node->children[0], loop_var);
-            deep_copy_ast_node(&node->children[1], range_start);
-            deep_copy_ast_node(&node->children[2], range_end);
-            deep_copy_ast_node(&node->children[3], loop_body);
+            node->children = (ASTNode*)tracked_malloc(4 * sizeof(ASTNode), __FILE__, __LINE__, "parse_statement_for");
+            node->children[0] = *loop_var;
+            node->children[1] = *range_start;
+            node->children[2] = *range_end;
+            node->children[3] = *loop_body;
             node->child_count = 4;
             break;
         }
@@ -655,7 +661,7 @@ static ASTNode* parse_statement(Token* tokens, int* current) {
             (*current)++; // Skip ':'
 
             // Parse cases
-            ASTNode* cases = (ASTNode*)malloc(sizeof(ASTNode));
+            ASTNode* cases = (ASTNode*)tracked_malloc(sizeof(ASTNode), __FILE__, __LINE__, "parse_statement_switch");
             cases->type = AST_BLOCK;
             cases->text = strdup("cases");
             cases->children = NULL;
@@ -692,18 +698,18 @@ static ASTNode* parse_statement(Token* tokens, int* current) {
                         return NULL;
                     }
 
-                    ASTNode* case_node = (ASTNode*)malloc(sizeof(ASTNode));
+                    ASTNode* case_node = (ASTNode*)tracked_malloc(sizeof(ASTNode), __FILE__, __LINE__, "parse_statement_switch_case");
                     case_node->type = AST_CASE;
                     case_node->text = strdup("case");
-                    case_node->children = (ASTNode*)malloc(2 * sizeof(ASTNode));
-                    deep_copy_ast_node(&case_node->children[0], case_expr);
-                    deep_copy_ast_node(&case_node->children[1], case_body);
+                    case_node->children = (ASTNode*)tracked_malloc(2 * sizeof(ASTNode), __FILE__, __LINE__, "parse_statement_switch_case");
+                    case_node->children[0] = *case_expr;
+                    case_node->children[1] = *case_body;
                     case_node->child_count = 2;
                     case_node->next = NULL;
 
-                    cases->children = (ASTNode*)realloc(cases->children, (cases->child_count + 1) * sizeof(ASTNode));
-                    deep_copy_ast_node(&cases->children[cases->child_count], case_node);
-                    case_node->child_count++;
+                    cases->children = (ASTNode*)tracked_realloc(cases->children, (cases->child_count + 1) * sizeof(ASTNode), __FILE__, __LINE__, "parse_switch_case");
+                    cases->children[cases->child_count] = *case_node;
+                    cases->child_count++;
                 } else if (tokens[*current].type == TOKEN_DEFAULT) {
                     (*current)++; // Skip 'default'
                     if (tokens[*current].type != TOKEN_COLON) {
@@ -723,24 +729,24 @@ static ASTNode* parse_statement(Token* tokens, int* current) {
                         return NULL;
                     }
 
-                    ASTNode* default_node = (ASTNode*)malloc(sizeof(ASTNode));
+                    ASTNode* default_node = (ASTNode*)tracked_malloc(sizeof(ASTNode), __FILE__, __LINE__, "parse_statement_switch_default");
                     default_node->type = AST_DEFAULT;
                     default_node->text = strdup("default");
-                    default_node->children = (ASTNode*)malloc(sizeof(ASTNode));
-                    deep_copy_ast_node(&default_node->children[0], default_body);
+                    default_node->children = (ASTNode*)tracked_malloc(sizeof(ASTNode), __FILE__, __LINE__, "parse_statement_switch_default");
+                    default_node->children[0] = *default_body;
                     default_node->child_count = 1;
                     default_node->next = NULL;
 
-                    cases->children = (ASTNode*)realloc(cases->children, (cases->child_count + 1) * sizeof(ASTNode));
-                    deep_copy_ast_node(&cases->children[cases->child_count], default_node);
-                    default_node->child_count++;
+                    cases->children = (ASTNode*)tracked_realloc(cases->children, (cases->child_count + 1) * sizeof(ASTNode), __FILE__, __LINE__, "parse_switch_default");
+                    cases->children[cases->child_count] = *default_node;
+                    cases->child_count++;
                 }
             }
 
             // Add switch expression and cases as children
-            node->children = (ASTNode*)malloc(2 * sizeof(ASTNode));
-            deep_copy_ast_node(&node->children[0], switch_expr);
-            deep_copy_ast_node(&node->children[1], cases);
+            node->children = (ASTNode*)tracked_malloc(2 * sizeof(ASTNode), __FILE__, __LINE__, "parse_statement_switch");
+            node->children[0] = *switch_expr;
+            node->children[1] = *cases;
             node->child_count = 2;
             break;
         }
@@ -784,7 +790,7 @@ static ASTNode* parse_statement(Token* tokens, int* current) {
                 return NULL;
             }
 
-            ASTNode* error_var = (ASTNode*)malloc(sizeof(ASTNode));
+            ASTNode* error_var = (ASTNode*)tracked_malloc(sizeof(ASTNode), __FILE__, __LINE__, "parse_statement_try");
             error_var->type = AST_EXPR;
             error_var->text = strdup(tokens[*current].text);
             error_var->children = NULL;
@@ -811,10 +817,10 @@ static ASTNode* parse_statement(Token* tokens, int* current) {
             }
 
             // Add try body, error variable, and catch body as children
-            node->children = (ASTNode*)malloc(3 * sizeof(ASTNode));
-            deep_copy_ast_node(&node->children[0], try_body);
-            deep_copy_ast_node(&node->children[1], error_var);
-            deep_copy_ast_node(&node->children[2], catch_body);
+            node->children = (ASTNode*)tracked_malloc(3 * sizeof(ASTNode), __FILE__, __LINE__, "parse_statement_try");
+            node->children[0] = *try_body;
+            node->children[1] = *error_var;
+            node->children[2] = *catch_body;
             node->child_count = 3;
             break;
         }
@@ -835,7 +841,7 @@ static ASTNode* parse_statement(Token* tokens, int* current) {
                 return NULL;
             }
 
-            ASTNode* var_name = (ASTNode*)malloc(sizeof(ASTNode));
+            ASTNode* var_name = (ASTNode*)tracked_malloc(sizeof(ASTNode), __FILE__, __LINE__, "parse_statement_let");
             var_name->type = AST_EXPR;
             var_name->text = strdup(tokens[*current].text);
             var_name->children = NULL;
@@ -860,7 +866,7 @@ static ASTNode* parse_statement(Token* tokens, int* current) {
                         return NULL;
                     }
 
-                    ASTNode* param = (ASTNode*)malloc(sizeof(ASTNode));
+                    ASTNode* param = (ASTNode*)tracked_malloc(sizeof(ASTNode), __FILE__, __LINE__, "parse_statement_func_param");
                     if (!param) {
                         fprintf(stderr, "Error: Memory allocation failed\n");
                         parser_free_ast(node);
@@ -886,7 +892,7 @@ static ASTNode* parse_statement(Token* tokens, int* current) {
                     }
 
                     // Add parameter to function
-                    node->children = (ASTNode*)realloc(node->children, (node->child_count + 1) * sizeof(ASTNode));
+                    node->children = (ASTNode*)tracked_realloc(node->children, (node->child_count + 1) * sizeof(ASTNode), __FILE__, __LINE__, "parse_statement_func_param");
                     deep_copy_ast_node(&node->children[node->child_count], param);
                     node->child_count++;
 
@@ -912,7 +918,7 @@ static ASTNode* parse_statement(Token* tokens, int* current) {
                 }
 
                 // Add function body as child
-                node->children = (ASTNode*)realloc(node->children, (node->child_count + 1) * sizeof(ASTNode));
+                node->children = (ASTNode*)tracked_realloc(node->children, (node->child_count + 1) * sizeof(ASTNode), __FILE__, __LINE__, "parse_statement_func_body");
                 deep_copy_ast_node(&node->children[node->child_count], func_body);
                 node->child_count++;
             } else {
@@ -945,9 +951,9 @@ static ASTNode* parse_statement(Token* tokens, int* current) {
                 (*current)++; // Skip ';'
 
                 // Add variable name and initial value as children
-                node->children = (ASTNode*)malloc(2 * sizeof(ASTNode));
-                deep_copy_ast_node(&node->children[0], var_name);
-                deep_copy_ast_node(&node->children[1], init_value);
+                node->children = (ASTNode*)tracked_malloc(2 * sizeof(ASTNode), __FILE__, __LINE__, "parse_statement_let_var");
+                node->children[0] = *var_name;
+                node->children[1] = *init_value;
                 node->child_count = 2;
             }
             break;
@@ -982,8 +988,8 @@ static ASTNode* parse_statement(Token* tokens, int* current) {
                 }
                 (*current)++; // Skip ';'
 
-                node->children = (ASTNode*)malloc(sizeof(ASTNode));
-                deep_copy_ast_node(&node->children[0], return_expr);
+                node->children = (ASTNode*)tracked_malloc(sizeof(ASTNode), __FILE__, __LINE__, "parse_statement_return");
+                node->children[0] = *return_expr;
                 node->child_count = 1;
             }
             break;
@@ -1012,9 +1018,9 @@ static ASTNode* parse_statement(Token* tokens, int* current) {
                     return NULL;
                 }
 
-                node->children = (ASTNode*)realloc(node->children, (node->child_count + 1) * sizeof(ASTNode));
-                // Shallow copy the arg node
-                deep_copy_ast_node(&node->children[node->child_count], arg);
+                node->children = (ASTNode*)tracked_realloc(node->children, (node->child_count + 1) * sizeof(ASTNode), __FILE__, __LINE__, "parse_statement_print");
+                // Move the arg node directly instead of deep copying
+                node->children[node->child_count] = *arg;
                 node->child_count++;
 
                 if (tokens[*current].type == TOKEN_COMMA) {
@@ -1056,11 +1062,11 @@ static ASTNode* parse_statement(Token* tokens, int* current) {
                 // Create an expression statement node
                 node->type = AST_EXPR;
                 node->text = strdup("expr_stmt");
-                node->children = (ASTNode*)malloc(sizeof(ASTNode));
+                node->children = (ASTNode*)tracked_malloc(sizeof(ASTNode), __FILE__, __LINE__, "parse_statement_identifier");
                 node->child_count = 1;
                 node->next = NULL;
                 node->line = tokens[saved_current].line;
-                deep_copy_ast_node(&node->children[0], expr);
+                node->children[0] = *expr;
                 break;
             } else {
                 // Not a statement, restore position and fall through to default
@@ -1081,7 +1087,7 @@ static ASTNode* parse_statement(Token* tokens, int* current) {
 
 ASTNode* parser_parse(Token* tokens) {
     int current = 0;
-    ASTNode* root = (ASTNode*)malloc(sizeof(ASTNode));
+    ASTNode* root = (ASTNode*)tracked_malloc(sizeof(ASTNode), __FILE__, __LINE__, "parser_parse");
     if (!root) {
         fprintf(stderr, "Error: Memory allocation failed\n");
         return NULL;
@@ -1105,7 +1111,7 @@ ASTNode* parser_parse(Token* tokens) {
                 return NULL;
             }
             
-            node = (ASTNode*)malloc(sizeof(ASTNode));
+            node = (ASTNode*)tracked_malloc(sizeof(ASTNode), __FILE__, __LINE__, "parser_parse_func");
             if (!node) {
                 fprintf(stderr, "Error: Memory allocation failed\n");
                 parser_free_ast(root);
@@ -1141,7 +1147,7 @@ ASTNode* parser_parse(Token* tokens) {
                     return NULL;
                 }
 
-                ASTNode* param = (ASTNode*)malloc(sizeof(ASTNode));
+                ASTNode* param = (ASTNode*)tracked_malloc(sizeof(ASTNode), __FILE__, __LINE__, "parser_parse_func_param");
                 if (!param) {
                     fprintf(stderr, "Error: Memory allocation failed\n");
                     parser_free_ast(root);
@@ -1172,7 +1178,7 @@ ASTNode* parser_parse(Token* tokens) {
                         parser_free_ast(param);
                         return NULL;
                     }
-                    ASTNode* type = (ASTNode*)malloc(sizeof(ASTNode));
+                    ASTNode* type = (ASTNode*)tracked_malloc(sizeof(ASTNode), __FILE__, __LINE__, "parser_parse_func_type");
                     if (!type) {
                         fprintf(stderr, "Error: Memory allocation failed\n");
                         parser_free_ast(root);
@@ -1196,14 +1202,14 @@ ASTNode* parser_parse(Token* tokens) {
                     current++; // Skip type
 
                     // Add type as child of parameter
-                    param->children = (ASTNode*)malloc(sizeof(ASTNode));
-                    deep_copy_ast_node(&param->children[0], type);
+                    param->children = (ASTNode*)tracked_malloc(sizeof(ASTNode), __FILE__, __LINE__, "parser_parse_func_param_type");
+                    param->children[0] = *type;
                     param->child_count = 1;
                 }
 
                 // Add parameter as child of function
-                node->children = (ASTNode*)realloc(node->children, (node->child_count + 1) * sizeof(ASTNode));
-                deep_copy_ast_node(&node->children[node->child_count], param);
+                node->children = (ASTNode*)tracked_realloc(node->children, (node->child_count + 1) * sizeof(ASTNode), __FILE__, __LINE__, "parser_parse_func_param");
+                node->children[node->child_count] = *param;
                 node->child_count++;
 
                 if (tokens[current].type == TOKEN_COMMA) {
@@ -1226,7 +1232,7 @@ ASTNode* parser_parse(Token* tokens) {
                     parser_free_ast(node);
                     return NULL;
                 }
-                ASTNode* return_type = (ASTNode*)malloc(sizeof(ASTNode));
+                ASTNode* return_type = (ASTNode*)tracked_malloc(sizeof(ASTNode), __FILE__, __LINE__, "parser_parse_func_return_type");
                 if (!return_type) {
                     fprintf(stderr, "Error: Memory allocation failed\n");
                     parser_free_ast(root);
@@ -1248,8 +1254,8 @@ ASTNode* parser_parse(Token* tokens) {
                 current++; // Skip return type
 
                 // Add return type as child of function
-                node->children = (ASTNode*)realloc(node->children, (node->child_count + 1) * sizeof(ASTNode));
-                deep_copy_ast_node(&node->children[node->child_count], return_type);
+                node->children = (ASTNode*)tracked_realloc(node->children, (node->child_count + 1) * sizeof(ASTNode), __FILE__, __LINE__, "parser_parse_return_type");
+                node->children[node->child_count] = *return_type;
                 node->child_count++;
             }
 
@@ -1270,7 +1276,7 @@ ASTNode* parser_parse(Token* tokens) {
             }
 
             // Add body as child of function
-            node->children = (ASTNode*)realloc(node->children, (node->child_count + 1) * sizeof(ASTNode));
+            node->children = (ASTNode*)tracked_realloc(node->children, (node->child_count + 1) * sizeof(ASTNode), __FILE__, __LINE__, "parser_parse_func_body");
             if (!node->children) {
                 fprintf(stderr, "Error: Memory allocation failed\n");
                 parser_free_ast(root);
@@ -1278,7 +1284,7 @@ ASTNode* parser_parse(Token* tokens) {
                 parser_free_ast(body);
                 return NULL;
             }
-            deep_copy_ast_node(&node->children[node->child_count], body);
+            node->children[node->child_count] = *body;
             node->child_count++;
         }
         // Parse other statements
@@ -1291,14 +1297,14 @@ ASTNode* parser_parse(Token* tokens) {
         }
 
         if (node) {
-            root->children = (ASTNode*)realloc(root->children, (root->child_count + 1) * sizeof(ASTNode));
+            root->children = (ASTNode*)tracked_realloc(root->children, (root->child_count + 1) * sizeof(ASTNode), __FILE__, __LINE__, "parser_parse_root");
             if (!root->children) {
                 fprintf(stderr, "Error: Memory allocation failed\n");
                 parser_free_ast(root);
                 parser_free_ast(node);
                 return NULL;
             }
-            deep_copy_ast_node(&root->children[root->child_count], node);
+            root->children[root->child_count] = *node;
             root->child_count++;
         }
     }
@@ -1322,24 +1328,24 @@ void parser_free_ast(ASTNode* node) {
             if (node->children[i].children && node->children[i].child_count > 0) {
                 for (int j = 0; j < node->children[i].child_count; j++) {
                     if (node->children[i].children[j].text) {
-                        free(node->children[i].children[j].text);
+                        tracked_free(node->children[i].children[j].text, __FILE__, __LINE__, "parser_free_ast");
                     }
                 }
-                free(node->children[i].children);
+                tracked_free(node->children[i].children, __FILE__, __LINE__, "parser_free_ast");
             }
             if (node->children[i].text) {
-                free(node->children[i].text);
+                tracked_free(node->children[i].text, __FILE__, __LINE__, "parser_free_ast");
             }
         }
-        free(node->children);
+        tracked_free(node->children, __FILE__, __LINE__, "parser_free_ast");
         node->children = NULL;
     }
     
     // Free text
     if (node->text) {
-        free(node->text);
+        tracked_free(node->text, __FILE__, __LINE__, "parser_free_ast");
         node->text = NULL;
     }
     
-    free(node);
+    tracked_free(node, __FILE__, __LINE__, "parser_free_ast");
 } 

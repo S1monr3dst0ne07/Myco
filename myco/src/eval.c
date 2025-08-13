@@ -5,6 +5,7 @@
 #include <string.h>
 #include <ctype.h>
 #include "parser.h"
+#include "memory_tracker.h"
 #include <sys/stat.h>
 #ifdef _WIN32
 #include <windows.h>
@@ -493,7 +494,7 @@ static void set_str_value(const char* name, const char* value) {
     // Expand capacity if needed
     if (str_env_size >= str_env_capacity) {
         int new_capacity = str_env_capacity ? str_env_capacity * 2 : 8;
-        StrEntry* new_env = (StrEntry*)realloc(str_env, new_capacity * sizeof(StrEntry));
+        StrEntry* new_env = (StrEntry*)tracked_realloc(str_env, new_capacity * sizeof(StrEntry), __FILE__, __LINE__, "set_str_value");
         if (!new_env) {
             // Handle realloc failure
             return;
@@ -510,11 +511,11 @@ static void set_str_value(const char* name, const char* value) {
     } else {
         // Handle allocation failure
         if (str_env[str_env_size].name) {
-            free(str_env[str_env_size].name);
+            tracked_free(str_env[str_env_size].name, __FILE__, __LINE__, "set_str_value");
             str_env[str_env_size].name = NULL;
         }
         if (str_env[str_env_size].value) {
-            free(str_env[str_env_size].value);
+            tracked_free(str_env[str_env_size].value, __FILE__, __LINE__, "set_str_value");
             str_env[str_env_size].value = NULL;
         }
     }
@@ -525,15 +526,15 @@ static void cleanup_str_env() {
     if (str_env && str_env_size > 0) {
         for (int i = 0; i < str_env_size; i++) {
             if (str_env[i].name) {
-                free(str_env[i].name);
+                tracked_free(str_env[i].name, __FILE__, __LINE__, "cleanup_str_env");
                 str_env[i].name = NULL;
             }
             if (str_env[i].value) {
-                free(str_env[i].value);
+                tracked_free(str_env[i].value, __FILE__, __LINE__, "cleanup_str_env");
                 str_env[i].value = NULL;
             }
         }
-        free(str_env);
+        tracked_free(str_env, __FILE__, __LINE__, "cleanup_str_env");
         str_env = NULL;
         str_env_size = 0;
         str_env_capacity = 0;
@@ -544,15 +545,15 @@ static void cleanup_str_env() {
 static void cleanup_var_env() {
     if (var_env && var_env_size > 0) {
         for (int i = 0; i < var_env_size; i++) {
-            if (var_env[i].name) {
-                free(var_env[i].name);
-                var_env[i].name = NULL;
-            }
+                    if (var_env[i].name) {
+            tracked_free(var_env[i].name, __FILE__, __LINE__, "cleanup_var_env");
+            var_env[i].name = NULL;
         }
-        free(var_env);
-        var_env = NULL;
-        var_env_size = 0;
-        var_env_capacity = 0;
+    }
+    tracked_free(var_env, __FILE__, __LINE__, "cleanup_var_env");
+    var_env = NULL;
+    var_env_size = 0;
+    var_env_capacity = 0;
     }
 }
 
@@ -561,11 +562,11 @@ static void cleanup_func_env() {
     if (functions && functions_size > 0) {
         for (int i = 0; i < functions_size; i++) {
             if (functions[i].name) {
-                free(functions[i].name);
+                tracked_free(functions[i].name, __FILE__, __LINE__, "cleanup_func_env");
                 functions[i].name = NULL;
             }
         }
-        free(functions);
+        tracked_free(functions, __FILE__, __LINE__, "cleanup_func_env");
         functions = NULL;
         functions_size = 0;
         functions_cap = 0;
@@ -577,13 +578,13 @@ static void cleanup_module_env() {
     if (modules && modules_size > 0) {
         for (int i = 0; i < modules_size; i++) {
             if (modules[i].alias) {
-                free(modules[i].alias);
+                tracked_free(modules[i].alias, __FILE__, __LINE__, "cleanup_module_env");
                 modules[i].alias = NULL;
             }
             // Don't free module_ast here as it's owned by the parser
             modules[i].module_ast = NULL;
         }
-        free(modules);
+        tracked_free(modules, __FILE__, __LINE__, "cleanup_module_env");
         modules = NULL;
         modules_size = 0;
         modules_cap = 0;
@@ -591,7 +592,7 @@ static void cleanup_module_env() {
 }
 
 // Master cleanup function
-static void cleanup_all_environments() {
+void cleanup_all_environments() {
     cleanup_str_env();
     cleanup_var_env();
     cleanup_func_env();

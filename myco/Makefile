@@ -1,6 +1,6 @@
 CC = gcc
 CFLAGS = -O2 -std=c99 -Iinclude
-SRC = src/main.c src/lexer.c src/parser.c src/eval.c src/codegen.c
+SRC = src/main.c src/lexer.c src/parser.c src/eval.c src/codegen.c src/memory_tracker.c
 OUT = myco
 WINCC = x86_64-w64-mingw32-gcc
 WINOUT = myco.exe

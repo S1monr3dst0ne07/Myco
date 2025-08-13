@@ -7,8 +7,12 @@
 #include "parser.h"
 #include "eval.h"
 #include "codegen.h"
+#include "memory_tracker.h"
 
 int main(int argc, char* argv[]) {
+    // Initialize memory tracking system
+    memory_tracker_init();
+    
     // Make prompts visible immediately in interactive mode
     setvbuf(stdout, NULL, _IOLBF, 0);
     setvbuf(stderr, NULL, _IOLBF, 0);
@@ -105,11 +109,15 @@ int main(int argc, char* argv[]) {
         eval_clear_module_asts();
         eval_clear_function_asts();
         
-        // Don't call eval_reset_environments() as it causes double-free issues
-        // The environments will be cleaned up when the program exits
+        // Clean up environments to prevent memory leaks
+        extern void cleanup_all_environments();
+        cleanup_all_environments();
     }
     
     parser_free_ast(ast);
+    
+    // Cleanup memory tracking system
+    memory_tracker_cleanup();
     
     return 0;
 } 
