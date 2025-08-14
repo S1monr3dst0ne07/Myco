@@ -33,7 +33,9 @@ typedef enum {
     TOKEN_USE,
     TOKEN_AS,
     TOKEN_PATH,
-    TOKEN_DOT
+    TOKEN_DOT,
+    TOKEN_LBRACKET,
+    TOKEN_RBRACKET
 } MycoTokenType;
 
 typedef struct {

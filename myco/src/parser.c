@@ -172,6 +172,72 @@ static ASTNode* parse_primary(Token* tokens, int* current) {
             (*current)++; // Skip ')'
             break;
 
+        case TOKEN_LBRACKET:
+            // Parse array literal: [expr1, expr2, ...]
+            (*current)++; // Skip '['
+            
+            // Create array literal node
+            node->type = AST_ARRAY_LITERAL;
+            node->text = strdup("array");
+            node->children = NULL;
+            node->child_count = 0;
+            node->next = NULL;
+            
+            // Parse array elements
+            while (tokens[*current].type != TOKEN_RBRACKET && tokens[*current].type != TOKEN_EOF) {
+                // Parse the element expression
+                ASTNode* element = parse_expression(tokens, current);
+                if (!element) {
+                    fprintf(stderr, "Error: Failed to parse array element at line %d\n", tokens[*current].line);
+                    parser_free_ast(node);
+                    return NULL;
+                }
+                
+                // Add element to array
+                if (node->child_count == 0) {
+                    node->children = (ASTNode*)tracked_malloc(sizeof(ASTNode), __FILE__, __LINE__, "parse_primary_array_elements");
+                } else {
+                    ASTNode* new_children = (ASTNode*)tracked_realloc(node->children, 
+                        (node->child_count + 1) * sizeof(ASTNode), __FILE__, __LINE__, "parse_primary_array_elements");
+                    if (!new_children) {
+                        fprintf(stderr, "Error: Memory allocation failed for array elements\n");
+                        parser_free_ast(element);
+                        parser_free_ast(node);
+                        return NULL;
+                    }
+                    node->children = new_children;
+                }
+                
+                // Copy element to children array
+                deep_copy_ast_node(&node->children[node->child_count], element);
+                node->child_count++;
+                parser_free_ast(element);
+                
+                // Check for comma separator
+                if (tokens[*current].type == TOKEN_COMMA) {
+                    (*current)++; // Skip comma
+                    // Check if there's another element after comma
+                    if (tokens[*current].type == TOKEN_RBRACKET) {
+                        fprintf(stderr, "Error: Trailing comma in array literal at line %d\n", tokens[*current].line);
+                        parser_free_ast(node);
+                        return NULL;
+                    }
+                } else if (tokens[*current].type != TOKEN_RBRACKET) {
+                    fprintf(stderr, "Error: Expected ',' or ']' in array literal at line %d\n", tokens[*current].line);
+                    parser_free_ast(node);
+                    return NULL;
+                }
+            }
+            
+            // Check for closing bracket
+            if (tokens[*current].type != TOKEN_RBRACKET) {
+                fprintf(stderr, "Error: Expected ']' to close array literal at line %d\n", tokens[*current].line);
+                parser_free_ast(node);
+                return NULL;
+            }
+            (*current)++; // Skip ']'
+            break;
+
         default:
             fprintf(stderr, "Error: Unexpected token '%s' in expression at line %d (token type: %d)\n", 
                     tokens[*current].text ? tokens[*current].text : "NULL", 
@@ -222,6 +288,47 @@ static ASTNode* parse_primary(Token* tokens, int* current) {
         // Free the original node since we're replacing it
         tracked_free(node, __FILE__, __LINE__, "parse_primary_dot_replace");
         node = dot_node;
+    }
+
+    // Handle array access - do this AFTER dot expressions but BEFORE function calls
+    if (tokens[*current].type == TOKEN_LBRACKET) {
+        (*current)++; // Skip '['
+        
+        // Parse the index expression
+        ASTNode* index_expr = parse_expression(tokens, current);
+        if (!index_expr) {
+            fprintf(stderr, "Error: Failed to parse array index at line %d\n", tokens[*current].line);
+            parser_free_ast(node);
+            return NULL;
+        }
+        
+        // Check for closing bracket
+        if (tokens[*current].type != TOKEN_RBRACKET) {
+            fprintf(stderr, "Error: Expected ']' after array index at line %d\n", tokens[*current].line);
+            parser_free_ast(index_expr);
+            parser_free_ast(node);
+            return NULL;
+        }
+        (*current)++; // Skip ']'
+        
+        // Create array access node
+        ASTNode* access_node = (ASTNode*)tracked_malloc(sizeof(ASTNode), __FILE__, __LINE__, "parse_primary_array_access");
+        access_node->type = AST_ARRAY_ACCESS;
+        access_node->text = strdup("access");
+        access_node->children = (ASTNode*)tracked_malloc(2 * sizeof(ASTNode), __FILE__, __LINE__, "parse_primary_array_access");
+        access_node->child_count = 2;
+        access_node->next = NULL;
+        access_node->line = node->line;
+        
+        // First child is the array expression (could be identifier or more complex expression)
+        deep_copy_ast_node(&access_node->children[0], node);
+        // Second child is the index expression
+        deep_copy_ast_node(&access_node->children[1], index_expr);
+        
+        // Clean up
+        parser_free_ast(index_expr);
+        tracked_free(node, __FILE__, __LINE__, "parse_primary_array_access_replace");
+        node = access_node;
     }
 
     // Handle function calls - do this AFTER dot expressions
@@ -1250,7 +1357,90 @@ static ASTNode* parse_statement(Token* tokens, int* current) {
         }
 
         case TOKEN_IDENTIFIER: {
-            // Check if this is an assignment statement (identifier = expression)
+            // Check if this is an array assignment statement (identifier[index] = expression)
+            if (tokens[*current + 1].type == TOKEN_LBRACKET) {
+                // This is an array assignment: array[index] = value
+                char* array_name = strdup(tokens[*current].text);
+                (*current)++; // Skip identifier
+                (*current)++; // Skip '['
+                
+                // Parse the index expression
+                ASTNode* index_expr = parse_expression(tokens, current);
+                if (!index_expr) {
+                    free(array_name);
+                    parser_free_ast(node);
+                    return NULL;
+                }
+                
+                // Check for closing bracket
+                if (tokens[*current].type != TOKEN_RBRACKET) {
+                    fprintf(stderr, "Error: Expected ']' after array index at line %d\n", tokens[*current].line);
+                    free(array_name);
+                    parser_free_ast(node);
+                    parser_free_ast(index_expr);
+                    return NULL;
+                }
+                (*current)++; // Skip ']'
+                
+                // Check for assignment operator
+                if (tokens[*current].type != TOKEN_ASSIGN) {
+                    fprintf(stderr, "Error: Expected '=' after array index at line %d\n", tokens[*current].line);
+                    free(array_name);
+                    parser_free_ast(node);
+                    parser_free_ast(index_expr);
+                    return NULL;
+                }
+                (*current)++; // Skip '='
+                
+                // Parse the value expression
+                ASTNode* value_expr = parse_expression(tokens, current);
+                if (!value_expr) {
+                    free(array_name);
+                    parser_free_ast(node);
+                    parser_free_ast(index_expr);
+                    return NULL;
+                }
+                
+                // Check for semicolon
+                if (tokens[*current].type != TOKEN_SEMICOLON) {
+                    fprintf(stderr, "Error: Expected ';' after array assignment at line %d\n", tokens[*current].line);
+                    free(array_name);
+                    parser_free_ast(node);
+                    parser_free_ast(index_expr);
+                    parser_free_ast(value_expr);
+                    return NULL;
+                }
+                (*current)++; // Skip ';'
+                
+                // Create array assignment node
+                node->type = AST_ARRAY_ASSIGN;
+                node->text = strdup("array_assign");
+                node->children = (ASTNode*)tracked_malloc(3 * sizeof(ASTNode), __FILE__, __LINE__, "parse_statement_array_assignment");
+                node->child_count = 3;
+                node->next = NULL;
+                node->line = tokens[*current - 3].line; // Line of the identifier
+                
+                // First child: array name (identifier)
+                node->children[0].type = AST_EXPR;
+                node->children[0].text = array_name;
+                node->children[0].children = NULL;
+                node->children[0].child_count = 0;
+                node->children[0].next = NULL;
+                node->children[0].line = node->line;
+                
+                // Second child: index expression
+                deep_copy_ast_node(&node->children[1], index_expr);
+                
+                // Third child: value expression
+                deep_copy_ast_node(&node->children[2], value_expr);
+                
+                // Clean up
+                parser_free_ast(index_expr);
+                parser_free_ast(value_expr);
+                break;
+            }
+            
+            // Check if this is a regular assignment statement (identifier = expression)
             if (tokens[*current + 1].type == TOKEN_ASSIGN) {
                 // This is an assignment statement
                 char* var_name = strdup(tokens[*current].text);

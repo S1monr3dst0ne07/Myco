@@ -55,6 +55,8 @@
 #include "loop_manager.h"
 #include <errno.h>
 #include <time.h>
+
+// Array data structure is now defined in eval.h
 #ifdef _WIN32
 // Windows doesn't have curl by default, so we'll skip websocat functionality
 #else
@@ -267,10 +269,17 @@ static int is_string_node(ASTNode* node) {
     return 0;
 }
 
-// Simple variable environment: dynamic array of variable names and values
+// Enhanced variable environment: supports numbers, strings, and arrays
 typedef struct {
     char* name;
-    long long value;
+    enum {
+        VAR_TYPE_NUMBER,
+        VAR_TYPE_STRING,
+        VAR_TYPE_ARRAY
+    } type;
+    long long number_value;
+    char* string_value;
+    MycoArray* array_value;
 } VarEntry;
 
 static VarEntry* var_env = NULL;
@@ -376,6 +385,11 @@ static void pop_scope() {
         while (var_env_size > scope->var_env_start) {
             var_env_size--;
             if (var_env[var_env_size].name) {
+                // Clean up array variables if they exist
+            if (var_env[var_env_size].type == VAR_TYPE_ARRAY && var_env[var_env_size].array_value) {
+                destroy_array(var_env[var_env_size].array_value);
+                var_env[var_env_size].array_value = NULL;
+            }
                 tracked_free(var_env[var_env_size].name, __FILE__, __LINE__, "pop_scope_var");
                 var_env[var_env_size].name = NULL;
             }
@@ -601,7 +615,14 @@ static long long get_var_value(const char* name) {
     // Search from the end (most recent variables first) to prioritize function parameters
     for (int i = var_env_size - 1; i >= 0; i--) {
         if (var_env[i].name && strcmp(var_env[i].name, name) == 0) {
-            return var_env[i].value;
+            if (var_env[i].type == VAR_TYPE_NUMBER) {
+                return var_env[i].number_value;
+            } else if (var_env[i].type == VAR_TYPE_ARRAY) {
+                // Return array size as a number for array variables
+                return array_size(var_env[i].array_value);
+            }
+            // String variables return 0 (as before)
+            return 0;
         }
     }
     return 0;
@@ -612,7 +633,15 @@ void set_var_value(const char* name, long long value) {
     // Check if variable already exists
     for (int i = var_env_size - 1; i >= 0; i--) {
         if (strcmp(var_env[i].name, name) == 0) {
-            var_env[i].value = value;
+            // Update existing variable
+            if (var_env[i].type == VAR_TYPE_ARRAY && var_env[i].array_value) {
+                destroy_array(var_env[i].array_value);
+                var_env[i].array_value = NULL;
+            }
+            var_env[i].type = VAR_TYPE_NUMBER;
+            var_env[i].number_value = value;
+            var_env[i].string_value = NULL;
+            var_env[i].array_value = NULL;
             return;
         }
     }
@@ -632,9 +661,68 @@ void set_var_value(const char* name, long long value) {
     // Add new variable
     var_env[var_env_size].name = strdup(name);
     if (var_env[var_env_size].name) {
-        var_env[var_env_size].value = value;
+        var_env[var_env_size].type = VAR_TYPE_NUMBER;
+        var_env[var_env_size].number_value = value;
+        var_env[var_env_size].string_value = NULL;
+        var_env[var_env_size].array_value = NULL;
         var_env_size++;
     }
+}
+
+// Helper function to set an array variable in the environment
+void set_array_value(const char* name, MycoArray* array) {
+    if (!name || !array) return;
+    
+    // Check if variable already exists
+    for (int i = var_env_size - 1; i >= 0; i--) {
+        if (strcmp(var_env[i].name, name) == 0) {
+            // Update existing variable
+            if (var_env[i].type == VAR_TYPE_ARRAY && var_env[i].array_value) {
+                destroy_array(var_env[i].array_value);
+            }
+            var_env[i].type = VAR_TYPE_ARRAY;
+            var_env[i].array_value = array;
+            var_env[i].number_value = 0;
+            var_env[i].string_value = NULL;
+            return;
+        }
+    }
+    
+    // Expand capacity if needed
+    if (var_env_size >= var_env_capacity) {
+        int new_capacity = var_env_capacity ? var_env_capacity * 2 : 8;
+        VarEntry* new_env = (VarEntry*)realloc(var_env, new_capacity * sizeof(VarEntry));
+        if (!new_env) {
+            // Handle realloc failure
+            return;
+        }
+        var_env = new_env;
+        var_env_capacity = new_capacity;
+    }
+    
+    // Add new variable
+    var_env[var_env_size].name = strdup(name);
+    if (var_env[var_env_size].name) {
+        var_env[var_env_size].type = VAR_TYPE_ARRAY;
+        var_env[var_env_size].array_value = array;
+        var_env[var_env_size].number_value = 0;
+        var_env[var_env_size].string_value = NULL;
+        var_env_size++;
+    }
+}
+
+// Helper function to get an array variable from the environment
+MycoArray* get_array_value(const char* name) {
+    // Search from the end (most recent variables first) to prioritize function parameters
+    for (int i = var_env_size - 1; i >= 0; i--) {
+        if (var_env[i].name && strcmp(var_env[i].name, name) == 0) {
+            if (var_env[i].type == VAR_TYPE_ARRAY) {
+                return var_env[i].array_value;
+            }
+            return NULL;
+        }
+    }
+    return NULL;
 }
 
 // Helper function to check if a variable exists
@@ -745,6 +833,186 @@ static void cleanup_var_env() {
     }
 }
 
+/*******************************************************************************
+ * ARRAY MANAGEMENT FUNCTIONS
+ ******************************************************************************/
+
+/**
+ * @brief Creates a new array with specified capacity and type
+ * @param initial_capacity Initial capacity for the array
+ * @param is_string_array 1 for string array, 0 for number array
+ * @return New array instance, or NULL on failure
+ */
+MycoArray* create_array(int initial_capacity, int is_string_array) {
+    if (initial_capacity <= 0) initial_capacity = 8;
+    
+    MycoArray* array = (MycoArray*)tracked_malloc(sizeof(MycoArray), __FILE__, __LINE__, "create_array");
+    if (!array) return NULL;
+    
+    array->capacity = initial_capacity;
+    array->size = 0;
+    array->is_string_array = is_string_array;
+    
+    if (is_string_array) {
+        array->str_elements = (char**)tracked_malloc(initial_capacity * sizeof(char*), __FILE__, __LINE__, "create_array_str");
+        array->elements = NULL;
+        if (!array->str_elements) {
+            tracked_free(array, __FILE__, __LINE__, "create_array_str_fail");
+            return NULL;
+        }
+        // Initialize string pointers to NULL
+        for (int i = 0; i < initial_capacity; i++) {
+            array->str_elements[i] = NULL;
+        }
+    } else {
+        array->elements = (long long*)tracked_malloc(initial_capacity * sizeof(long long), __FILE__, __LINE__, "create_array_num");
+        array->str_elements = NULL;
+        if (!array->elements) {
+            tracked_free(array, __FILE__, __LINE__, "create_array_num_fail");
+            return NULL;
+        }
+        // Initialize numbers to 0
+        for (int i = 0; i < initial_capacity; i++) {
+            array->elements[i] = 0;
+        }
+    }
+    
+    return array;
+}
+
+/**
+ * @brief Destroys an array and frees all associated memory
+ * @param array The array to destroy
+ */
+void destroy_array(MycoArray* array) {
+    if (!array) return;
+    
+    if (array->is_string_array && array->str_elements) {
+        // Free all string elements
+        for (int i = 0; i < array->size; i++) {
+            if (array->str_elements[i]) {
+                tracked_free(array->str_elements[i], __FILE__, __LINE__, "destroy_array_str");
+            }
+        }
+        tracked_free(array->str_elements, __FILE__, __LINE__, "destroy_array_str_array");
+    } else if (array->elements) {
+        tracked_free(array->elements, __FILE__, __LINE__, "destroy_array_num_array");
+    }
+    
+    tracked_free(array, __FILE__, __LINE__, "destroy_array");
+}
+
+/**
+ * @brief Adds an element to the end of an array
+ * @param array The array to modify
+ * @param element The element to add
+ * @return 1 on success, 0 on failure
+ */
+int array_push(MycoArray* array, void* element) {
+    if (!array || !element) return 0;
+    
+    // Expand capacity if needed
+    if (array->size >= array->capacity) {
+        int new_capacity = array->capacity * 2;
+        if (array->is_string_array) {
+            char** new_elements = (char**)tracked_realloc(array->str_elements, new_capacity * sizeof(char*), __FILE__, __LINE__, "array_push_str");
+            if (!new_elements) return 0;
+            array->str_elements = new_elements;
+            // Initialize new elements to NULL
+            for (int i = array->capacity; i < new_capacity; i++) {
+                array->str_elements[i] = NULL;
+            }
+        } else {
+            long long* new_elements = (long long*)tracked_realloc(array->elements, new_capacity * sizeof(long long), __FILE__, __LINE__, "array_push_num");
+            if (!new_elements) return 0;
+            array->elements = new_elements;
+        }
+        array->capacity = new_capacity;
+    }
+    
+    // Add the element
+    if (array->is_string_array) {
+        array->str_elements[array->size] = strdup((char*)element);
+    } else {
+        array->elements[array->size] = *(long long*)element;
+    }
+    array->size++;
+    
+    return 1;
+}
+
+/**
+ * @brief Gets an element from an array at the specified index
+ * @param array The array to access
+ * @param index The index of the element
+ * @return Pointer to the element, or NULL if invalid
+ */
+void* array_get(MycoArray* array, int index) {
+    if (!array || index < 0 || index >= array->size) return NULL;
+    
+    if (array->is_string_array) {
+        return array->str_elements[index];
+    } else {
+        // Return pointer to the number (caller must cast appropriately)
+        return &array->elements[index];
+    }
+}
+
+/**
+ * @brief Sets an element in an array at the specified index
+ * @param array The array to modify
+ * @param index The index to set
+ * @param element The new element value
+ * @return 1 on success, 0 on failure
+ */
+int array_set(MycoArray* array, int index, void* element) {
+    if (!array || !element || index < 0 || index >= array->size) return 0;
+    
+    if (array->is_string_array) {
+        // Free old string if it exists
+        if (array->str_elements[index]) {
+            tracked_free(array->str_elements[index], __FILE__, __LINE__, "array_set_str");
+        }
+        array->str_elements[index] = strdup((char*)element);
+    } else {
+        array->elements[index] = *(long long*)element;
+    }
+    
+    return 1;
+}
+
+/**
+ * @brief Gets the current size of an array
+ * @param array The array to check
+ * @return Number of elements in the array
+ */
+int array_size(MycoArray* array) {
+    return array ? array->size : 0;
+}
+
+/**
+ * @brief Gets the current capacity of an array
+ * @param array The array to check
+ * @return Current allocated capacity
+ */
+int array_capacity(MycoArray* array) {
+    return array ? array->capacity : 0;
+}
+
+/**
+ * @brief Cleans up all arrays in the variable environment
+ */
+void cleanup_array_env() {
+    if (var_env && var_env_size > 0) {
+        for (int i = 0; i < var_env_size; i++) {
+            if (var_env[i].name && var_env[i].type == VAR_TYPE_ARRAY && var_env[i].array_value) {
+                destroy_array(var_env[i].array_value);
+                var_env[i].array_value = NULL;
+            }
+        }
+    }
+}
+
 // Cleanup function for function environment
 static void cleanup_func_env() {
     if (functions && functions_size > 0) {
@@ -787,6 +1055,7 @@ void cleanup_all_environments() {
     
     cleanup_str_env();
     cleanup_var_env();
+    cleanup_array_env();
     cleanup_func_env();
     cleanup_module_env();
     
@@ -1011,7 +1280,10 @@ static long long eval_user_function_call(ASTNode* fn, ASTNode* args_node) {
         // Always add as new variable to ensure parameter binding works
         var_env[var_env_size].name = strdup(pname);
         if (var_env[var_env_size].name) {
-            var_env[var_env_size].value = argvals[i];
+            var_env[var_env_size].type = VAR_TYPE_NUMBER;
+            var_env[var_env_size].number_value = argvals[i];
+            var_env[var_env_size].array_value = NULL;
+            var_env[var_env_size].string_value = NULL;
             var_env_size++;
         }
         
@@ -1076,6 +1348,60 @@ long long eval_expression(ASTNode* ast) {
         return 1; // Return 1 to indicate this is a string
     }
 
+    // Handle numeric literals
+    if (ast->text && ast->child_count == 0) {
+        char* endptr;
+        long long num = strtoll(ast->text, &endptr, 10);
+        if (*endptr == '\0') {
+            return num; // Return the numeric value
+        }
+    }
+
+    // Handle array access
+    if (ast->type == AST_ARRAY_ACCESS) {
+        if (ast->child_count < 2) {
+            fprintf(stderr, "Error: Invalid array access structure\n");
+            return 0;
+        }
+        
+        // Get the array name from the first child
+        char* array_name = NULL;
+        if (ast->children[0].type == AST_EXPR && ast->children[0].text) {
+            array_name = ast->children[0].text;
+        } else {
+            fprintf(stderr, "Error: Invalid array expression at line %d\n", ast->line);
+            return 0;
+        }
+        
+        // Get the array variable
+        MycoArray* array = get_array_value(array_name);
+        if (!array) {
+            fprintf(stderr, "Error: Array '%s' not found at line %d\n", array_name, ast->line);
+            return 0;
+        }
+        
+        // Evaluate the index expression
+        long long index = eval_expression(&ast->children[1]);
+        if (index < 0 || index >= array->size) {
+            fprintf(stderr, "Error: Array index %lld out of bounds [0, %d] at line %d\n", 
+                    index, array->size - 1, ast->line);
+            return 0;
+        }
+        
+        // Get the element value
+        void* element = array_get(array, index);
+        if (!element) {
+            fprintf(stderr, "Error: Failed to access array element at line %d\n", ast->line);
+            return 0;
+        }
+        
+        if (array->is_string_array) {
+            return 0; // String arrays return 0 for now
+        } else {
+            return *(long long*)element;
+        }
+    }
+    
     // Handle function calls (text="call" with children)
     if (ast->text && strcmp(ast->text, "call") == 0 && ast->child_count >= 2) {
         // Get function name from first child
@@ -1612,6 +1938,118 @@ void eval_evaluate(ASTNode* ast) {
                 return;
             }
 
+            // Check if the value is an array literal
+            if (ast->children[1].type == AST_ARRAY_LITERAL) {
+                // Handle array literal creation
+                if (ast->children[1].child_count == 0) {
+                    // Empty array
+                    MycoArray* array = create_array(8, 0); // Default capacity, numeric array
+                    if (!array) {
+                        fprintf(stderr, "Error: Failed to create array at line %d\n", ast->line);
+                        return;
+                    }
+                    set_array_value(var_name, array);
+                    return;
+                }
+                
+                // Determine if this is a string array by checking the first element
+                int is_string_array = 0;
+                if (ast->children[1].children[0].type == AST_EXPR && ast->children[1].children[0].text && is_string_literal(ast->children[1].children[0].text)) {
+                    is_string_array = 1;
+                }
+                
+                // Create array with appropriate capacity
+                MycoArray* array = create_array(ast->children[1].child_count, is_string_array);
+                if (!array) {
+                    fprintf(stderr, "Error: Failed to create array at line %d\n", ast->line);
+                    return;
+                }
+                
+                // Add elements to the array
+                for (int i = 0; i < ast->children[1].child_count; i++) {
+                    if (is_string_array) {
+                        // Handle string elements
+                        if (ast->children[1].children[i].type == AST_EXPR && ast->children[1].children[i].text && is_string_literal(ast->children[1].children[i].text)) {
+                            // Extract string value (remove quotes)
+                            size_t len = strlen(ast->children[1].children[i].text);
+                            if (len >= 2) {
+                                char* value = (char*)malloc(len - 1);
+                                if (value) {
+                                    strncpy(value, ast->children[1].children[i].text + 1, len - 2);
+                                    value[len - 2] = '\0';
+                                    array_push(array, value);
+                                    free(value);
+                                }
+                            }
+                        } else {
+                            // Convert non-string to string
+                            char temp_str[64];
+                            snprintf(temp_str, sizeof(temp_str), "%lld", eval_expression(&ast->children[1].children[i]));
+                            array_push(array, temp_str);
+                        }
+                    } else {
+                        // Handle numeric elements
+                        long long value = eval_expression(&ast->children[1].children[i]);
+                        // Store the actual value, not a pointer to local variable
+                        array->elements[array->size] = value;
+                        array->size++;
+                    }
+                }
+                
+                set_array_value(var_name, array);
+                return;
+            }
+            
+            // Check if the value is an array access
+            if (ast->children[1].type == AST_ARRAY_ACCESS) {
+                // Handle array access: let x = arr[index]
+                if (ast->children[1].child_count < 2) {
+                    fprintf(stderr, "Error: Invalid array access structure at line %d\n", ast->line);
+                    return;
+                }
+                
+                // Get the array name
+                char* array_name = NULL;
+                if (ast->children[1].children[0].type == AST_EXPR && ast->children[1].children[0].text) {
+                    array_name = ast->children[1].children[0].text;
+                } else {
+                    fprintf(stderr, "Error: Invalid array expression at line %d\n", ast->line);
+                    return;
+                }
+                
+                // Get the array variable
+                MycoArray* array = get_array_value(array_name);
+                if (!array) {
+                    fprintf(stderr, "Error: Array '%s' not found at line %d\n", array_name, ast->line);
+                    return;
+                }
+                
+                // Evaluate the index expression
+                long long index = eval_expression(&ast->children[1].children[1]);
+                
+                if (index < 0 || index >= array->size) {
+                    fprintf(stderr, "Error: Array index %lld out of bounds [0, %d] at line %d\n", 
+                            index, array->size - 1, ast->line);
+                    return;
+                }
+                
+                // Get the element value and assign it to the variable
+                void* element = array_get(array, index);
+                if (!element) {
+                    fprintf(stderr, "Error: Failed to access array element at line %d\n", ast->line);
+                    return;
+                }
+                
+                if (array->is_string_array) {
+                    set_str_value(var_name, (char*)element);
+                } else {
+                    long long num_value = *(long long*)element;
+                    set_var_value(var_name, num_value);
+                }
+                return;
+            }
+            
+            // Handle regular numeric assignment
             int64_t value = eval_expression(&ast->children[1]);
             set_var_value(var_name, value);
             return;
@@ -1631,6 +2069,57 @@ void eval_evaluate(ASTNode* ast) {
 
             int64_t value = eval_expression(&ast->children[1]);
             set_var_value(var_name, value);
+            return;
+        }
+
+
+
+
+
+        case AST_ARRAY_ASSIGN: {
+            if (ast->child_count < 3) {
+                fprintf(stderr, "Error: Invalid array assignment structure\n");
+                return;
+            }
+            
+            // Get the array name from the first child
+            char* array_name = ast->children[0].text;
+            if (!array_name) {
+                fprintf(stderr, "Error: Array name is NULL\n");
+                return;
+            }
+            
+
+            
+            // Get the array variable
+            MycoArray* array = get_array_value(array_name);
+            if (!array) {
+                fprintf(stderr, "Error: Array '%s' not found at line %d\n", array_name, ast->line);
+                return;
+            }
+
+            
+            // Evaluate the index expression
+            long long index = eval_expression(&ast->children[1]);
+
+            if (index < 0 || index >= array->size) {
+                fprintf(stderr, "Error: Array index %lld out of bounds [0, %d] at line %d\n", 
+                        index, array->size - 1, ast->line);
+                return;
+            }
+            
+            // Evaluate the value expression
+            long long value = eval_expression(&ast->children[2]);
+
+            
+            // Set the array element
+
+            if (!array_set(array, index, &value)) {
+                fprintf(stderr, "Error: Failed to set array element at line %d\n", ast->line);
+                return;
+            }
+
+            
             return;
         }
 
