@@ -41,8 +41,8 @@
 
 // Forward declarations
 static ASTNode* parse_expression(Token* tokens, int* current);
-static ASTNode* parse_statement(Token* tokens, int* current);
-static ASTNode* parse_block(Token* tokens, int* current);
+static ASTNode* parse_statement(Token* tokens, int* current, int token_count);
+static ASTNode* parse_block(Token* tokens, int* current, int token_count);
 static void deep_copy_ast_node(ASTNode* dest, ASTNode* src);
 
 /*******************************************************************************
@@ -108,7 +108,65 @@ static ASTNode* parse_primary(Token* tokens, int* current) {
 
     switch (tokens[*current].type) {
         case TOKEN_NUMBER:
+            node->type = AST_EXPR;
+            node->text = strdup(tokens[*current].text);
+            node->children = NULL;
+            node->child_count = 0;
+            node->next = NULL;
+            (*current)++;
+            break;
+            
         case TOKEN_IDENTIFIER:
+            // Check if this is an object property assignment: obj.prop = value
+            if (tokens[*current + 1].type == TOKEN_DOT && 
+                tokens[*current + 2].type == TOKEN_IDENTIFIER && 
+                tokens[*current + 3].type == TOKEN_ASSIGN) {
+                
+                // This is an object property assignment: obj.prop = value
+                char* obj_name = strdup(tokens[*current].text);
+                char* prop_name = strdup(tokens[*current + 2].text);
+                (*current) += 3; // Skip obj.prop=
+                
+                // Parse the value expression
+                ASTNode* value_expr = parse_expression(tokens, current);
+                if (!value_expr) {
+                    free(obj_name);
+                    free(prop_name);
+                    tracked_free(node, __FILE__, __LINE__, "parse_primary_object_assign");
+                    return NULL;
+                }
+                
+                // Create object assignment node
+                node->type = AST_OBJECT_ASSIGN;
+                node->text = strdup("object_assign");
+                node->children = (ASTNode*)tracked_malloc(3 * sizeof(ASTNode), __FILE__, __LINE__, "parse_primary_object_assign");
+                node->child_count = 3;
+                node->next = NULL;
+                node->line = tokens[*current - 3].line;
+                
+                // First child: object name
+                node->children[0].type = AST_EXPR;
+                node->children[0].text = obj_name;
+                node->children[0].children = NULL;
+                node->children[0].child_count = 0;
+                node->children[0].next = NULL;
+                node->children[0].line = node->line;
+                
+                // Second child: property name
+                node->children[1].type = AST_EXPR;
+                node->children[1].text = prop_name;
+                node->children[1].children = NULL;
+                node->children[1].child_count = 0;
+                node->children[1].next = NULL;
+                node->children[1].line = node->line;
+                
+                // Third child: value expression
+                deep_copy_ast_node(&node->children[2], value_expr);
+                parser_free_ast(value_expr);
+                break;
+            }
+            
+            // Regular identifier
             node->type = AST_EXPR;
             node->text = strdup(tokens[*current].text);
             node->children = NULL;
@@ -158,6 +216,8 @@ static ASTNode* parse_primary(Token* tokens, int* current) {
             node->next = NULL;
             (*current)++;
             break;
+
+
 
         case TOKEN_LPAREN:
             (*current)++; // Skip '('
@@ -236,6 +296,118 @@ static ASTNode* parse_primary(Token* tokens, int* current) {
                 return NULL;
             }
             (*current)++; // Skip ']'
+            break;
+
+        case TOKEN_LBRACE:
+            // Parse object literal: {prop1: val1, prop2: val2}
+            (*current)++; // Skip '{'
+            
+            // Create object literal node
+            node->type = AST_OBJECT_LITERAL;
+            node->text = strdup("object");
+            node->children = NULL;
+            node->child_count = 0;
+            node->next = NULL;
+            
+            // Parse object properties
+            while (tokens[*current].type != TOKEN_RBRACE && tokens[*current].type != TOKEN_EOF) {
+                // Parse property name (identifier)
+                if (tokens[*current].type != TOKEN_IDENTIFIER) {
+                    fprintf(stderr, "Error: Expected property name (identifier) in object literal at line %d\n", tokens[*current].line);
+                    parser_free_ast(node);
+                    return NULL;
+                }
+                
+                // Create property name node
+                ASTNode* prop_name = (ASTNode*)tracked_malloc(sizeof(ASTNode), __FILE__, __LINE__, "parse_primary_object_prop_name");
+                prop_name->type = AST_EXPR;
+                prop_name->text = strdup(tokens[*current].text);
+                prop_name->children = NULL;
+                prop_name->child_count = 0;
+                prop_name->next = NULL;
+                prop_name->line = tokens[*current].line;
+                (*current)++; // Skip property name
+                
+                // Expect colon separator
+                if (tokens[*current].type != TOKEN_COLON) {
+                    fprintf(stderr, "Error: Expected ':' after property name in object literal at line %d\n", tokens[*current].line);
+                    parser_free_ast(prop_name);
+                    parser_free_ast(node);
+                    return NULL;
+                }
+                (*current)++; // Skip ':'
+                
+                // Parse property value expression
+                ASTNode* prop_value = parse_expression(tokens, current);
+                if (!prop_value) {
+                    fprintf(stderr, "Error: Failed to parse property value in object literal at line %d\n", tokens[*current].line);
+                    parser_free_ast(prop_name);
+                    parser_free_ast(node);
+                    return NULL;
+                }
+                
+                // Create property pair node (name: value)
+                ASTNode* prop_pair = (ASTNode*)tracked_malloc(sizeof(ASTNode), __FILE__, __LINE__, "parse_primary_object_prop_pair");
+                prop_pair->type = AST_EXPR;
+                prop_pair->text = strdup("prop");
+                prop_pair->children = (ASTNode*)tracked_malloc(2 * sizeof(ASTNode), __FILE__, __LINE__, "parse_primary_object_prop_pair");
+                prop_pair->child_count = 2;
+                prop_pair->next = NULL;
+                prop_pair->line = tokens[*current].line;
+                
+                // Copy name and value to property pair
+                deep_copy_ast_node(&prop_pair->children[0], prop_name);
+                deep_copy_ast_node(&prop_pair->children[1], prop_value);
+                
+                // Add property pair to object
+                if (node->child_count == 0) {
+                    node->children = (ASTNode*)tracked_malloc(sizeof(ASTNode), __FILE__, __LINE__, "parse_primary_object_properties");
+                } else {
+                    ASTNode* new_children = (ASTNode*)tracked_realloc(node->children, 
+                        (node->child_count + 1) * sizeof(ASTNode), __FILE__, __LINE__, "parse_primary_object_properties");
+                    if (!new_children) {
+                        fprintf(stderr, "Error: Memory allocation failed for object properties\n");
+                        parser_free_ast(prop_name);
+                        parser_free_ast(prop_value);
+                        parser_free_ast(prop_pair);
+                        parser_free_ast(node);
+                        return NULL;
+                    }
+                    node->children = new_children;
+                }
+                
+                // Copy property pair to children array
+                deep_copy_ast_node(&node->children[node->child_count], prop_pair);
+                node->child_count++;
+                
+                // Clean up temporary nodes
+                parser_free_ast(prop_name);
+                parser_free_ast(prop_value);
+                parser_free_ast(prop_pair);
+                
+                // Check for comma separator
+                if (tokens[*current].type == TOKEN_COMMA) {
+                    (*current)++; // Skip comma
+                    // Check if there's another property after comma
+                    if (tokens[*current].type == TOKEN_RBRACE) {
+                        fprintf(stderr, "Error: Trailing comma in object literal at line %d\n", tokens[*current].line);
+                        parser_free_ast(node);
+                        return NULL;
+                    }
+                } else if (tokens[*current].type != TOKEN_RBRACE) {
+                    fprintf(stderr, "Error: Expected ',' or '}' in object literal at line %d\n", tokens[*current].line);
+                    parser_free_ast(node);
+                    return NULL;
+                }
+            }
+            
+            // Check for closing brace
+            if (tokens[*current].type != TOKEN_RBRACE) {
+                fprintf(stderr, "Error: Expected '}' to close object literal at line %d\n", tokens[*current].line);
+                parser_free_ast(node);
+                return NULL;
+            }
+            (*current)++; // Skip '}'
             break;
 
         default:
@@ -331,12 +503,56 @@ static ASTNode* parse_primary(Token* tokens, int* current) {
         node = access_node;
     }
 
+    // Handle object bracket access - obj["property"]
+    if (tokens[*current].type == TOKEN_LBRACKET && node->type == AST_DOT) {
+        (*current)++; // Skip '['
+        
+        // Parse the property name expression (could be string literal or identifier)
+        ASTNode* prop_expr = parse_expression(tokens, current);
+        if (!prop_expr) {
+            fprintf(stderr, "Error: Failed to parse object property name at line %d\n", tokens[*current].line);
+            parser_free_ast(node);
+            return NULL;
+        }
+        
+        // Check for closing bracket
+        if (tokens[*current].type != TOKEN_RBRACKET) {
+            fprintf(stderr, "Error: Expected ']' after object property name at line %d\n", tokens[*current].line);
+            parser_free_ast(prop_expr);
+            parser_free_ast(node);
+            return NULL;
+        }
+        (*current)++; // Skip ']'
+        
+        // Create object bracket access node
+        ASTNode* bracket_access_node = (ASTNode*)tracked_malloc(sizeof(ASTNode), __FILE__, __LINE__, "parse_primary_object_bracket_access");
+        bracket_access_node->type = AST_OBJECT_BRACKET_ACCESS;
+        bracket_access_node->text = strdup("bracket_access");
+        bracket_access_node->children = (ASTNode*)tracked_malloc(2 * sizeof(ASTNode), __FILE__, __LINE__, "parse_primary_object_bracket_access");
+        bracket_access_node->child_count = 2;
+        bracket_access_node->next = NULL;
+        bracket_access_node->line = node->line;
+        
+        // First child is the object expression (the dot expression)
+        deep_copy_ast_node(&bracket_access_node->children[0], node);
+        // Second child is the property name expression
+        deep_copy_ast_node(&bracket_access_node->children[1], prop_expr);
+        
+        // Clean up
+        parser_free_ast(prop_expr);
+        tracked_free(node, __FILE__, __LINE__, "parse_primary_object_bracket_access_replace");
+        node = bracket_access_node;
+    }
+
     // Handle function calls - do this AFTER dot expressions
     if (tokens[*current].type == TOKEN_LPAREN) {
         (*current)++; // Skip '('
+        
+        // Create function call node
         ASTNode* call_node = (ASTNode*)tracked_malloc(sizeof(ASTNode), __FILE__, __LINE__, "parse_primary_call");
         call_node->type = AST_EXPR;
         call_node->text = strdup("call");
+        
         call_node->children = (ASTNode*)tracked_malloc(2 * sizeof(ASTNode), __FILE__, __LINE__, "parse_primary_call");
         call_node->child_count = 2;
         call_node->next = NULL;
@@ -478,11 +694,13 @@ static ASTNode* parse_expression(Token* tokens, int* current) {
         }
     }
 
+
+
     return left;
 }
 
 // Helper function to parse a block of statements
-static ASTNode* parse_block(Token* tokens, int* current) {
+static ASTNode* parse_block(Token* tokens, int* current, int token_count) {
     ASTNode* block = (ASTNode*)tracked_malloc(sizeof(ASTNode), __FILE__, __LINE__, "parse_block");
     if (!block) {
         fprintf(stderr, "Error: Memory allocation failed\n");
@@ -509,7 +727,7 @@ static ASTNode* parse_block(Token* tokens, int* current) {
             break;
         }
 
-        ASTNode* stmt = parse_statement(tokens, current);
+        ASTNode* stmt = parse_statement(tokens, current, token_count);
         if (!stmt) {
             parser_free_ast(block);
             return NULL;
@@ -611,7 +829,7 @@ static void deep_copy_ast_node(ASTNode* dest, ASTNode* src) {
 }
 
 // Helper function to parse statements
-static ASTNode* parse_statement(Token* tokens, int* current) {
+static ASTNode* parse_statement(Token* tokens, int* current, int token_count) {
     ASTNode* node = (ASTNode*)tracked_malloc(sizeof(ASTNode), __FILE__, __LINE__, "parse_statement");
     if (!node) {
         fprintf(stderr, "Error: Memory allocation failed\n");
@@ -679,7 +897,7 @@ static ASTNode* parse_statement(Token* tokens, int* current) {
         node->next = NULL;
 
         // Parse the default case body as a block
-        ASTNode* block = parse_block(tokens, current);
+        ASTNode* block = parse_block(tokens, current, token_count);
         if (!block) {
             parser_free_ast(node);
             return NULL;
@@ -719,7 +937,7 @@ static ASTNode* parse_statement(Token* tokens, int* current) {
             (*current)++; // Skip ':'
 
             // Parse while body
-            ASTNode* while_body = parse_block(tokens, current);
+            ASTNode* while_body = parse_block(tokens, current, token_count);
             if (!while_body) {
                 parser_free_ast(node);
                 parser_free_ast(condition);
@@ -757,7 +975,7 @@ static ASTNode* parse_statement(Token* tokens, int* current) {
             (*current)++; // Skip ':'
 
             // Parse if body
-            ASTNode* if_body = parse_block(tokens, current);
+            ASTNode* if_body = parse_block(tokens, current, token_count);
             if (!if_body) {
                 parser_free_ast(node);
                 parser_free_ast(condition);
@@ -777,7 +995,7 @@ static ASTNode* parse_statement(Token* tokens, int* current) {
                 }
                 (*current)++; // Skip ':'
 
-                else_body = parse_block(tokens, current);
+                else_body = parse_block(tokens, current, token_count);
                 if (!else_body) {
                     parser_free_ast(node);
                     parser_free_ast(condition);
@@ -898,7 +1116,7 @@ static ASTNode* parse_statement(Token* tokens, int* current) {
             (*current)++; // Skip final ':'
 
             // Parse loop body
-            ASTNode* loop_body = parse_block(tokens, current);
+            ASTNode* loop_body = parse_block(tokens, current, token_count);
             if (!loop_body) {
                 parser_free_ast(node);
                 tracked_free(loop_var, __FILE__, __LINE__, "parse_statement_for");
@@ -929,7 +1147,7 @@ static ASTNode* parse_statement(Token* tokens, int* current) {
                 node->children[3] = *step;
                 node->children[4] = *loop_body;
             } else {
-                node->children[3] = *loop_body;
+            node->children[3] = *loop_body;
             }
             node->child_count = child_count;
 
@@ -995,7 +1213,7 @@ static ASTNode* parse_statement(Token* tokens, int* current) {
                     }
                     (*current)++; // Skip ':'
 
-                    ASTNode* case_body = parse_block(tokens, current);
+                    ASTNode* case_body = parse_block(tokens, current, token_count);
                     if (!case_body) {
                         parser_free_ast(node);
                         parser_free_ast(switch_expr);
@@ -1027,7 +1245,7 @@ static ASTNode* parse_statement(Token* tokens, int* current) {
                     }
                     (*current)++; // Skip ':'
 
-                    ASTNode* default_body = parse_block(tokens, current);
+                    ASTNode* default_body = parse_block(tokens, current, token_count);
                     if (!default_body) {
                         parser_free_ast(node);
                         parser_free_ast(switch_expr);
@@ -1073,7 +1291,7 @@ static ASTNode* parse_statement(Token* tokens, int* current) {
             (*current)++; // Skip ':'
 
             // Parse try body
-            ASTNode* try_body = parse_block(tokens, current);
+            ASTNode* try_body = parse_block(tokens, current, token_count);
             if (!try_body) {
                 parser_free_ast(node);
                 return NULL;
@@ -1114,7 +1332,7 @@ static ASTNode* parse_statement(Token* tokens, int* current) {
             (*current)++; // Skip ':'
 
             // Parse catch body
-            ASTNode* catch_body = parse_block(tokens, current);
+            ASTNode* catch_body = parse_block(tokens, current, token_count);
             if (!catch_body) {
                 parser_free_ast(node);
                 parser_free_ast(try_body);
@@ -1217,7 +1435,7 @@ static ASTNode* parse_statement(Token* tokens, int* current) {
                 }
                 (*current)++; // Skip ':'
 
-                ASTNode* func_body = parse_block(tokens, current);
+                ASTNode* func_body = parse_block(tokens, current, token_count);
                 if (!func_body) {
                     parser_free_ast(node);
                     return NULL;
@@ -1229,38 +1447,38 @@ static ASTNode* parse_statement(Token* tokens, int* current) {
                 node->child_count++;
             } else {
                 // This is a variable assignment
-                // Parse assignment operator
-                if (tokens[*current].type != TOKEN_ASSIGN) {
-                    fprintf(stderr, "Error: Expected '=' at line %d\n", tokens[*current].line);
-                    parser_free_ast(node);
-                    parser_free_ast(var_name);
-                    return NULL;
-                }
-                (*current)++; // Skip '='
+            // Parse assignment operator
+            if (tokens[*current].type != TOKEN_ASSIGN) {
+                fprintf(stderr, "Error: Expected '=' at line %d\n", tokens[*current].line);
+                parser_free_ast(node);
+                parser_free_ast(var_name);
+                return NULL;
+            }
+            (*current)++; // Skip '='
 
-                // Parse initial value
-                ASTNode* init_value = parse_expression(tokens, current);
-                if (!init_value) {
+            // Parse initial value
+            ASTNode* init_value = parse_expression(tokens, current);
+            if (!init_value) {
+                parser_free_ast(node);
+                parser_free_ast(var_name);
                     parser_free_ast(node);
-                    parser_free_ast(var_name);
-                    parser_free_ast(node);
-                    return NULL;
-                }
+                return NULL;
+            }
 
-                if (tokens[*current].type != TOKEN_SEMICOLON) {
-                    fprintf(stderr, "Error: Expected ';' after variable declaration at line %d\n", tokens[*current].line);
-                    parser_free_ast(node);
-                    parser_free_ast(var_name);
-                    parser_free_ast(init_value);
-                    return NULL;
-                }
-                (*current)++; // Skip ';'
+            if (tokens[*current].type != TOKEN_SEMICOLON) {
+                fprintf(stderr, "Error: Expected ';' after variable declaration at line %d\n", tokens[*current].line);
+                parser_free_ast(node);
+                parser_free_ast(var_name);
+                parser_free_ast(init_value);
+                return NULL;
+            }
+            (*current)++; // Skip ';'
 
-                // Add variable name and initial value as children
+            // Add variable name and initial value as children
                 node->children = (ASTNode*)tracked_malloc(2 * sizeof(ASTNode), __FILE__, __LINE__, "parse_statement_let_var");
-                node->children[0] = *var_name;
-                node->children[1] = *init_value;
-                node->child_count = 2;
+            node->children[0] = *var_name;
+            node->children[1] = *init_value;
+            node->child_count = 2;
             }
             break;
         }
@@ -1279,24 +1497,24 @@ static ASTNode* parse_statement(Token* tokens, int* current) {
                 (*current)++; // Skip ';'
                 node->child_count = 0;
             } else {
-                // Parse return expression
-                ASTNode* return_expr = parse_expression(tokens, current);
-                if (!return_expr) {
-                    parser_free_ast(node);
-                    return NULL;
-                }
+            // Parse return expression
+            ASTNode* return_expr = parse_expression(tokens, current);
+            if (!return_expr) {
+                parser_free_ast(node);
+                return NULL;
+            }
 
-                if (tokens[*current].type != TOKEN_SEMICOLON) {
-                    fprintf(stderr, "Error: Expected ';' after return statement at line %d\n", tokens[*current].line);
-                    parser_free_ast(node);
-                    parser_free_ast(return_expr);
-                    return NULL;
-                }
-                (*current)++; // Skip ';'
+            if (tokens[*current].type != TOKEN_SEMICOLON) {
+                fprintf(stderr, "Error: Expected ';' after return statement at line %d\n", tokens[*current].line);
+                parser_free_ast(node);
+                parser_free_ast(return_expr);
+                return NULL;
+            }
+            (*current)++; // Skip ';'
 
                 node->children = (ASTNode*)tracked_malloc(sizeof(ASTNode), __FILE__, __LINE__, "parse_statement_return");
-                node->children[0] = *return_expr;
-                node->child_count = 1;
+            node->children[0] = *return_expr;
+            node->child_count = 1;
             }
             break;
         }
@@ -1324,7 +1542,7 @@ static ASTNode* parse_statement(Token* tokens, int* current) {
                     parser_free_ast(node);
                     return NULL;
                 }
-                
+
                 node->children = (ASTNode*)tracked_realloc(node->children, (node->child_count + 1) * sizeof(ASTNode), __FILE__, __LINE__, "parse_statement_print");
                 // Move the arg node directly instead of deep copying
                 node->children[node->child_count] = *arg;
@@ -1440,6 +1658,65 @@ static ASTNode* parse_statement(Token* tokens, int* current) {
                 break;
             }
             
+            // Check if this is an object property assignment (obj.prop = expression)
+            if (*current + 3 < token_count && 
+                tokens[*current + 1].type == TOKEN_DOT && 
+                tokens[*current + 2].type == TOKEN_IDENTIFIER && 
+                tokens[*current + 3].type == TOKEN_ASSIGN) {
+                
+                // This is an object property assignment: obj.prop = value
+                char* obj_name = strdup(tokens[*current].text);
+                char* prop_name = strdup(tokens[*current + 2].text);
+                (*current) += 4; // Skip obj.prop= (4 tokens: obj, ., prop, =)
+                // Parse the value expression
+                ASTNode* value_expr = parse_expression(tokens, current);
+                if (!value_expr) {
+                    free(obj_name);
+                    free(prop_name);
+                    parser_free_ast(node);
+                    return NULL;
+                }
+                
+                // Check for semicolon
+                if (tokens[*current].type != TOKEN_SEMICOLON) {
+                    fprintf(stderr, "Error: Expected ';' after object property assignment at line %d\n", tokens[*current].line);
+                    free(obj_name);
+                    free(prop_name);
+                    parser_free_ast(value_expr);
+                    parser_free_ast(node);
+                    return NULL;
+                }
+                (*current)++; // Skip ';'
+                
+                // Create object assignment node
+                node->type = AST_OBJECT_ASSIGN;
+                node->text = strdup("object_assign");
+                node->children = (ASTNode*)tracked_malloc(3 * sizeof(ASTNode), __FILE__, __LINE__, "parse_statement_object_assign");
+                node->child_count = 3;
+                node->next = NULL;
+                node->line = tokens[*current - 3].line; // Line of the object name
+                
+                // Set object name, property name, and value
+                node->children[0].type = AST_EXPR;
+                node->children[0].text = obj_name;
+                node->children[0].children = NULL;
+                node->children[0].child_count = 0;
+                node->children[0].next = NULL;
+                node->children[0].line = node->line;
+                
+                node->children[1].type = AST_EXPR;
+                node->children[1].text = prop_name;
+                node->children[1].children = NULL;
+                node->children[1].child_count = 0;
+                node->children[1].next = NULL;
+                node->children[1].line = node->line;
+                
+                // Copy the value expression
+                deep_copy_ast_node(&node->children[2], value_expr);
+                parser_free_ast(value_expr);
+                break;
+            }
+            
             // Check if this is a regular assignment statement (identifier = expression)
             if (tokens[*current + 1].type == TOKEN_ASSIGN) {
                 // This is an assignment statement
@@ -1487,6 +1764,8 @@ static ASTNode* parse_statement(Token* tokens, int* current) {
                 break;
             }
             
+
+            
             // This might be a function call statement like "bot.send_embed(...)"
             // Save the current position to restore if this isn't a function call
             int saved_current = *current;
@@ -1531,6 +1810,12 @@ static ASTNode* parse_statement(Token* tokens, int* current) {
 
 ASTNode* parser_parse(Token* tokens) {
     int current = 0;
+    int token_count = 0;
+    
+    // Count tokens until EOF
+    while (tokens[token_count].type != TOKEN_EOF) {
+        token_count++;
+    }
     ASTNode* root = (ASTNode*)tracked_malloc(sizeof(ASTNode), __FILE__, __LINE__, "parser_parse");
     if (!root) {
         fprintf(stderr, "Error: Memory allocation failed\n");
@@ -1712,7 +1997,7 @@ ASTNode* parser_parse(Token* tokens) {
             }
             current++; // Skip ':'
 
-            ASTNode* body = parse_block(tokens, &current);
+            ASTNode* body = parse_block(tokens, &current, token_count);
             if (!body) {
                 parser_free_ast(root);
                 parser_free_ast(node);
@@ -1733,7 +2018,7 @@ ASTNode* parser_parse(Token* tokens) {
         }
         // Parse other statements
         else {
-            node = parse_statement(tokens, &current);
+            node = parse_statement(tokens, &current, token_count);
             if (!node) {
                 parser_free_ast(root);
                 return NULL;
@@ -1767,7 +2052,7 @@ void parser_free_ast(ASTNode* node) {
     
     // Recursively free all children
     if (node->children && node->child_count > 0) {
-        for (int i = 0; i < node->child_count; i++) {
+    for (int i = 0; i < node->child_count; i++) {
             // Free children recursively - children[i] is an ASTNode struct, not a pointer
             if (node->children[i].children && node->children[i].child_count > 0) {
                 for (int j = 0; j < node->children[i].child_count; j++) {

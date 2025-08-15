@@ -273,8 +273,10 @@ Token* lexer_tokenize(const char* source) {
             case '(': tokens[token_count].type = TOKEN_LPAREN; tokens[token_count].text = strdup("("); break;
             case ')': tokens[token_count].type = TOKEN_RPAREN; tokens[token_count].text = strdup(")"); break;
             case ',': tokens[token_count].type = TOKEN_COMMA; tokens[token_count].text = strdup(","); break;
-            case '[': tokens[token_count].type = TOKEN_LBRACKET; tokens[token_count].text = strdup("["); break;
-            case ']': tokens[token_count].type = TOKEN_RBRACKET; tokens[token_count].text = strdup("]"); break;
+                    case '[': tokens[token_count].type = TOKEN_LBRACKET; tokens[token_count].text = strdup("["); break;
+        case ']': tokens[token_count].type = TOKEN_RBRACKET; tokens[token_count].text = strdup("]"); break;
+        case '{': tokens[token_count].type = TOKEN_LBRACE; tokens[token_count].text = strdup("{"); break;
+        case '}': tokens[token_count].type = TOKEN_RBRACE; tokens[token_count].text = strdup("}"); break;
             case '<':
                 if (*(p + 1) == '=') {
                     tokens[token_count].type = TOKEN_OPERATOR;

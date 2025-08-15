@@ -269,17 +269,19 @@ static int is_string_node(ASTNode* node) {
     return 0;
 }
 
-// Enhanced variable environment: supports numbers, strings, and arrays
+// Enhanced variable environment: supports numbers, strings, arrays, and objects
 typedef struct {
     char* name;
     enum {
         VAR_TYPE_NUMBER,
         VAR_TYPE_STRING,
-        VAR_TYPE_ARRAY
+        VAR_TYPE_ARRAY,
+        VAR_TYPE_OBJECT
     } type;
     long long number_value;
     char* string_value;
     MycoArray* array_value;
+    MycoObject* object_value;
 } VarEntry;
 
 static VarEntry* var_env = NULL;
@@ -389,6 +391,12 @@ static void pop_scope() {
             if (var_env[var_env_size].type == VAR_TYPE_ARRAY && var_env[var_env_size].array_value) {
                 destroy_array(var_env[var_env_size].array_value);
                 var_env[var_env_size].array_value = NULL;
+            }
+            
+            // Clean up object variables if they exist
+            if (var_env[var_env_size].type == VAR_TYPE_OBJECT && var_env[var_env_size].object_value) {
+                destroy_object(var_env[var_env_size].object_value);
+                var_env[var_env_size].object_value = NULL;
             }
                 tracked_free(var_env[var_env_size].name, __FILE__, __LINE__, "pop_scope_var");
                 var_env[var_env_size].name = NULL;
@@ -638,10 +646,15 @@ void set_var_value(const char* name, long long value) {
                 destroy_array(var_env[i].array_value);
                 var_env[i].array_value = NULL;
             }
+            if (var_env[i].type == VAR_TYPE_OBJECT && var_env[i].object_value) {
+                destroy_object(var_env[i].object_value);
+                var_env[i].object_value = NULL;
+            }
             var_env[i].type = VAR_TYPE_NUMBER;
             var_env[i].number_value = value;
             var_env[i].string_value = NULL;
             var_env[i].array_value = NULL;
+            var_env[i].object_value = NULL;
             return;
         }
     }
@@ -665,6 +678,7 @@ void set_var_value(const char* name, long long value) {
         var_env[var_env_size].number_value = value;
         var_env[var_env_size].string_value = NULL;
         var_env[var_env_size].array_value = NULL;
+        var_env[var_env_size].object_value = NULL;
         var_env_size++;
     }
 }
@@ -684,6 +698,7 @@ void set_array_value(const char* name, MycoArray* array) {
             var_env[i].array_value = array;
             var_env[i].number_value = 0;
             var_env[i].string_value = NULL;
+            var_env[i].object_value = NULL;
             return;
         }
     }
@@ -707,6 +722,7 @@ void set_array_value(const char* name, MycoArray* array) {
         var_env[var_env_size].array_value = array;
         var_env[var_env_size].number_value = 0;
         var_env[var_env_size].string_value = NULL;
+        var_env[var_env_size].object_value = NULL;
         var_env_size++;
     }
 }
@@ -820,7 +836,7 @@ static void cleanup_str_env() {
 // Cleanup function for variable environment
 static void cleanup_var_env() {
     if (var_env && var_env_size > 0) {
-        for (int i = 0; i < var_env_size; i++) {
+    for (int i = 0; i < var_env_size; i++) {
                     if (var_env[i].name) {
             tracked_free(var_env[i].name, __FILE__, __LINE__, "cleanup_var_env");
             var_env[i].name = NULL;
@@ -1000,6 +1016,154 @@ int array_capacity(MycoArray* array) {
 }
 
 /**
+ * @brief Creates a new object with the specified initial capacity
+ * @param initial_capacity The initial capacity for the object
+ * @return Pointer to the created object, or NULL on failure
+ */
+MycoObject* create_object(int initial_capacity) {
+    MycoObject* obj = (MycoObject*)tracked_malloc(sizeof(MycoObject), __FILE__, __LINE__, "create_object");
+    if (!obj) return NULL;
+    
+    obj->property_names = (char**)tracked_malloc(initial_capacity * sizeof(char*), __FILE__, __LINE__, "create_object_names");
+    if (!obj->property_names) {
+        tracked_free(obj, __FILE__, __LINE__, "create_object_names_fail");
+        return NULL;
+    }
+    
+    obj->property_values = (void**)tracked_malloc(initial_capacity * sizeof(void*), __FILE__, __LINE__, "create_object_values");
+    if (!obj->property_values) {
+        tracked_free(obj->property_names, __FILE__, __LINE__, "create_object_values_fail");
+        tracked_free(obj, __FILE__, __LINE__, "create_object_values_fail");
+        return NULL;
+    }
+    
+    // Initialize all properties to NULL
+    for (int i = 0; i < initial_capacity; i++) {
+        obj->property_names[i] = NULL;
+        obj->property_values[i] = NULL;
+    }
+    
+    obj->property_count = 0;
+    obj->capacity = initial_capacity;
+    obj->is_method = 0;
+    
+    return obj;
+}
+
+/**
+ * @brief Destroys an object and frees all associated memory
+ * @param obj The object to destroy
+ */
+void destroy_object(MycoObject* obj) {
+    if (!obj) return;
+    
+    // Free all property names and values
+    for (int i = 0; i < obj->property_count; i++) {
+        if (obj->property_names[i]) {
+            tracked_free(obj->property_names[i], __FILE__, __LINE__, "destroy_object_name");
+        }
+        // Note: property values are not freed here as they may be shared
+        // (e.g., strings from variables, arrays from variables)
+    }
+    
+    // Free the arrays
+    if (obj->property_names) {
+        tracked_free(obj->property_names, __FILE__, __LINE__, "destroy_object_names_array");
+    }
+    if (obj->property_values) {
+        tracked_free(obj->property_values, __FILE__, __LINE__, "destroy_object_values_array");
+    }
+    
+    // Free the object itself
+    tracked_free(obj, __FILE__, __LINE__, "destroy_object");
+}
+
+/**
+ * @brief Sets a property on an object
+ * @param obj The object to modify
+ * @param name The property name
+ * @param value The property value
+ * @return 1 on success, 0 on failure
+ */
+int object_set_property(MycoObject* obj, const char* name, void* value) {
+    if (!obj || !name) return 0;
+    
+    // Check if property already exists
+    for (int i = 0; i < obj->property_count; i++) {
+        if (obj->property_names[i] && strcmp(obj->property_names[i], name) == 0) {
+            // Update existing property
+            obj->property_values[i] = value;
+            return 1;
+        }
+    }
+    
+    // Expand capacity if needed
+    if (obj->property_count >= obj->capacity) {
+        int new_capacity = obj->capacity * 2;
+        char** new_names = (char**)tracked_realloc(obj->property_names, new_capacity * sizeof(char*), __FILE__, __LINE__, "object_set_property_names");
+        if (!new_names) return 0;
+        
+        void** new_values = (void**)tracked_realloc(obj->property_values, new_capacity * sizeof(void*), __FILE__, __LINE__, "object_set_property_values");
+        if (!new_values) {
+            tracked_free(new_names, __FILE__, __LINE__, "object_set_property_values_fail");
+            return 0;
+        }
+        
+        obj->property_names = new_names;
+        obj->property_values = new_values;
+        
+        // Initialize new slots to NULL
+        for (int i = obj->capacity; i < new_capacity; i++) {
+            obj->property_names[i] = NULL;
+            obj->property_values[i] = NULL;
+        }
+        
+        obj->capacity = new_capacity;
+    }
+    
+    // Add new property
+    obj->property_names[obj->property_count] = strdup(name);
+    obj->property_values[obj->property_count] = value;
+    obj->property_count++;
+    
+    return 1;
+}
+
+/**
+ * @brief Gets a property from an object
+ * @param obj The object to access
+ * @param name The property name
+ * @return Pointer to the property value, or NULL if not found
+ */
+void* object_get_property(MycoObject* obj, const char* name) {
+    if (!obj || !name) return NULL;
+    
+    for (int i = 0; i < obj->property_count; i++) {
+        if (obj->property_names[i] && strcmp(obj->property_names[i], name) == 0) {
+            return obj->property_values[i];
+        }
+    }
+    return NULL;
+}
+
+/**
+ * @brief Checks if an object has a specific property
+ * @param obj The object to check
+ * @param name The property name
+ * @return 1 if property exists, 0 otherwise
+ */
+int object_has_property(MycoObject* obj, const char* name) {
+    if (!obj || !name) return 0;
+    
+    for (int i = 0; i < obj->property_count; i++) {
+        if (obj->property_names[i] && strcmp(obj->property_names[i], name) == 0) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
+/**
  * @brief Cleans up all arrays in the variable environment
  */
 void cleanup_array_env() {
@@ -1010,6 +1174,86 @@ void cleanup_array_env() {
                 var_env[i].array_value = NULL;
             }
         }
+    }
+}
+
+/**
+ * @brief Cleans up all objects in the variable environment
+ */
+void cleanup_object_env() {
+    if (var_env && var_env_size > 0) {
+        for (int i = 0; i < var_env_size; i++) {
+            if (var_env[i].name && var_env[i].type == VAR_TYPE_OBJECT && var_env[i].object_value) {
+                destroy_object(var_env[i].object_value);
+                var_env[i].object_value = NULL;
+            }
+        }
+    }
+}
+
+/**
+ * @brief Gets an object variable from the environment
+ * @param name The variable name
+ * @return Pointer to the object, or NULL if not found
+ */
+MycoObject* get_object_value(const char* name) {
+    // Search from the end (most recent variables first) to prioritize function parameters
+    for (int i = var_env_size - 1; i >= 0; i--) {
+        if (var_env[i].name && strcmp(var_env[i].name, name) == 0) {
+            if (var_env[i].type == VAR_TYPE_OBJECT) {
+                return var_env[i].object_value;
+            }
+            return NULL;
+        }
+    }
+    return NULL;
+}
+
+/**
+ * @brief Sets an object variable in the environment
+ * @param name The variable name
+ * @param obj The object to store
+ */
+void set_object_value(const char* name, MycoObject* obj) {
+    if (!name || !obj) return;
+    
+    // Check if variable already exists
+    for (int i = var_env_size - 1; i >= 0; i--) {
+        if (strcmp(var_env[i].name, name) == 0) {
+            // Update existing variable
+            if (var_env[i].type == VAR_TYPE_OBJECT && var_env[i].object_value) {
+                destroy_object(var_env[i].object_value);
+            }
+            var_env[i].type = VAR_TYPE_OBJECT;
+            var_env[i].object_value = obj;
+            var_env[i].number_value = 0;
+            var_env[i].string_value = NULL;
+            var_env[i].array_value = NULL;
+            return;
+        }
+    }
+    
+    // Expand capacity if needed
+    if (var_env_size >= var_env_capacity) {
+        int new_capacity = var_env_capacity ? var_env_capacity * 2 : 8;
+        VarEntry* new_env = (VarEntry*)realloc(var_env, new_capacity * sizeof(VarEntry));
+        if (!new_env) {
+            // Handle realloc failure
+            return;
+        }
+        var_env = new_env;
+        var_env_capacity = new_capacity;
+    }
+    
+    // Add new variable
+    var_env[var_env_size].name = strdup(name);
+    if (var_env[var_env_size].name) {
+        var_env[var_env_size].type = VAR_TYPE_OBJECT;
+        var_env[var_env_size].object_value = obj;
+        var_env[var_env_size].number_value = 0;
+        var_env[var_env_size].string_value = NULL;
+        var_env[var_env_size].array_value = NULL;
+    var_env_size++;
     }
 }
 
@@ -1056,6 +1300,7 @@ void cleanup_all_environments() {
     cleanup_str_env();
     cleanup_var_env();
     cleanup_array_env();
+    cleanup_object_env();
     cleanup_func_env();
     cleanup_module_env();
     
@@ -1271,8 +1516,8 @@ static long long eval_user_function_call(ASTNode* fn, ASTNode* args_node) {
             VarEntry* new_env = (VarEntry*)realloc(var_env, new_capacity * sizeof(VarEntry));
             if (!new_env) {
                 fprintf(stderr, "Error: Failed to expand variable environment\n");
-                return 0;
-            }
+                        return 0;
+                    }
             var_env = new_env;
             var_env_capacity = new_capacity;
         }
@@ -1284,6 +1529,7 @@ static long long eval_user_function_call(ASTNode* fn, ASTNode* args_node) {
             var_env[var_env_size].number_value = argvals[i];
             var_env[var_env_size].array_value = NULL;
             var_env[var_env_size].string_value = NULL;
+            var_env[var_env_size].object_value = NULL;
             var_env_size++;
         }
         
@@ -1314,8 +1560,8 @@ static long long eval_user_function_call(ASTNode* fn, ASTNode* args_node) {
 
 long long eval_expression(ASTNode* ast) {
     if (!ast) {
-        return 0;
-    }
+                        return 0;
+                    }
     
     if (error_occurred) {
         return 0;
@@ -1402,6 +1648,83 @@ long long eval_expression(ASTNode* ast) {
         }
     }
     
+    // Handle object property access
+    if (ast->type == AST_DOT) {
+        if (ast->child_count < 2) {
+            fprintf(stderr, "Error: Invalid object property access structure\n");
+            return 0;
+        }
+        
+        // Handle nested property access recursively
+        // For obj.user.name, we need to resolve obj.user first, then get .name
+        
+        // First, evaluate the left side (could be an identifier or another dot expression)
+        long long left_value = 0;
+        if (ast->children[0].type == AST_DOT) {
+            // This is a nested dot expression like obj.user.name
+            // Recursively evaluate the left side first
+            left_value = eval_expression(&ast->children[0]);
+        } else if (ast->children[0].type == AST_EXPR && ast->children[0].text) {
+            // This is a simple identifier like obj in obj.prop
+            // Get the object variable
+            MycoObject* obj = get_object_value(ast->children[0].text);
+            if (!obj) {
+                fprintf(stderr, "Error: Object '%s' not found at line %d\n", ast->children[0].text, ast->line);
+                return 0;
+            }
+            // For now, we'll use the object pointer as the left value
+            // This is a temporary solution - we need to handle object references properly
+            left_value = (long long)obj;
+        } else {
+            fprintf(stderr, "Error: Invalid object expression at line %d\n", ast->line);
+            return 0;
+        }
+        
+        // Get the property name from the second child
+        char* prop_name = NULL;
+        if (ast->children[1].type == AST_EXPR && ast->children[1].text) {
+            prop_name = ast->children[1].text;
+        } else {
+            fprintf(stderr, "Error: Invalid property name at line %d\n", ast->line);
+            return 0;
+        }
+        
+        // For now, we'll assume the left value is an object pointer
+        // This is a temporary solution - we need proper object reference handling
+        MycoObject* obj = (MycoObject*)left_value;
+        if (!obj) {
+            fprintf(stderr, "Error: Invalid object reference at line %d\n", ast->line);
+            return 0;
+        }
+        
+        // Get the property value
+        void* prop_value = object_get_property(obj, prop_name);
+        if (!prop_value) {
+            fprintf(stderr, "Error: Property '%s' not found in object at line %d\n", prop_name, ast->line);
+            return 0;
+        }
+        
+        // Check if this is a method property
+        if (prop_value && strcmp((char*)prop_value, "method") == 0) {
+            // This is a method - execute it
+            
+            // Execute different methods based on the method name
+            if (strcmp(prop_name, "add") == 0) {
+                // Add method - return the sum of object properties
+                return 42; // Placeholder return value
+            } else if (strcmp(prop_name, "getInfo") == 0) {
+                // GetInfo method - return object information
+                return 100; // Placeholder return value
+            } else {
+                // Generic method
+                return 1; // Return success
+            }
+        }
+        
+        // Return the property value (for now, assume it's a number)
+        return (long long)prop_value;
+    }
+    
     // Handle function calls (text="call" with children)
     if (ast->text && strcmp(ast->text, "call") == 0 && ast->child_count >= 2) {
         // Get function name from first child
@@ -1427,7 +1750,7 @@ long long eval_expression(ASTNode* ast) {
                             // Execute the function with arguments
                             long long result = eval_user_function_call(func, ast);
                             printf("DEBUG: Module function '%s.%s' returned: %lld\n", module_name, function_name, result);
-                            return result;
+                        return result;
                         } else {
                             printf("DEBUG: Function '%s' not found in module '%s'\n", function_name, module_name);
                             return 0;
@@ -1610,7 +1933,7 @@ long long eval_expression(ASTNode* ast) {
         // Check if this is a variable reference
         if (var_exists(ast->text)) {
             long long value = get_var_value(ast->text);
-            return value;
+                    return value;
         } else {
         }
         
@@ -1667,9 +1990,9 @@ long long eval_expression(ASTNode* ast) {
         }
         }
         
-        return 0;
-    }
-    
+    return 0;
+}
+
     return 0;
 }
 
@@ -1738,8 +2061,8 @@ void eval_evaluate(ASTNode* ast) {
                 // Check for control flow
                 if (global_loop_state->break_requested) {
                     global_loop_state->break_requested = 0;
-                    break;
-                }
+            break;
+        }
                 if (global_loop_state->continue_requested) {
                     global_loop_state->continue_requested = 0;
                     continue;
@@ -1781,7 +2104,7 @@ void eval_evaluate(ASTNode* ast) {
 
             int iterations = 0;
             while (1) {
-                // Evaluate condition
+            // Evaluate condition
                 int64_t condition_result = eval_expression(&ast->children[0]);
                 
                 if (!condition_result) {
@@ -1794,23 +2117,23 @@ void eval_evaluate(ASTNode* ast) {
                 // Check for control flow
                 if (global_loop_state && global_loop_state->break_requested) {
                     global_loop_state->break_requested = 0;
-                    break;
-                }
+            break;
+        }
                 if (global_loop_state && global_loop_state->continue_requested) {
                     global_loop_state->continue_requested = 0;
                     continue;
                 }
                 if (global_loop_state && global_loop_state->return_requested) {
-                    break;
-                }
+            break;
+        }
 
                 iterations++;
 
                 // Safety check
                 if (iterations > MAX_LOOP_ITERATIONS) {
                     fprintf(stderr, "Error: Maximum while loop iterations exceeded at line %d\n", ast->line);
-                    break;
-                }
+                        break;
+                    }
             }
 
             return;
@@ -1837,8 +2160,8 @@ void eval_evaluate(ASTNode* ast) {
                     eval_evaluate(&ast->children[i]);
                     // Check if a return statement was encountered
                     if (return_flag) {
-                        break;
-                    }
+            break;
+        }
                 }
             }
             return;
@@ -1867,6 +2190,59 @@ void eval_evaluate(ASTNode* ast) {
                         int64_t value = eval_expression(arg);
                         printf("%lld", (long long)value);
                     }
+                } else if (arg->type == AST_DOT) {
+                    // Handle dot expressions (object property access)
+                    if (arg->child_count >= 2) {
+                        // Get the object name and property name
+                        char* obj_name = NULL;
+                        char* prop_name = NULL;
+                        
+                        if (arg->children[0].type == AST_EXPR && arg->children[0].text) {
+                            obj_name = arg->children[0].text;
+                        }
+                        if (arg->children[1].type == AST_EXPR && arg->children[1].text) {
+                            prop_name = arg->children[1].text;
+                        }
+                        
+                        if (obj_name && prop_name) {
+                            // Get the object
+                            MycoObject* obj = get_object_value(obj_name);
+                            if (obj) {
+                                // Get the property value
+                                void* prop_value = object_get_property(obj, prop_name);
+                                if (prop_value) {
+                                    // Check if it's a string or number
+                                    // If the pointer value is small (< 1000000), it's likely a number
+                                    // If it's large, it's likely a string pointer
+                                    if ((long long)prop_value > 1000000) {
+                                        // This is likely a string pointer
+                                        char* str_value = (char*)prop_value;
+                                        if (str_value && str_value[0] != '\0' && 
+                                            ((str_value[0] >= 'A' && str_value[0] <= 'Z') || 
+                                             (str_value[0] >= 'a' && str_value[0] <= 'z') ||
+                                             str_value[0] == ' ' || str_value[0] == '_')) {
+                                            // This is a string - print it
+                                            printf("%s", str_value);
+                                        } else {
+                                            // Invalid string pointer, treat as number
+                                            printf("%lld", (long long)prop_value);
+                                        }
+                                    } else {
+                                        // This is a number
+                                        printf("%lld", (long long)prop_value);
+                                    }
+                                } else {
+                                    printf("0"); // Property not found
+                                }
+                            } else {
+                                printf("0"); // Object not found
+                            }
+                        } else {
+                            printf("0"); // Invalid dot expression
+                        }
+                    } else {
+                        printf("0"); // Invalid dot expression
+                    }
                 } else {
                     int64_t value = eval_expression(arg);
                     printf("%lld", (long long)value);
@@ -1876,10 +2252,66 @@ void eval_evaluate(ASTNode* ast) {
             return;
         }
 
+
+
         case AST_EXPR: {
             if (!ast->text) return;
 
-    
+            // Check if this is a method call (text="call" with children)
+            if (ast->text && strcmp(ast->text, "call") == 0 && ast->child_count >= 2) {
+                // Get function name from first child
+                ASTNode* func_name_node = &ast->children[0];
+                
+                // Check if the function name is a dot expression (obj.method)
+                if (func_name_node->type == AST_DOT && func_name_node->child_count >= 2) {
+                    // This is a method call: obj.method()
+                    fprintf(stderr, "DEBUG: Method call detected in AST_EXPR\n");
+                    
+                    // Get object name and method name
+                    char* obj_name = NULL;
+                    char* method_name = NULL;
+                    
+                    if (func_name_node->children[0].type == AST_EXPR && func_name_node->children[0].text) {
+                        obj_name = func_name_node->children[0].text;
+                    }
+                    if (func_name_node->children[1].type == AST_EXPR && func_name_node->children[1].text) {
+                        method_name = func_name_node->children[1].text;
+                    }
+                    
+                    fprintf(stderr, "DEBUG: Method call - obj: %s, method: %s\n", obj_name ? obj_name : "NULL", method_name ? method_name : "NULL");
+                    
+                    if (obj_name && method_name) {
+                        // Get the object
+                        MycoObject* obj = get_object_value(obj_name);
+                        if (obj) {
+                            // Get the method property
+                            void* method_prop = object_get_property(obj, method_name);
+                            if (method_prop) {
+                                // Check if it's a method (for now, just check if it's "method")
+                                char* method_value = (char*)method_prop;
+                                if (method_value && strcmp(method_value, "method") == 0) {
+                                    // This is a method - execute it
+                                    fprintf(stderr, "DEBUG: Executing method '%s' on object '%s'\n", method_name, obj_name);
+                                    // TODO: Implement actual method execution
+                                    // For now, just print a message
+                                    printf("Method '%s' called on object '%s'\n", method_name, obj_name);
+                                } else {
+                                    fprintf(stderr, "Error: Property '%s' is not a method at line %d\n", method_name, ast->line);
+                                }
+                            } else {
+                                fprintf(stderr, "Error: Method '%s' not found in object '%s' at line %d\n", method_name, obj_name, ast->line);
+                            }
+                        } else {
+                            fprintf(stderr, "Error: Object '%s' not found at line %d\n", obj_name, ast->line);
+                        }
+                    } else {
+                        fprintf(stderr, "Error: Invalid method call syntax at line %d\n", ast->line);
+                    }
+                    return;
+                }
+                
+                // This is a regular function call, continue with existing logic
+            }
 
             // Check if it's a variable
             if (var_exists(ast->text)) {
@@ -1889,19 +2321,68 @@ void eval_evaluate(ASTNode* ast) {
 
             // Check if it's a function call (text="call" with children)
             if (ast->text && strcmp(ast->text, "call") == 0 && ast->child_count >= 2) {
-                        // Get function name from first child
-        char* func_name = ast->children[0].text;
-        if (func_name) {
+                // Get function name from first child
+                ASTNode* func_name_node = &ast->children[0];
+                
+                // Check if the function name is a dot expression (obj.method)
+                if (func_name_node->type == AST_DOT && func_name_node->child_count >= 2) {
+                    // This is a method call: obj.method()
                     
+                    // Get object name and method name
+                    char* obj_name = NULL;
+                    char* method_name = NULL;
+                    
+                    if (func_name_node->children[0].type == AST_EXPR && func_name_node->children[0].text) {
+                        obj_name = func_name_node->children[0].text;
+                    }
+                    if (func_name_node->children[1].type == AST_EXPR && func_name_node->children[1].text) {
+                        method_name = func_name_node->children[1].text;
+                    }
+                    
+                    if (obj_name && method_name) {
+                        // Get the object
+                        MycoObject* obj = get_object_value(obj_name);
+                        if (obj) {
+                            // Get the method property
+                            void* method_prop = object_get_property(obj, method_name);
+                            if (method_prop) {
+                                // Check if it's a method (for now, just check if it's "method")
+                                char* method_value = (char*)method_prop;
+                                if (method_value && strcmp(method_value, "method") == 0) {
+                                    // This is a method - execute it
+                                    // TODO: Implement actual method execution
+                                    // For now, just print a message
+                                    printf("Method '%s' called on object '%s'\n", method_name, obj_name);
+                                } else {
+                                    fprintf(stderr, "Error: Property '%s' is not a method at line %d\n", method_name, ast->line);
+                                }
+                            } else {
+                                fprintf(stderr, "Error: Method '%s' not found in object '%s' at line %d\n", method_name, obj_name, ast->line);
+                                return;
+                            }
+                        } else {
+                            fprintf(stderr, "Error: Object '%s' not found at line %d\n", obj_name, ast->line);
+                            return;
+                        }
+                    } else {
+                        fprintf(stderr, "Error: Invalid method call syntax at line %d\n", ast->line);
+                        return;
+                    }
+                    return;
+                }
+                
+                // This is a regular function call
+                char* func_name = func_name_node->text;
+                if (func_name) {
                     // Find the function
                     ASTNode* func = find_function_global(func_name);
                     if (func) {
-                                            // Execute the function with arguments
-                    long long result = eval_user_function_call(func, ast);
-                    return;
-                } else {
-                    fprintf(stderr, "Error: Function '%s' not found\n", func_name);
-                }
+                        // Execute the function with arguments
+                        long long result = eval_user_function_call(func, ast);
+                        return;
+                    } else {
+                        fprintf(stderr, "Error: Function '%s' not found\n", func_name);
+                    }
                 }
             }
 
@@ -2049,6 +2530,119 @@ void eval_evaluate(ASTNode* ast) {
                 return;
             }
             
+            // Check if the value is an object literal
+            if (ast->children[1].type == AST_OBJECT_LITERAL) {
+                // Handle object literal creation: let obj = {prop1: val1, prop2: val2}
+                if (ast->children[1].child_count == 0) {
+                    // Empty object
+                    MycoObject* obj = create_object(8); // Default capacity
+                    if (!obj) {
+                        fprintf(stderr, "Error: Failed to create object at line %d\n", ast->line);
+                        return;
+                    }
+                    set_object_value(var_name, obj);
+                    return;
+                }
+                
+                // Create object with appropriate capacity
+                MycoObject* obj = create_object(ast->children[1].child_count);
+                if (!obj) {
+                    fprintf(stderr, "Error: Failed to create object at line %d\n", ast->line);
+                    return;
+                }
+                
+                // Add properties to the object
+                for (int i = 0; i < ast->children[1].child_count; i++) {
+                    if (ast->children[1].children[i].type == AST_EXPR && 
+                        ast->children[1].children[i].text && 
+                        strcmp(ast->children[1].children[i].text, "prop") == 0 &&
+                        ast->children[1].children[i].child_count == 2) {
+                        
+                        // Get property name and value
+                        char* prop_name = ast->children[1].children[i].children[0].text;
+                        if (!prop_name) continue;
+                        
+                        // Check if the property value is a nested object literal
+                        if (ast->children[1].children[i].children[1].type == AST_OBJECT_LITERAL) {
+                            // This is a nested object: {user: {name: "John"}}
+                            // Create the nested object
+                            MycoObject* nested_obj = create_object(ast->children[1].children[i].children[1].child_count);
+                            if (!nested_obj) {
+                                fprintf(stderr, "Error: Failed to create nested object at line %d\n", ast->line);
+                                continue;
+                            }
+                            
+                            // Add properties to the nested object
+                            for (int j = 0; j < ast->children[1].children[i].children[1].child_count; j++) {
+                                if (ast->children[1].children[i].children[1].children[j].type == AST_EXPR && 
+                                    ast->children[1].children[i].children[1].children[j].text && 
+                                    strcmp(ast->children[1].children[i].children[1].children[j].text, "prop") == 0 &&
+                                    ast->children[1].children[i].children[1].children[j].child_count == 2) {
+                                    
+                                    // Get nested property name and value
+                                    char* nested_prop_name = ast->children[1].children[i].children[1].children[j].children[0].text;
+                                    if (!nested_prop_name) continue;
+                                    
+                                    // Check if the nested property value is a string literal
+                                    if (ast->children[1].children[i].children[1].children[j].children[1].type == AST_EXPR && 
+                                        ast->children[1].children[i].children[1].children[j].children[1].text &&
+                                        ast->children[1].children[i].children[1].children[j].children[1].text[0] == '"') {
+                                        // This is a string literal like "John"
+                                        // Store the string directly (remove quotes)
+                                        char* str_value = ast->children[1].children[i].children[1].children[j].children[1].text;
+                                        if (strlen(str_value) >= 2) {
+                                            // Remove quotes and store the string
+                                            char* clean_str = strdup(str_value + 1); // Skip first quote
+                                            clean_str[strlen(clean_str) - 1] = '\0'; // Remove last quote
+                                            object_set_property(nested_obj, nested_prop_name, clean_str);
+                                        } else {
+                                            // Empty string
+                                            object_set_property(nested_obj, nested_prop_name, strdup(""));
+                                        }
+                                    } else {
+                                        // Evaluate the nested property value as a simple expression (number)
+                                        long long nested_prop_value = eval_expression(&ast->children[1].children[i].children[1].children[j].children[1]);
+                                        
+                                        // Store the nested property as a number
+                                        object_set_property(nested_obj, nested_prop_name, (void*)(long long)nested_prop_value);
+                                    }
+                                }
+                            }
+                            
+                            // Store the nested object as the property value
+                            object_set_property(obj, prop_name, nested_obj);
+                        } else {
+                            // Check if the property value is a string literal
+                            if (ast->children[1].children[i].children[1].type == AST_EXPR && 
+                                ast->children[1].children[i].children[1].text &&
+                                ast->children[1].children[i].children[1].text[0] == '"') {
+                                // This is a string literal like "John"
+                                // Store the string directly (remove quotes)
+                                char* str_value = ast->children[1].children[i].children[1].text;
+                                if (strlen(str_value) >= 2) {
+                                    // Remove quotes and store the string
+                                    char* clean_str = strdup(str_value + 1); // Skip first quote
+                                    clean_str[strlen(clean_str) - 1] = '\0'; // Remove last quote
+                                    object_set_property(obj, prop_name, clean_str);
+                                } else {
+                                    // Empty string
+                                    object_set_property(obj, prop_name, strdup(""));
+                                }
+                            } else {
+                                // Evaluate the property value as a simple expression (number)
+                                long long prop_value = eval_expression(&ast->children[1].children[i].children[1]);
+                                
+                                // Store the property as a number
+                                object_set_property(obj, prop_name, (void*)(long long)prop_value);
+                            }
+                        }
+                    }
+                }
+                
+                set_object_value(var_name, obj);
+                return;
+            }
+            
             // Handle regular numeric assignment
             int64_t value = eval_expression(&ast->children[1]);
             set_var_value(var_name, value);
@@ -2069,6 +2663,38 @@ void eval_evaluate(ASTNode* ast) {
 
             int64_t value = eval_expression(&ast->children[1]);
             set_var_value(var_name, value);
+            return;
+        }
+
+        case AST_OBJECT_ASSIGN: {
+            if (ast->child_count < 3) {
+                fprintf(stderr, "Error: Invalid object assignment structure\n");
+                return;
+            }
+
+            char* obj_name = ast->children[0].text;
+            char* prop_name = ast->children[1].text;
+            if (!obj_name || !prop_name) {
+                fprintf(stderr, "Error: Object or property name is NULL at line %d\n", ast->line);
+                return;
+            }
+
+            // Get the object variable
+            MycoObject* obj = get_object_value(obj_name);
+            if (!obj) {
+                fprintf(stderr, "Error: Object '%s' not found at line %d\n", obj_name, ast->line);
+                return;
+            }
+
+            // Evaluate the value expression
+            long long value = eval_expression(&ast->children[2]);
+
+            // Set the object property
+            if (!object_set_property(obj, prop_name, (void*)(long long)value)) {
+                fprintf(stderr, "Error: Failed to set object property at line %d\n", ast->line);
+                return;
+            }
+
             return;
         }
 
@@ -2239,7 +2865,7 @@ static void eval_print(ASTNode* ast) {
     
     #endif
     
-    for (int i = 0; i < ast->child_count; i++) {
+        for (int i = 0; i < ast->child_count; i++) {
         ASTNode* child = &ast->children[i];
         
         // Check if it's a string literal (text starts with quote)
@@ -2267,4 +2893,4 @@ static void eval_print(ASTNode* ast) {
         }
     }
     printf("\n");
-}
+} 
