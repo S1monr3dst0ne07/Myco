@@ -1745,20 +1745,15 @@ long long eval_expression(ASTNode* ast) {
                         // Found the module, now look for the function
                         ASTNode* func = find_function_in_module(modules[i].module_ast, function_name);
                         if (func) {
-                            printf("DEBUG: Found function '%s' in module '%s'\n", function_name, module_name);
-                            
                             // Execute the function with arguments
                             long long result = eval_user_function_call(func, ast);
-                            printf("DEBUG: Module function '%s.%s' returned: %lld\n", module_name, function_name, result);
-                        return result;
+                            return result;
                         } else {
-                            printf("DEBUG: Function '%s' not found in module '%s'\n", function_name, module_name);
                             return 0;
                         }
                     }
                 }
                 
-                printf("DEBUG: Module '%s' not found\n", module_name);
                 return 0;
             }
         }
@@ -1790,20 +1785,15 @@ long long eval_expression(ASTNode* ast) {
                         // Found the module, now look for the function
                         ASTNode* func = find_function_in_module(modules[i].module_ast, function_name);
                         if (func) {
-                            printf("DEBUG: Found function '%s' in module '%s'\n", function_name, module_name);
-                            
                             // Execute the function with arguments
                             long long result = eval_user_function_call(func, ast);
-                            printf("DEBUG: Module function '%s.%s' returned: %lld\n", module_name, function_name, result);
                             return result;
                         } else {
-                            printf("DEBUG: Function '%s' not found in module '%s'\n", function_name, module_name);
                             return 0;
                         }
                     }
                 }
                 
-                printf("DEBUG: Module '%s' not found\n", module_name);
                 return 0;
             }
             
@@ -2265,7 +2255,7 @@ void eval_evaluate(ASTNode* ast) {
                 // Check if the function name is a dot expression (obj.method)
                 if (func_name_node->type == AST_DOT && func_name_node->child_count >= 2) {
                     // This is a method call: obj.method()
-                    fprintf(stderr, "DEBUG: Method call detected in AST_EXPR\n");
+                    
                     
                     // Get object name and method name
                     char* obj_name = NULL;
@@ -2278,7 +2268,7 @@ void eval_evaluate(ASTNode* ast) {
                         method_name = func_name_node->children[1].text;
                     }
                     
-                    fprintf(stderr, "DEBUG: Method call - obj: %s, method: %s\n", obj_name ? obj_name : "NULL", method_name ? method_name : "NULL");
+
                     
                     if (obj_name && method_name) {
                         // Get the object
@@ -2291,7 +2281,7 @@ void eval_evaluate(ASTNode* ast) {
                                 char* method_value = (char*)method_prop;
                                 if (method_value && strcmp(method_value, "method") == 0) {
                                     // This is a method - execute it
-                                    fprintf(stderr, "DEBUG: Executing method '%s' on object '%s'\n", method_name, obj_name);
+            
                                     // TODO: Implement actual method execution
                                     // For now, just print a message
                                     printf("Method '%s' called on object '%s'\n", method_name, obj_name);
@@ -2859,7 +2849,7 @@ static void print_error(const char* message, int line) {
     #endif
 }
 
-// Print function with conditional debug output
+    // Print function
 static void eval_print(ASTNode* ast) {
     #if DEBUG_EVAL_TRACE
     

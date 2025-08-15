@@ -264,11 +264,11 @@ LoopContext* get_current_loop_context(LoopExecutionState* state) {
     return &state->active_loops[state->loop_stack_size - 1];
 }
 
-// Log loop execution for debugging
+// Log loop execution
 void log_loop_execution(LoopContext* context) {
     if (!context) return;
     
-    printf("DEBUG: Loop execution - %s: %" PRId64 " to %" PRId64 " step %" PRId64 " (line %d)\n",
+    printf("Loop execution - %s: %" PRId64 " to %" PRId64 " step %" PRId64 " (line %d)\n",
            context->loop_var_name ? context->loop_var_name : "unknown",
            context->start_value, context->end_value, context->step_value, context->line);
 }

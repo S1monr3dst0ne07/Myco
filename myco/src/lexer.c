@@ -63,7 +63,7 @@ static MycoTokenType get_keyword_type(const char* text) {
  * CONSTANTS AND CONFIGURATION
  ******************************************************************************/
 
-#define MAX_TOKENS 1000  // Maximum number of tokens per source file
+#define INITIAL_TOKEN_CAPACITY 1000  // Initial capacity for tokens
 
 /*******************************************************************************
  * MAIN LEXER FUNCTION
@@ -92,7 +92,8 @@ static MycoTokenType get_keyword_type(const char* text) {
  * - Caller is responsible for freeing tokens with lexer_free_tokens()
  */
 Token* lexer_tokenize(const char* source) {
-    Token* tokens = (Token*)malloc(MAX_TOKENS * sizeof(Token));
+    int capacity = INITIAL_TOKEN_CAPACITY;
+    Token* tokens = (Token*)malloc(capacity * sizeof(Token));
     if (!tokens) {
         fprintf(stderr, "Error: Memory allocation failed\n");
         return NULL;
@@ -102,7 +103,24 @@ Token* lexer_tokenize(const char* source) {
     int line = 1;
     const char* p = source;
 
-    while (*p && token_count < MAX_TOKENS) {
+    // Helper function to grow token array
+    #define GROW_TOKENS_IF_NEEDED() do { \
+        if (token_count >= capacity) { \
+            capacity *= 2; \
+            Token* new_tokens = (Token*)realloc(tokens, capacity * sizeof(Token)); \
+            if (!new_tokens) { \
+                fprintf(stderr, "Error: Memory reallocation failed\n"); \
+                for (int i = 0; i < token_count; i++) { \
+                    if (tokens[i].text) free(tokens[i].text); \
+                } \
+                free(tokens); \
+                return NULL; \
+            } \
+            tokens = new_tokens; \
+        } \
+    } while(0)
+
+    while (*p) {
         // Skip whitespace
         if (isspace(*p)) {
             if (*p == '\n') line++;
@@ -129,6 +147,7 @@ Token* lexer_tokenize(const char* source) {
 
         // PATH starting with ./
         if (*p == '.' && *(p + 1) == '/') {
+            GROW_TOKENS_IF_NEEDED();
             const char* start = p;
             p += 2;
             while (*p && !isspace(*p)) p++;
@@ -144,6 +163,7 @@ Token* lexer_tokenize(const char* source) {
 
         // Single dot for member access
         if (*p == '.' && *(p + 1) != '/' && *(p + 1) != '.') {
+            GROW_TOKENS_IF_NEEDED();
             tokens[token_count].type = TOKEN_DOT;
             tokens[token_count].text = strdup(".");
             tokens[token_count].line = line;
@@ -154,6 +174,7 @@ Token* lexer_tokenize(const char* source) {
 
         // Multi-character operators (must come before identifier detection)
         if (strncmp(p, "and", 3) == 0 && (p[3] == ' ' || p[3] == '\t' || p[3] == '\n' || p[3] == '\r' || p[3] == '\0')) {
+            GROW_TOKENS_IF_NEEDED();
             tokens[token_count].type = TOKEN_OPERATOR;
             tokens[token_count].text = strdup("and");
             p += 3; // Skip 'and' completely, no need for loop increment
@@ -161,6 +182,7 @@ Token* lexer_tokenize(const char* source) {
             token_count++;
             continue;
         } else if (strncmp(p, "or", 2) == 0 && (p[2] == ' ' || p[2] == '\t' || p[2] == '\n' || p[2] == '\r' || p[2] == '\0')) {
+            GROW_TOKENS_IF_NEEDED();
             tokens[token_count].type = TOKEN_OPERATOR;
             tokens[token_count].text = strdup("or");
             p += 2; // Skip 'or' completely, no need for loop increment
@@ -171,8 +193,9 @@ Token* lexer_tokenize(const char* source) {
 
         // Keywords and identifiers
         if (isalpha(*p) || *p == '_') {
+            GROW_TOKENS_IF_NEEDED();
             const char* start = p;
-            while (isalnum(*p) || *p == '_' || *p == '-') p++;
+            while (isalnum(*p) || *p == '_') p++;
             int len = p - start;
             char* text = (char*)malloc(len + 1);
             strncpy(text, start, len);
@@ -208,6 +231,7 @@ Token* lexer_tokenize(const char* source) {
 
         // Numbers
         if (isdigit(*p)) {
+            GROW_TOKENS_IF_NEEDED();
             const char* start = p;
             while (isdigit(*p)) p++;
             int len = p - start;
@@ -223,6 +247,7 @@ Token* lexer_tokenize(const char* source) {
 
         // Strings with simple escapes (\n, \t, \", \\) enclosed in double quotes
         if (*p == '"') {
+            GROW_TOKENS_IF_NEEDED();
             p++; // skip opening quote
             char* buf = NULL; int cap = 0; int len = 0;
             while (*p) {
@@ -262,6 +287,7 @@ Token* lexer_tokenize(const char* source) {
 
         // Operators and symbols
         // Check for multi-character operators first
+        GROW_TOKENS_IF_NEEDED();
         switch (*p) {
             case '+': tokens[token_count].type = TOKEN_OPERATOR; tokens[token_count].text = strdup("+"); break;
             case '-': tokens[token_count].type = TOKEN_OPERATOR; tokens[token_count].text = strdup("-"); break;
