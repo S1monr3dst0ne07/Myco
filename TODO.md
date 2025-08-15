@@ -2,9 +2,9 @@
 
 ## Core Language Features
 
-* [ ] Implement **lists** (arrays) fully
+* [x] Implement **lists** (arrays) fully
 * [ ] Implement **maps** (dictionaries) fully
-* [ ] Add **object types / classes** support
+* [x] Add **object types / classes** support
 * [x] Add **modules / imports** system
 * [x] Improve **error handling** and stack traces
 
