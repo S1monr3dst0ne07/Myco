@@ -297,6 +297,9 @@ static StrEntry* str_env = NULL;
 static int str_env_size = 0;
 static int str_env_capacity = 0;
 
+// Global variable to store the last string concatenation result
+static char* last_concat_result = NULL;
+
 // Simple module alias mapping
 typedef struct {
     char* alias;
@@ -626,8 +629,11 @@ static long long get_var_value(const char* name) {
             if (var_env[i].type == VAR_TYPE_NUMBER) {
                 return var_env[i].number_value;
             } else if (var_env[i].type == VAR_TYPE_ARRAY) {
-                // Return array size as a number for array variables
-                return array_size(var_env[i].array_value);
+                // Return special value to indicate this is an array variable
+                return -2; // Special value to indicate array variable
+            } else if (var_env[i].type == VAR_TYPE_OBJECT) {
+                // Return special value to indicate this is an object variable
+                return -3; // Special value to indicate object variable
             }
             // String variables return 0 (as before)
             return 0;
@@ -727,18 +733,32 @@ void set_array_value(const char* name, MycoArray* array) {
     }
 }
 
-// Helper function to get an array variable from the environment
-MycoArray* get_array_value(const char* name) {
-    // Search from the end (most recent variables first) to prioritize function parameters
-    for (int i = var_env_size - 1; i >= 0; i--) {
-        if (var_env[i].name && strcmp(var_env[i].name, name) == 0) {
-            if (var_env[i].type == VAR_TYPE_ARRAY) {
-                return var_env[i].array_value;
-            }
-            return NULL;
-        }
+/**
+ * @brief Gets an element from an array at the specified index
+ * @param array The array to access
+ * @param index The index of the element
+ * @return Pointer to the element, or NULL if invalid
+ */
+void* array_get(MycoArray* array, int index) {
+    if (!array || index < 0 || index >= array->size) return NULL;
+    
+    if (array->is_string_array) {
+        return array->str_elements[index];
+    } else {
+        // Return pointer to the number (caller must cast appropriately)
+        return &array->elements[index];
     }
-    return NULL;
+}
+
+/**
+ * @brief Gets a string element from an array at the specified index
+ * @param array The array to access
+ * @param index The index of the element
+ * @return Pointer to the string, or NULL if invalid or not a string array
+ */
+const char* array_get_string(MycoArray* array, int index) {
+    if (!array || !array->is_string_array || index < 0 || index >= array->size) return NULL;
+    return array->str_elements[index];
 }
 
 // Helper function to check if a variable exists
@@ -955,23 +975,6 @@ int array_push(MycoArray* array, void* element) {
     array->size++;
     
     return 1;
-}
-
-/**
- * @brief Gets an element from an array at the specified index
- * @param array The array to access
- * @param index The index of the element
- * @return Pointer to the element, or NULL if invalid
- */
-void* array_get(MycoArray* array, int index) {
-    if (!array || index < 0 || index >= array->size) return NULL;
-    
-    if (array->is_string_array) {
-        return array->str_elements[index];
-    } else {
-        // Return pointer to the number (caller must cast appropriately)
-        return &array->elements[index];
-    }
 }
 
 /**
@@ -1603,6 +1606,150 @@ long long eval_expression(ASTNode* ast) {
         }
     }
 
+    // Handle operators
+    if (ast->text && (strcmp(ast->text, "+") == 0 || strcmp(ast->text, "-") == 0 ||
+        strcmp(ast->text, "*") == 0 || strcmp(ast->text, "/") == 0 ||
+        strcmp(ast->text, "%") == 0 || strcmp(ast->text, "==") == 0 ||
+        strcmp(ast->text, "!=") == 0 || strcmp(ast->text, "<") == 0 ||
+        strcmp(ast->text, ">") == 0 || strcmp(ast->text, "<=") == 0 ||
+        strcmp(ast->text, ">=") == 0 || strcmp(ast->text, "and") == 0 ||
+        strcmp(ast->text, "or") == 0)) {
+        
+        // Handle numeric operations
+        if (ast->child_count >= 2) {
+            long long left = eval_expression(&ast->children[0]);
+            if (error_occurred) return 0;
+            long long right = eval_expression(&ast->children[1]);
+            if (error_occurred) return 0;
+            
+            long long result = 0;
+            if (strcmp(ast->text, "+") == 0) {
+                // Check if either operand is a string for concatenation
+                if (left == -1 || right == -1 || left == 1 || right == 1) {
+                    // String concatenation
+                    char* left_str = NULL;
+                    char* right_str = NULL;
+                    
+                    // Get left string value
+                    if (left == -1) {
+                        // Left operand is a string variable or previous concatenation result
+                        if (last_concat_result) {
+                            // Use the result of a previous concatenation
+                            left_str = strdup(last_concat_result);
+                        } else if (ast->children[0].type == AST_EXPR && ast->children[0].text) {
+                            // Get from string variable
+                            left_str = (char*)get_str_value(ast->children[0].text);
+                        }
+                    } else if (left == 1) {
+                        // Left operand is a string literal - get its value from the AST
+                        if (ast->children[0].type == AST_EXPR && ast->children[0].text && is_string_literal(ast->children[0].text)) {
+                            size_t len = strlen(ast->children[0].text);
+                            if (len >= 2) {
+                                left_str = strdup(ast->children[0].text + 1);
+                                left_str[len - 2] = '\0';
+                            }
+                        }
+                    } else {
+                        // Left operand is a number - convert to string
+                        char temp_str[64];
+                        snprintf(temp_str, sizeof(temp_str), "%lld", left);
+                        left_str = strdup(temp_str);
+                    }
+                    
+                    // Get right string value
+                    if (right == -1) {
+                        // Right operand is a string variable - get its name from the AST
+                        if (ast->children[1].type == AST_EXPR && ast->children[1].text) {
+                            right_str = (char*)get_str_value(ast->children[1].text);
+                        }
+                    } else if (right == 1) {
+                        // Right operand is a string literal - get its value from the AST
+                        if (ast->children[1].type == AST_EXPR && ast->children[1].text && is_string_literal(ast->children[1].text)) {
+                            size_t len = strlen(ast->children[1].text);
+                            if (len >= 2) {
+                                right_str = strdup(ast->children[1].text + 1);
+                                right_str[len - 2] = '\0';
+                            }
+                        }
+                    } else {
+                        // Right operand is a number - convert to string
+                        char temp_str[64];
+                        snprintf(temp_str, sizeof(temp_str), "%lld", right);
+                        right_str = strdup(temp_str);
+                    }
+                    
+                    // Concatenate strings
+                    if (left_str && right_str) {
+                        size_t total_len = strlen(left_str) + strlen(right_str) + 1;
+                        char* result_str = (char*)malloc(total_len);
+                        if (result_str) {
+                            strcpy(result_str, left_str);
+                            strcat(result_str, right_str);
+                            
+                            // Store the concatenated string in a temporary variable
+                            char temp_var_name[64];
+                            snprintf(temp_var_name, sizeof(temp_var_name), "__temp_concat_%p", (void*)ast);
+                            set_str_value(temp_var_name, result_str);
+                            
+                            // Also store it in the global variable for easier access
+                            if (last_concat_result) {
+                                free(last_concat_result);
+                            }
+                            last_concat_result = strdup(result_str);
+                            
+                            // Clean up
+                            if (left != -1 && left_str) free(left_str);
+                            if (right != -1 && right_str) free(right_str);
+                            free(result_str);
+                            
+                            // Return special value to indicate this is a concatenated string
+                            return -1;
+                        }
+                    }
+                    
+                    // Clean up on failure
+                    if (left != -1 && left_str) free(left_str);
+                    if (right != -1 && right_str) free(right_str);
+                    
+                    // Fall back to numeric addition
+                    if (left == -1) {
+                        // Left operand is a string - this shouldn't happen in normal flow
+                        // but if it does, we need to handle it properly
+                        return -1; // Return string indicator
+                    } else if (right == -1) {
+                        // Right operand is a string - this shouldn't happen in normal flow
+                        // but if it does, we need to handle it properly
+                        return -1; // Return string indicator
+                    } else {
+                        result = left + right;
+                    }
+                } else {
+                    // Regular numeric addition
+                    result = left + right;
+                }
+            } else if (strcmp(ast->text, "-") == 0) result = left - right;
+            else if (strcmp(ast->text, "*") == 0) result = left * right;
+            else if (strcmp(ast->text, "/") == 0) {
+                if (right == 0) { set_error(ERROR_DIVISION_BY_ZERO); return 0; }
+                result = left / right;
+            }
+            else if (strcmp(ast->text, "%") == 0) {
+                if (right == 0) { set_error(ERROR_MODULO_BY_ZERO); return 0; }
+                result = left % right;
+            }
+            else if (strcmp(ast->text, "==") == 0) result = left == right;
+            else if (strcmp(ast->text, "!=") == 0) result = left != right;
+            else if (strcmp(ast->text, "<") == 0) result = left < right;
+            else if (strcmp(ast->text, ">") == 0) result = left > right;
+            else if (strcmp(ast->text, "<=") == 0) result = left <= right;
+            else if (strcmp(ast->text, ">=") == 0) result = left >= right;
+            else if (strcmp(ast->text, "and") == 0) result = left && right;
+            else if (strcmp(ast->text, "or") == 0) result = left || right;
+            
+            return result;
+        }
+    }
+
     // Handle array access
     if (ast->type == AST_ARRAY_ACCESS) {
         if (ast->child_count < 2) {
@@ -1729,85 +1876,935 @@ long long eval_expression(ASTNode* ast) {
     if (ast->text && strcmp(ast->text, "call") == 0 && ast->child_count >= 2) {
         // Get function name from first child
         ASTNode* func_name_node = &ast->children[0];
-        
-        // Check if the function name is a dot expression (module.function)
-        if (func_name_node->type == AST_DOT && func_name_node->child_count >= 2) {
-            // This is a module function call: module.function
-            const char* module_name = func_name_node->children[0].text;
-            const char* function_name = func_name_node->children[1].text;
-            
-            if (module_name && function_name) {
-    
-                
-                // Find the module
-                for (int i = 0; i < modules_size; i++) {
-                    if (strcmp(modules[i].alias, module_name) == 0) {
-                        // Found the module, now look for the function
-                        ASTNode* func = find_function_in_module(modules[i].module_ast, function_name);
-                        if (func) {
-                            // Execute the function with arguments
-                            long long result = eval_user_function_call(func, ast);
-                            return result;
-                        } else {
-                            return 0;
-                        }
-                    }
-                }
-                
-                return 0;
-            }
-        }
-        
-        // Handle string-based function names (for backward compatibility)
         char* func_name = func_name_node->text;
-        if (func_name) {
+        
+        if (func_name && strcmp(func_name, "len") == 0) {
+            // len() function - works with strings and arrays
+            if (ast->child_count < 2) {
+                fprintf(stderr, "Error: len() function requires one argument\n");
+                return 0;
+            }
             
-            // First, check if this is a module function call (e.g., importedModule.factorial)
-            // The function name might be "importedModule.factorial" or just "factorial" if called directly
-            char* dot_pos = strchr(func_name, '.');
-            if (dot_pos) {
-                // This is a module function call: "module.function"
-                char module_name[256];
-                char function_name[256];
-                
-                // Extract module and function names
-                int module_len = dot_pos - func_name;
-                strncpy(module_name, func_name, module_len);
-                module_name[module_len] = '\0';
-                
-                strcpy(function_name, dot_pos + 1);
-                
+            // Evaluate the argument
+            long long arg_value = eval_expression(&ast->children[1].children[0]);
+            
+            if (arg_value == -1) {
+                // String variable - get its length
+                if (ast->children[1].child_count > 0) {
+                    ASTNode* arg_node = &ast->children[1].children[0];
+                    if (arg_node->type == AST_EXPR && arg_node->text) {
+                        const char* str_val = get_str_value(arg_node->text);
+                        if (str_val) {
+                            return (long long)strlen(str_val);
+                        }
+                    }
+                }
+                return 0;
+            } else if (arg_value == 1) {
+                // String literal - get its length directly from the AST
+                if (ast->children[1].child_count > 0) {
+                    ASTNode* arg_node = &ast->children[1].children[0];
+                    if (arg_node->type == AST_EXPR && arg_node->text && is_string_literal(arg_node->text)) {
+                        size_t len = strlen(arg_node->text);
+                        if (len >= 2) {
+                            // Extract string content (remove quotes)
+                            size_t content_len = len - 2;
+                            return (long long)content_len;
+                        }
+                    }
+                }
+                return 0;
+            } else if (arg_value == -2) {
+                // Array variable - get its size
+                if (ast->children[1].child_count > 0) {
+                    ASTNode* arg_node = &ast->children[1].children[0];
+                    if (arg_node->type == AST_EXPR && arg_node->text) {
+                        MycoArray* array = get_array_value(arg_node->text);
+                        if (array) {
+                            return (long long)array->size;
+                        }
+                    }
+                }
+                return 0;
+            } else if (arg_value == 0) {
+                // This might be an array or object literal - check the AST structure
+                if (ast->children[1].child_count > 0) {
+                    ASTNode* arg_node = &ast->children[1].children[0];
+                    if (arg_node->type == AST_ARRAY_LITERAL) {
+                        // Array literal - count the children
+                        return (long long)arg_node->child_count;
+                    } else if (arg_node->type == AST_OBJECT_LITERAL) {
+                        // Object literal - count the properties
+                        return (long long)arg_node->child_count;
+                    }
+                }
+                return 0;
+            } else {
+                // Numeric value - return 1 (length of a single number)
+                return 1;
+            }
+        } else if (func_name && strcmp(func_name, "push") == 0) {
+            // push(array, value) - add element to array
+            if (ast->child_count < 2 || ast->children[1].child_count < 2) {
+                fprintf(stderr, "Error: push() function requires two arguments\n");
+                return 0;
+            }
+            
+            // Get array name from first argument
+            ASTNode* array_node = &ast->children[1].children[0];
 
-                
-                // Find the module
-                for (int i = 0; i < modules_size; i++) {
-                    if (strcmp(modules[i].alias, module_name) == 0) {
-                        // Found the module, now look for the function
-                        ASTNode* func = find_function_in_module(modules[i].module_ast, function_name);
-                        if (func) {
-                            // Execute the function with arguments
-                            long long result = eval_user_function_call(func, ast);
-                            return result;
-                        } else {
-                            return 0;
+
+            
+            if (array_node->type == AST_EXPR && array_node->text) {
+                // Extract the actual variable name from the string literal
+                const char* array_name = array_node->text;
+                if (is_string_literal(array_name)) {
+                    // Remove quotes from the string literal
+                    size_t len = strlen(array_name);
+                    if (len >= 2) {
+                        char* temp_name = malloc(len - 1);
+                        if (temp_name) {
+                            strncpy(temp_name, array_name + 1, len - 2);
+                            temp_name[len - 2] = '\0';
+                            array_name = temp_name;
                         }
                     }
                 }
                 
+                MycoArray* array = get_array_value(array_name);
+
+                if (array) {
+                    // Evaluate the value to add
+                    long long value_to_add = eval_expression(&ast->children[1].children[1]);
+                    if (error_occurred) return 0;
+                    
+                    // Add the value to the array
+                    if (array->is_string_array) {
+                        // For string arrays, we need to handle string values
+                        if (value_to_add == -1) {
+                            // String variable - get its value
+                            const char* str_val = get_str_value(array_node->text);
+                            if (str_val) {
+                                array_push(array, strdup(str_val));
+                                return (long long)array->size;
+                            }
+                        } else if (value_to_add == 1) {
+                            // String literal - extract from AST
+                            if (ast->children[1].children[1].type == AST_EXPR && 
+                                ast->children[1].children[1].text && 
+                                is_string_literal(ast->children[1].children[1].text)) {
+                                size_t len = strlen(ast->children[1].children[1].text);
+                                if (len >= 2) {
+                                    char* str_val = strdup(ast->children[1].children[1].text + 1);
+                                    str_val[len - 2] = '\0';
+                                    array_push(array, str_val);
+                                    return (long long)array->size;
+                                }
+                            }
+                        }
+                        } else {
+                        // Numeric array
+                        array_push(array, &value_to_add);
+                        return (long long)array->size;
+                    }
+                }
+            }
+            return 0;
+        } else if (func_name && strcmp(func_name, "pop") == 0) {
+            // pop(array) - remove and return last element
+            if (ast->child_count < 2 || ast->children[1].child_count < 1) {
+                fprintf(stderr, "Error: pop() function requires one argument\n");
+                            return 0;
+            }
+            
+            ASTNode* array_node = &ast->children[1].children[0];
+            if (array_node->type == AST_EXPR && array_node->text) {
+                // Extract the actual variable name from the string literal
+                const char* array_name = array_node->text;
+                if (is_string_literal(array_name)) {
+                    // Remove quotes from the string literal
+                    size_t len = strlen(array_name);
+                    if (len >= 2) {
+                        char* temp_name = malloc(len - 1);
+                        if (temp_name) {
+                            strncpy(temp_name, array_name + 1, len - 2);
+                            temp_name[len - 2] = '\0';
+                            array_name = temp_name;
+                        }
+                    }
+                }
+                
+                MycoArray* array = get_array_value(array_name);
+                if (array && array->size > 0) {
+                    if (array->is_string_array) {
+                        // For string arrays, return the last string
+                        const char* last_str = array_get_string(array, array->size - 1);
+                        if (last_str) {
+                                                    // Store the popped string in a predictable variable
+                        // Clear other results to avoid conflicts
+                        set_str_value("__last_first_result", "");
+                        set_str_value("__last_last_result", "");
+                        set_str_value("__last_tostring_result", "");
+                        set_str_value("__last_pop_result", strdup(last_str));
+                        
+                        // Remove the last element
+                        array->size--;
+                        return -1; // Indicate string result
+                        }
+                    } else {
+                        // For numeric arrays, return the last number
+                        long long* last_num = (long long*)array_get(array, array->size - 1);
+                        if (last_num) {
+                            long long result = *last_num;
+                            array->size--;
+                            return result;
+                        }
+                    }
+                }
+            }
+            return 0;
+        } else if (func_name && strcmp(func_name, "slice") == 0) {
+            // slice(array, start, end) - extract portion of array
+            if (ast->child_count < 2 || ast->children[1].child_count < 3) {
+                fprintf(stderr, "Error: slice() function requires three arguments\n");
                 return 0;
             }
             
-            // Regular function call - find the function globally
-            ASTNode* func = find_function_global(func_name);
-            if (func) {
-                // Execute the function with arguments
-                long long result = eval_user_function_call(func, ast);
-                return result;
-            } else {
-                fprintf(stderr, "Error: Function '%s' not found\n", func_name);
+            // Get array argument
+            ASTNode* array_node = &ast->children[1].children[0];
+            if (array_node->type == AST_EXPR && array_node->text) {
+                const char* array_name = array_node->text;
+                MycoArray* source_array = get_array_value(array_name);
+                if (!source_array) {
+                    return 0;
+                }
+                
+                // Get start and end indices
+                long long start_idx = eval_expression(&ast->children[1].children[1]);
+                long long end_idx = eval_expression(&ast->children[1].children[2]);
+                
+                // Validate indices
+                if (start_idx < 0) start_idx = 0;
+                if (end_idx > source_array->size) end_idx = source_array->size;
+                if (start_idx >= end_idx) {
+                    // Return empty array
+                    MycoArray* result_array = create_array(1, source_array->is_string_array);
+                    set_array_value("__last_slice_result", result_array);
+                    return -2;
+                }
+                
+                // Create new array with sliced elements
+                int slice_size = (int)(end_idx - start_idx);
+                MycoArray* result_array = create_array(slice_size, source_array->is_string_array);
+                
+                if (source_array->is_string_array) {
+                    // Copy string elements
+                    for (int i = 0; i < slice_size; i++) {
+                        const char* str_elem = array_get_string(source_array, (int)start_idx + i);
+                        if (str_elem) {
+                            array_push(result_array, strdup(str_elem));
+                        }
+                    }
+                        } else {
+                    // Copy numeric elements
+                    for (int i = 0; i < slice_size; i++) {
+                        long long* num_elem = (long long*)array_get(source_array, (int)start_idx + i);
+                        if (num_elem) {
+                            long long* new_elem = (long long*)tracked_malloc(sizeof(long long), __FILE__, __LINE__, "slice_element");
+                            *new_elem = *num_elem;
+                            array_push(result_array, new_elem);
+                        }
+                    }
+                }
+                
+                // Store result and return array indicator
+                set_array_value("__last_slice_result", result_array);
+                return -2;
             }
+            return 0;
+        } else if (func_name && strcmp(func_name, "join") == 0) {
+            // join(array, separator) - join array elements with separator
+            if (ast->child_count < 2 || ast->children[1].child_count < 2) {
+                fprintf(stderr, "Error: join() function requires two arguments\n");
+                            return 0;
+                        }
+            
+            // Get array argument
+            ASTNode* array_node = &ast->children[1].children[0];
+            if (array_node->type == AST_EXPR && array_node->text) {
+                const char* array_name = array_node->text;
+                MycoArray* source_array = get_array_value(array_name);
+                if (!source_array || source_array->size == 0) {
+                    // Return empty string for empty array
+                    set_str_value("__last_join_result", "");
+                    return -1;
+                }
+                
+                // Get separator
+                long long sep_result = eval_expression(&ast->children[1].children[1]);
+                const char* separator = "";
+                if (sep_result == 1) {
+                    // String literal separator
+                    ASTNode* sep_node = &ast->children[1].children[1];
+                    if (sep_node->text && is_string_literal(sep_node->text)) {
+                        size_t len = strlen(sep_node->text);
+                        if (len >= 2) {
+                            char* temp_sep = (char*)tracked_malloc(len - 1, __FILE__, __LINE__, "join_separator");
+                            strncpy(temp_sep, sep_node->text + 1, len - 2);
+                            temp_sep[len - 2] = '\0';
+                            separator = temp_sep;
+                        }
+                    }
+                } else if (sep_result == -1) {
+                    // String variable separator
+                    ASTNode* sep_node = &ast->children[1].children[1];
+                    if (sep_node->text) {
+                        const char* sep_var = get_str_value(sep_node->text);
+                        if (sep_var) {
+                            separator = sep_var;
+                        }
+                    }
+                }
+                
+                // Calculate total length needed
+                size_t total_length = 0;
+                size_t sep_len = strlen(separator);
+                
+                for (int i = 0; i < source_array->size; i++) {
+                    if (source_array->is_string_array) {
+                        const char* str_elem = array_get_string(source_array, i);
+                        if (str_elem) {
+                            total_length += strlen(str_elem);
+                        }
+                    } else {
+                        // Convert number to string (estimate 20 chars per number)
+                        total_length += 20;
+                    }
+                    if (i < source_array->size - 1) {
+                        total_length += sep_len;
+                    }
+                }
+                
+                // Build the joined string
+                char* result = (char*)tracked_malloc(total_length + 1, __FILE__, __LINE__, "join_result");
+                result[0] = '\0';
+                
+                for (int i = 0; i < source_array->size; i++) {
+                    if (source_array->is_string_array) {
+                        const char* str_elem = array_get_string(source_array, i);
+                        if (str_elem) {
+                            strcat(result, str_elem);
+                        }
+                    } else {
+                        long long* num_elem = (long long*)array_get(source_array, i);
+                        if (num_elem) {
+                            char num_str[32];
+                            snprintf(num_str, sizeof(num_str), "%lld", *num_elem);
+                            strcat(result, num_str);
+                        }
+                    }
+                    if (i < source_array->size - 1) {
+                        strcat(result, separator);
+                    }
+                }
+                
+                // Store result and return string indicator
+                set_str_value("__last_join_result", result);
+                return -1;
+            }
+            return 0;
+        } else if (func_name && strcmp(func_name, "split") == 0) {
+            // split(string, delimiter) - split string into array
+            if (ast->child_count < 2 || ast->children[1].child_count < 2) {
+                fprintf(stderr, "Error: split() function requires two arguments\n");
+                return 0;
+            }
+            
+            // Get string argument
+            ASTNode* string_node = &ast->children[1].children[0];
+            const char* source_string = NULL;
+            
+            if (string_node->type == AST_EXPR && string_node->text) {
+                long long str_result = eval_expression(string_node);
+                if (str_result == 1) {
+                    // String literal
+                    if (is_string_literal(string_node->text)) {
+                        size_t len = strlen(string_node->text);
+                        if (len >= 2) {
+                            char* temp_str = (char*)tracked_malloc(len - 1, __FILE__, __LINE__, "split_string");
+                            strncpy(temp_str, string_node->text + 1, len - 2);
+                            temp_str[len - 2] = '\0';
+                            source_string = temp_str;
+                        }
+                    }
+                } else if (str_result == -1) {
+                    // String variable
+                    const char* str_var = get_str_value(string_node->text);
+                    if (str_var) {
+                        source_string = str_var;
+                    }
+                }
+            }
+            
+            if (!source_string) {
+                // Return empty array
+                MycoArray* result_array = create_array(1, 1); // string array
+                set_array_value("__last_split_result", result_array);
+                return -2;
+            }
+            
+            // Get delimiter
+            ASTNode* delim_node = &ast->children[1].children[1];
+            const char* delimiter = "";
+            long long delim_result = eval_expression(delim_node);
+            
+            if (delim_result == 1) {
+                // String literal delimiter
+                if (delim_node->text && is_string_literal(delim_node->text)) {
+                    size_t len = strlen(delim_node->text);
+                    if (len >= 2) {
+                        char* temp_delim = (char*)tracked_malloc(len - 1, __FILE__, __LINE__, "split_delimiter");
+                        strncpy(temp_delim, delim_node->text + 1, len - 2);
+                        temp_delim[len - 2] = '\0';
+                        delimiter = temp_delim;
+                    }
+                }
+            } else if (delim_result == -1) {
+                // String variable delimiter
+                const char* delim_var = get_str_value(delim_node->text);
+                if (delim_var) {
+                    delimiter = delim_var;
+                }
+            }
+            
+            // Perform the split
+            MycoArray* result_array = create_array(1, 1); // string array
+            
+            if (strlen(delimiter) == 0) {
+                // Empty delimiter - split into individual characters
+                size_t str_len = strlen(source_string);
+                for (size_t i = 0; i < str_len; i++) {
+                    char* char_str = (char*)tracked_malloc(2, __FILE__, __LINE__, "split_char");
+                    char_str[0] = source_string[i];
+                    char_str[1] = '\0';
+                    array_push(result_array, char_str);
+                }
+            } else {
+                // Split by delimiter
+                char* str_copy = strdup(source_string);
+                char* saveptr;
+                char* token = strtok_r(str_copy, delimiter, &saveptr);
+                
+                while (token != NULL) {
+                    array_push(result_array, strdup(token));
+                    token = strtok_r(NULL, delimiter, &saveptr);
+                }
+                
+                tracked_free(str_copy, __FILE__, __LINE__, "split_string_copy");
+            }
+            
+            // Store result and return array indicator
+            set_array_value("__last_split_result", result_array);
+            return -2;
+        } else if (func_name && strcmp(func_name, "trim") == 0) {
+            // trim(string) - remove whitespace from beginning and end
+            if (ast->child_count < 2 || ast->children[1].child_count < 1) {
+                fprintf(stderr, "Error: trim() function requires one argument\n");
+                return 0;
+            }
+            
+            // Get string argument
+            ASTNode* string_node = &ast->children[1].children[0];
+            const char* source_string = NULL;
+            
+            if (string_node->type == AST_EXPR && string_node->text) {
+                long long str_result = eval_expression(string_node);
+                if (str_result == 1) {
+                    // String literal
+                    if (is_string_literal(string_node->text)) {
+                        size_t len = strlen(string_node->text);
+                        if (len >= 2) {
+                            char* temp_str = (char*)tracked_malloc(len - 1, __FILE__, __LINE__, "trim_string");
+                            strncpy(temp_str, string_node->text + 1, len - 2);
+                            temp_str[len - 2] = '\0';
+                            source_string = temp_str;
+                        }
+                    }
+                } else if (str_result == -1) {
+                    // String variable
+                    const char* str_var = get_str_value(string_node->text);
+                    if (str_var) {
+                        source_string = str_var;
+                    }
+                }
+            }
+            
+            if (!source_string) {
+                // Return empty string
+                set_str_value("__last_trim_result", "");
+                return -1;
+            }
+            
+            // Trim whitespace
+            const char* start = source_string;
+            const char* end = source_string + strlen(source_string) - 1;
+            
+            // Skip leading whitespace
+            while (*start && (*start == ' ' || *start == '\t' || *start == '\n' || *start == '\r')) {
+                start++;
+            }
+            
+            // Skip trailing whitespace
+            while (end > start && (*end == ' ' || *end == '\t' || *end == '\n' || *end == '\r')) {
+                end--;
+            }
+            
+            // Create trimmed string
+            size_t trimmed_len = end - start + 1;
+            char* trimmed_string = (char*)tracked_malloc(trimmed_len + 1, __FILE__, __LINE__, "trim_result");
+            strncpy(trimmed_string, start, trimmed_len);
+            trimmed_string[trimmed_len] = '\0';
+            
+            // Store result and return string indicator
+            set_str_value("__last_trim_result", trimmed_string);
+            return -1;
+        } else if (func_name && strcmp(func_name, "replace") == 0) {
+            // replace(string, old, new) - replace occurrences of old with new
+            if (ast->child_count < 2 || ast->children[1].child_count < 3) {
+                fprintf(stderr, "Error: replace() function requires three arguments\n");
+                return 0;
+            }
+            
+            // Get string argument
+            ASTNode* string_node = &ast->children[1].children[0];
+            const char* source_string = NULL;
+            
+            if (string_node->type == AST_EXPR && string_node->text) {
+                long long str_result = eval_expression(string_node);
+                if (str_result == 1) {
+                    // String literal
+                    if (is_string_literal(string_node->text)) {
+                        size_t len = strlen(string_node->text);
+                        if (len >= 2) {
+                            char* temp_str = (char*)tracked_malloc(len - 1, __FILE__, __LINE__, "replace_string");
+                            strncpy(temp_str, string_node->text + 1, len - 2);
+                            temp_str[len - 2] = '\0';
+                            source_string = temp_str;
+                        }
+                    }
+                } else if (str_result == -1) {
+                    // String variable
+                    const char* str_var = get_str_value(string_node->text);
+                    if (str_var) {
+                        source_string = str_var;
+                    }
+                }
+            }
+            
+            if (!source_string) {
+                set_str_value("__last_replace_result", "");
+                return -1;
+            }
+            
+            // Get old string argument
+            ASTNode* old_node = &ast->children[1].children[1];
+            const char* old_string = "";
+            long long old_result = eval_expression(old_node);
+            
+            if (old_result == 1) {
+                // String literal
+                if (old_node->text && is_string_literal(old_node->text)) {
+                    size_t len = strlen(old_node->text);
+                    if (len >= 2) {
+                        char* temp_old = (char*)tracked_malloc(len - 1, __FILE__, __LINE__, "replace_old");
+                        strncpy(temp_old, old_node->text + 1, len - 2);
+                        temp_old[len - 2] = '\0';
+                        old_string = temp_old;
+                    }
+                }
+            } else if (old_result == -1) {
+                // String variable
+                const char* old_var = get_str_value(old_node->text);
+                if (old_var) {
+                    old_string = old_var;
+                }
+            }
+            
+            // Get new string argument
+            ASTNode* new_node = &ast->children[1].children[2];
+            const char* new_string = "";
+            long long new_result = eval_expression(new_node);
+            
+            if (new_result == 1) {
+                // String literal
+                if (new_node->text && is_string_literal(new_node->text)) {
+                    size_t len = strlen(new_node->text);
+                    if (len >= 2) {
+                        char* temp_new = (char*)tracked_malloc(len - 1, __FILE__, __LINE__, "replace_new");
+                        strncpy(temp_new, new_node->text + 1, len - 2);
+                        temp_new[len - 2] = '\0';
+                        new_string = temp_new;
+                    }
+                }
+            } else if (new_result == -1) {
+                // String variable
+                const char* new_var = get_str_value(new_node->text);
+                if (new_var) {
+                    new_string = new_var;
+                }
+            }
+            
+            // Perform the replacement
+            if (strlen(old_string) == 0) {
+                // Can't replace empty string, return original
+                set_str_value("__last_replace_result", strdup(source_string));
+                return -1;
+            }
+            
+            // Count occurrences to determine result size
+            const char* pos = source_string;
+            int count = 0;
+            size_t old_len = strlen(old_string);
+            size_t new_len = strlen(new_string);
+            
+            while ((pos = strstr(pos, old_string)) != NULL) {
+                count++;
+                pos += old_len;
+            }
+            
+            if (count == 0) {
+                // No replacements needed
+                set_str_value("__last_replace_result", strdup(source_string));
+                return -1;
+            }
+            
+            // Calculate result size
+            size_t source_len = strlen(source_string);
+            size_t result_len = source_len - (count * old_len) + (count * new_len);
+            char* result = (char*)tracked_malloc(result_len + 1, __FILE__, __LINE__, "replace_result");
+            
+            // Perform replacements
+            const char* src_pos = source_string;
+            char* dest_pos = result;
+            
+            while ((pos = strstr(src_pos, old_string)) != NULL) {
+                // Copy part before the match
+                size_t prefix_len = pos - src_pos;
+                strncpy(dest_pos, src_pos, prefix_len);
+                dest_pos += prefix_len;
+                
+                // Copy the replacement
+                strcpy(dest_pos, new_string);
+                dest_pos += new_len;
+                
+                // Move past the old string
+                src_pos = pos + old_len;
+            }
+            
+            // Copy remaining part
+            strcpy(dest_pos, src_pos);
+            
+            // Store result and return string indicator
+            set_str_value("__last_replace_result", result);
+            return -1;
+        } else if (func_name && strcmp(func_name, "object_keys") == 0) {
+            // object_keys(obj) - return array of property names
+            if (ast->child_count < 2 || ast->children[1].child_count < 1) {
+                fprintf(stderr, "Error: object_keys() function requires one argument\n");
+                return 0;
+            }
+            
+            ASTNode* obj_node = &ast->children[1].children[0];
+            if (obj_node->type == AST_EXPR && obj_node->text) {
+                // Extract the actual variable name from the string literal
+                const char* obj_name = obj_node->text;
+                if (is_string_literal(obj_name)) {
+                    // Remove quotes from the string literal
+                    size_t len = strlen(obj_name);
+                    if (len >= 2) {
+                        char* temp_name = malloc(len - 1);
+                        if (temp_name) {
+                            strncpy(temp_name, obj_name + 1, len - 2);
+                            temp_name[len - 2] = '\0';
+                            obj_name = temp_name;
+                        }
+                    }
+                }
+                
+                MycoObject* obj = get_object_value(obj_name);
+                // object_keys - obj found: %p, property_count: %d\n", obj, obj ? obj->property_count : 0);
+                if (obj && obj->property_count > 0) {
+                    // Create a new string array to hold the keys
+                    MycoArray* keys_array = create_array(1, 1); // String array
+                    // object_keys - keys_array created: %p\n", keys_array);
+                    if (keys_array) {
+                        for (int i = 0; i < obj->property_count; i++) {
+                            if (obj->property_names[i]) {
+                                // object_keys - adding property: %s\n", obj->property_names[i]);
+                                array_push(keys_array, strdup(obj->property_names[i]));
+                            }
+                        }
+                        
+                        // Store the keys array in a predictable variable name
+                        set_array_value("__last_object_keys_result", keys_array);
+
+                        
+                        // object_keys - returning -2\n");
+                        return -2; // Indicate array result
+                    }
+                }
+            }
+            // object_keys - returning 0 (failure)\n");
+            return 0;
+        } else if (func_name && strcmp(func_name, "to_string") == 0) {
+            // to_string(value) - convert any value to string
+            if (ast->child_count < 2 || ast->children[1].child_count < 1) {
+                fprintf(stderr, "Error: to_string() function requires one argument\n");
+                return 0;
+            }
+            
+            long long value = eval_expression(&ast->children[1].children[0]);
+            // to_string - input value: %lld\n", value);
+            if (error_occurred) return 0;
+            
+            char* result_str = NULL;
+            if (value == -1) {
+                // Already a string - get its value
+                ASTNode* arg_node = &ast->children[1].children[0];
+                if (arg_node->type == AST_EXPR && arg_node->text) {
+                    const char* str_val = get_str_value(arg_node->text);
+                    if (str_val) {
+                        result_str = strdup(str_val);
+                    }
+                }
+            } else if (value == -2) {
+                // Array - convert to string representation
+                ASTNode* arg_node = &ast->children[1].children[0];
+                if (arg_node->type == AST_EXPR && arg_node->text) {
+                    MycoArray* array = get_array_value(arg_node->text);
+                    if (array) {
+                        result_str = malloc(256);
+                        if (result_str) {
+                            strcpy(result_str, "[");
+                            for (int i = 0; i < array->size; i++) {
+                                if (i > 0) strcat(result_str, ", ");
+                                if (array->is_string_array) {
+                                    const char* str_val = array_get_string(array, i);
+                                    if (str_val) {
+                                        strcat(result_str, "\"");
+                                        strcat(result_str, str_val);
+                                        strcat(result_str, "\"");
+                                    }
+                        } else {
+                                    long long* num_val = (long long*)array_get(array, i);
+                                    if (num_val) {
+                                        char num_str[32];
+                                        snprintf(num_str, sizeof(num_str), "%lld", *num_val);
+                                        strcat(result_str, num_str);
+                                    }
+                                }
+                            }
+                            strcat(result_str, "]");
+                        }
+                    }
+                }
+            } else if (value == -3) {
+                // Object - convert to string representation
+                ASTNode* arg_node = &ast->children[1].children[0];
+                if (arg_node->type == AST_EXPR && arg_node->text) {
+                    MycoObject* obj = get_object_value(arg_node->text);
+                    if (obj) {
+                        result_str = malloc(256);
+                        if (result_str) {
+                            strcpy(result_str, "{");
+                            for (int i = 0; i < obj->property_count; i++) {
+                                if (i > 0) strcat(result_str, ", ");
+                                if (obj->property_names[i]) {
+                                    strcat(result_str, obj->property_names[i]);
+                                    strcat(result_str, ": ");
+                                    // For now, just show property names
+                                    strcat(result_str, "?");
+                                }
+                            }
+                            strcat(result_str, "}");
+                        }
+                    }
+                }
+            } else {
+                // Numeric value - convert to string
+                result_str = malloc(32);
+                if (result_str) {
+                    snprintf(result_str, 32, "%lld", value);
+                }
+            }
+            
+            // to_string - result_str: %s\n", result_str ? result_str : "(null)");
+            if (result_str) {
+                // Store the result string in a predictable variable name
+                set_str_value("__last_tostring_result", result_str);
+                // to_string - storing in: __last_tostring_result\n");
+                // to_string - returning -1\n");
+                return -1; // Indicate string result
+            }
+            // to_string - returning 0 (failure)\n");
+            return 0;
+        } else if (func_name && strcmp(func_name, "first") == 0) {
+            // first(array) - get first element without removing
+            if (ast->child_count < 2 || ast->children[1].child_count < 1) {
+                fprintf(stderr, "Error: first() function requires one argument\n");
+                            return 0;
+            }
+            
+            ASTNode* array_node = &ast->children[1].children[0];
+            if (array_node->type == AST_EXPR && array_node->text) {
+                // Extract the actual variable name from the string literal
+                const char* array_name = array_node->text;
+                if (is_string_literal(array_name)) {
+                    // Remove quotes from the string literal
+                    size_t len = strlen(array_name);
+                    if (len >= 2) {
+                        char* temp_name = malloc(len - 1);
+                        if (temp_name) {
+                            strncpy(temp_name, array_name + 1, len - 2);
+                            temp_name[len - 2] = '\0';
+                            array_name = temp_name;
+                        }
+                    }
+                }
+                
+                MycoArray* array = get_array_value(array_name);
+                if (array && array->size > 0) {
+                    if (array->is_string_array) {
+                        // For string arrays, return the first string
+                        const char* first_str = array_get_string(array, 0);
+                        if (first_str) {
+                                                    // Store the result string in a temporary variable
+
+                        // Store the result string in a temporary variable
+                        set_str_value("__last_first_result", strdup(first_str));
+                        // Clear other results to avoid conflicts
+                        set_str_value("__last_last_result", "");
+                        set_str_value("__last_tostring_result", "");
+                        set_str_value("__last_pop_result", "");
+                        return -1; // Indicate string result
+                        }
+                        } else {
+                        // For numeric arrays, return the first number
+                        long long* first_num = (long long*)array_get(array, 0);
+                        if (first_num) {
+                            return *first_num;
+                        }
+                    }
+                }
+            }
+            return 0;
+        } else if (func_name && strcmp(func_name, "reverse") == 0) {
+
+            // reverse(array) - reverse the order of array elements
+            if (ast->child_count < 2 || ast->children[1].child_count < 1) {
+                fprintf(stderr, "Error: reverse() function requires one argument\n");
+                return 0;
+            }
+            
+            ASTNode* array_node = &ast->children[1].children[0];
+            if (array_node->type == AST_EXPR && array_node->text) {
+                // Extract the actual variable name from the string literal
+                const char* array_name = array_node->text;
+                if (is_string_literal(array_name)) {
+                    // Remove quotes from the string literal
+                    size_t len = strlen(array_name);
+                    if (len >= 2) {
+                        char* temp_name = malloc(len - 1);
+                        if (temp_name) {
+                            strncpy(temp_name, array_name + 1, len - 2);
+                            temp_name[len - 2] = '\0';
+                            array_name = temp_name;
+                        }
+                    }
+                }
+                
+                MycoArray* array = get_array_value(array_name);
+                if (array && array->size > 1) {
+                    // Reverse the array in place
+                    if (array->is_string_array) {
+                        // For string arrays, reverse string elements
+                        for (int i = 0; i < array->size / 2; i++) {
+                            char* temp = array->str_elements[i];
+                            array->str_elements[i] = array->str_elements[array->size - 1 - i];
+                            array->str_elements[array->size - 1 - i] = temp;
+                        }
+            } else {
+                        // For numeric arrays, reverse numeric elements
+                        for (int i = 0; i < array->size / 2; i++) {
+                            long long* temp = (long long*)array_get(array, i);
+                            long long* temp2 = (long long*)array_get(array, array->size - 1 - i);
+                            if (temp && temp2) {
+                                long long swap = *temp;
+                                *temp = *temp2;
+                                *temp2 = swap;
+                            }
+                        }
+                    }
+                    return 0; // Success
+                } else if (array && array->size <= 1) {
+                    // Array is already "reversed" if it has 0 or 1 elements
+                    return 0; // Success
+                }
+            }
+            return 0;
+        } else if (func_name && strcmp(func_name, "last") == 0) {
+            // last(array) - get last element without removing
+            if (ast->child_count < 2 || ast->children[1].child_count < 1) {
+                fprintf(stderr, "Error: last() function requires one argument\n");
+                return 0;
+            }
+            
+            ASTNode* array_node = &ast->children[1].children[0];
+            if (array_node->type == AST_EXPR && array_node->text) {
+                // Extract the actual variable name from the string literal
+                const char* array_name = array_node->text;
+                if (is_string_literal(array_name)) {
+                    // Remove quotes from the string literal
+                    size_t len = strlen(array_name);
+                    if (len >= 2) {
+                        char* temp_name = malloc(len - 1);
+                        if (temp_name) {
+                            strncpy(temp_name, array_name + 1, len - 2);
+                            temp_name[len - 2] = '\0';
+                            array_name = temp_name;
+                        }
+                    }
+                }
+                
+                MycoArray* array = get_array_value(array_name);
+                if (array && array->size > 0) {
+                    if (array->is_string_array) {
+                        // For string arrays, return the last string
+                        const char* last_str = array_get_string(array, array->size - 1);
+                        if (last_str) {
+                                                    // Store the result string in a temporary variable
+
+                        // Store the result string in a temporary variable
+                        set_str_value("__last_last_result", strdup(last_str));
+                        // Clear other results to avoid conflicts
+                        set_str_value("__last_first_result", "");
+                        set_str_value("__last_tostring_result", "");
+                        set_str_value("__last_pop_result", "");
+                        return -1; // Indicate string result
+                        }
+            } else {
+                        // For numeric arrays, return the last number
+                        long long* last_num = (long long*)array_get(array, array->size - 1);
+                        if (last_num) {
+                            return *last_num;
+            }
+                    }
+                }
+            }
+            return 0;
         }
     }
+
     
     // Handle dot expressions (method calls) first
     if (ast->type == AST_DOT) {
@@ -1923,8 +2920,22 @@ long long eval_expression(ASTNode* ast) {
         // Check if this is a variable reference
         if (var_exists(ast->text)) {
             long long value = get_var_value(ast->text);
+            if (value == -2) {
+                // This is an array variable - return special value to indicate it's an array
+                return -2; // Special value to indicate array variable
+            } else if (value == -3) {
+                // This is an object variable - return special value to indicate it's an object
+                return -3; // Special value to indicate object variable
+            }
                     return value;
         } else {
+            // Check if this is a string variable
+            const char* str_val = get_str_value(ast->text);
+            if (str_val) {
+                // This is a string variable - return a special value to indicate it's a string
+                // We'll handle the actual string display in the print function
+                return -1; // Special value to indicate string variable
+            }
         }
         
         // Check if this is a string literal
@@ -1938,49 +2949,6 @@ long long eval_expression(ASTNode* ast) {
         if (*endptr == '\0') {
             return num;
         }
-        
-        // Check if this is an operator
-        if (strcmp(ast->text, "+") == 0 || strcmp(ast->text, "-") == 0 ||
-            strcmp(ast->text, "*") == 0 || strcmp(ast->text, "/") == 0 ||
-            strcmp(ast->text, "%") == 0 || strcmp(ast->text, "==") == 0 ||
-            strcmp(ast->text, "!=") == 0 || strcmp(ast->text, "<") == 0 ||
-            strcmp(ast->text, ">") == 0 || strcmp(ast->text, "<=") == 0 ||
-            strcmp(ast->text, ">=") == 0 || strcmp(ast->text, "and") == 0 ||
-            strcmp(ast->text, "or") == 0) {
-            
-                    // Handle numeric operations
-        if (ast->child_count >= 2) {
-            long long left = eval_expression(&ast->children[0]);
-            if (error_occurred) return 0;
-            long long right = eval_expression(&ast->children[1]);
-            if (error_occurred) return 0;
-            
-            long long result = 0;
-            if (strcmp(ast->text, "+") == 0) result = left + right;
-            else if (strcmp(ast->text, "-") == 0) result = left - right;
-            else if (strcmp(ast->text, "*") == 0) result = left * right;
-            else if (strcmp(ast->text, "/") == 0) {
-                if (right == 0) { set_error(ERROR_DIVISION_BY_ZERO); return 0; }
-                result = left / right;
-            }
-            else if (strcmp(ast->text, "%") == 0) {
-                if (right == 0) { set_error(ERROR_MODULO_BY_ZERO); return 0; }
-                result = left % right;
-            }
-            else if (strcmp(ast->text, "==") == 0) result = left == right;
-            else if (strcmp(ast->text, "!=") == 0) result = left != right;
-            else if (strcmp(ast->text, "<") == 0) result = left < right;
-            else if (strcmp(ast->text, ">") == 0) result = left > right;
-            else if (strcmp(ast->text, "<=") == 0) result = left <= right;
-            else if (strcmp(ast->text, ">=") == 0) result = left >= right;
-            else if (strcmp(ast->text, "and") == 0) result = left && right;
-            else if (strcmp(ast->text, "or") == 0) result = left || right;
-            
-            return result;
-        }
-        }
-        
-    return 0;
 }
 
     return 0;
@@ -2178,7 +3146,154 @@ void eval_evaluate(ASTNode* ast) {
                     } else {
                         // Variable or number
                         int64_t value = eval_expression(arg);
+                        if (value == -1) {
+                            // This is a string variable or concatenation result - get and print the actual string value
+
+                            const char* str_val = NULL;
+                            if (last_concat_result) {
+                                // This is the result of a string concatenation
+
+                                str_val = last_concat_result;
+                            } else if (arg->text) {
+                                // This is a string variable
+                                // print - checking string variable: %s\n", arg->text);
+                                str_val = get_str_value(arg->text);
+                                // print - string variable value: %s\n", str_val ? str_val : "(null)");
+                            } else {
+                                // This might be a function call result - look for predictable result variables
+                                // print - searching for function result strings\n");
+                                // Check for replace() function result first
+                                str_val = get_str_value("__last_replace_result");
+                                // print - __last_replace_result: %s\n", str_val ? str_val : "(null)");
+                                if (!str_val) {
+                                    // Check for trim() function result
+                                    str_val = get_str_value("__last_trim_result");
+                                    // print - __last_trim_result: %s\n", str_val ? str_val : "(null)");
+                                }
+                                if (!str_val) {
+                                    // Check for join() function result
+                                    str_val = get_str_value("__last_join_result");
+                                    // print - __last_join_result: %s\n", str_val ? str_val : "(null)");
+                                }
+                                if (!str_val) {
+                                    str_val = get_str_value("__last_tostring_result");
+                                    // print - __last_tostring_result: %s\n", str_val ? str_val : "(null)");
+                                }
+                                if (!str_val) {
+                                    // Check for first() function result
+                                    str_val = get_str_value("__last_first_result");
+                                    // print - __last_first_result: %s\n", str_val ? str_val : "(null)");
+                                }
+                                if (!str_val) {
+                                    // Check for last() function result
+                                    str_val = get_str_value("__last_last_result");
+                                    // print - __last_last_result: %s\n", str_val ? str_val : "(null)");
+                                }
+                                if (!str_val) {
+                                    // Check for pop() function result
+                                    str_val = get_str_value("__last_pop_result");
+                                    // print - __last_pop_result: %s\n", str_val ? str_val : "(null)");
+                                }
+                            }
+                            
+                            if (str_val) {
+                                printf("%s", str_val);
+                            } else {
+                                printf("(null)");
+                            }
+                        } else if (value == -2) {
+                            // This is an array variable - get and print the array contents
+                            // print - value == -2, arg->text: %s\n", arg->text ? arg->text : "(null)");
+                            MycoArray* array = NULL;
+                            if (arg->text) {
+                                // Direct variable reference
+                                array = get_array_value(arg->text);
+                                // print - direct array reference: %s, found: %p\n", arg->text, array);
+                            } else {
+                                // This might be a function call result - look for predictable result variables
+                                // print - searching for function result arrays\n");
+                                array = get_array_value("__last_split_result");
+                                if (array) {
+                                    // print - found __last_split_result: %p\n", array);
+                                } else {
+                                    array = get_array_value("__last_slice_result");
+                                    if (array) {
+                                        // print - found __last_slice_result: %p\n", array);
+                                    } else {
+                                        array = get_array_value("__last_object_keys_result");
+                                        if (array) {
+                                            // print - found __last_object_keys_result: %p\n", array);
+                                        } else {
+                                            // print - no array function result found\n");
+                                        }
+                                    }
+                                }
+                            }
+                            
+                            if (array) {
+                                printf("[");
+                                for (int j = 0; j < array->size; j++) {
+                                    if (j > 0) printf(", ");
+                                    if (array->is_string_array) {
+                                        char* str_elem = (char*)array_get(array, j);
+                                        if (str_elem) {
+                                            printf("\"%s\"", str_elem);
+                                        } else {
+                                            printf("(null)");
+                                        }
+                                    } else {
+                                        long long* num_elem = (long long*)array_get(array, j);
+                                        if (num_elem) {
+                                            printf("%lld", *num_elem);
+                                        } else {
+                                            printf("(null)");
+                                        }
+                                    }
+                                }
+                                printf("]");
+                            } else {
+                                printf("(null)");
+                            }
+                        } else if (value == -3) {
+                            // This is an object variable - get and print the object contents
+                            if (arg->text) {
+                                MycoObject* obj = get_object_value(arg->text);
+                                if (obj) {
+                                    printf("{");
+                                    for (int j = 0; j < obj->property_count; j++) {
+                                        if (j > 0) printf(", ");
+                                        printf("%s: ", obj->property_names[j]);
+                                        
+                                        // Check if the property value is a string or number
+                                        void* prop_value = obj->property_values[j];
+                                        if ((long long)prop_value > 1000000) {
+                                            // This is likely a string pointer
+                                            char* str_value = (char*)prop_value;
+                                            if (str_value && str_value[0] != '\0' && 
+                                                ((str_value[0] >= 'A' && str_value[0] <= 'Z') || 
+                                                 (str_value[0] >= 'a' && str_value[0] <= 'z') ||
+                                                 str_value[0] == ' ' || str_value[0] == '_')) {
+                                                // This is a string - print it
+                                                printf("\"%s\"", str_value);
+                                            } else {
+                                                // Invalid string pointer, treat as number
+                                                printf("%lld", (long long)prop_value);
+                                            }
+                                        } else {
+                                            // This is a number
+                                            printf("%lld", (long long)prop_value);
+                                        }
+                                    }
+                                    printf("}");
+                                } else {
+                                    printf("(null)");
+                                }
+                            } else {
+                                printf("(null)");
+                            }
+                        } else {
                         printf("%lld", (long long)value);
+                        }
                     }
                 } else if (arg->type == AST_DOT) {
                     // Handle dot expressions (object property access)
@@ -2235,7 +3350,93 @@ void eval_evaluate(ASTNode* ast) {
                     }
                 } else {
                     int64_t value = eval_expression(arg);
+                    if (value == -1) {
+                        // This is a string variable or concatenation result - get and print the actual string value
+                        if (last_concat_result) {
+                            // This is the result of a string concatenation
+                            printf("%s", last_concat_result);
+                        } else if (arg->text) {
+                            // This is a string variable
+                            const char* str_val = get_str_value(arg->text);
+                            if (str_val) {
+                                printf("%s", str_val);
+                            } else {
+                                printf("(null)");
+                            }
+                        } else {
+                            printf("(null)");
+                        }
+                    } else if (value == -2) {
+                        // This is an array variable - get and print the array contents
+                        if (arg->text) {
+                            MycoArray* array = get_array_value(arg->text);
+                            if (array) {
+                                printf("[");
+                                for (int j = 0; j < array->size; j++) {
+                                    if (j > 0) printf(", ");
+                                    if (array->is_string_array) {
+                                        char* str_elem = (char*)array_get(array, j);
+                                        if (str_elem) {
+                                            printf("\"%s\"", str_elem);
+                                        } else {
+                                            printf("(null)");
+                                        }
+                                    } else {
+                                        long long* num_elem = (long long*)array_get(array, j);
+                                        if (num_elem) {
+                                            printf("%lld", *num_elem);
+                                        } else {
+                                            printf("(null)");
+                                        }
+                                    }
+                                }
+                                printf("]");
+                            } else {
+                                printf("(null)");
+                            }
+                        } else {
+                            printf("(null)");
+                        }
+                    } else if (value == -3) {
+                        // This is an object variable - get and print the object contents
+                        if (arg->text) {
+                            MycoObject* obj = get_object_value(arg->text);
+                            if (obj) {
+                                printf("{");
+                                for (int j = 0; j < obj->property_count; j++) {
+                                    if (j > 0) printf(", ");
+                                    printf("%s: ", obj->property_names[j]);
+                                    
+                                    // Check if the property value is a string or number
+                                    void* prop_value = obj->property_values[j];
+                                    if ((long long)prop_value > 1000000) {
+                                        // This is likely a string pointer
+                                        char* str_value = (char*)prop_value;
+                                        if (str_value && str_value[0] != '\0' && 
+                                            ((str_value[0] >= 'A' && str_value[0] <= 'Z') || 
+                                             (str_value[0] >= 'a' && str_value[0] <= 'z') ||
+                                             str_value[0] == ' ' || str_value[0] == '_')) {
+                                            // This is a string - print it
+                                            printf("\"%s\"", str_value);
+                                        } else {
+                                            // Invalid string pointer, treat as number
+                                            printf("%lld", (long long)prop_value);
+                                        }
+                                    } else {
+                                        // This is a number
+                                        printf("%lld", (long long)prop_value);
+                                    }
+                                }
+                                printf("}");
+                            } else {
+                                printf("(null)");
+                            }
+                        } else {
+                            printf("(null)");
+                        }
+                    } else {
                     printf("%lld", (long long)value);
+                    }
                 }
             }
             printf("\n");
@@ -2309,72 +3510,7 @@ void eval_evaluate(ASTNode* ast) {
                 return;
             }
 
-            // Check if it's a function call (text="call" with children)
-            if (ast->text && strcmp(ast->text, "call") == 0 && ast->child_count >= 2) {
-                // Get function name from first child
-                ASTNode* func_name_node = &ast->children[0];
-                
-                // Check if the function name is a dot expression (obj.method)
-                if (func_name_node->type == AST_DOT && func_name_node->child_count >= 2) {
-                    // This is a method call: obj.method()
-                    
-                    // Get object name and method name
-                    char* obj_name = NULL;
-                    char* method_name = NULL;
-                    
-                    if (func_name_node->children[0].type == AST_EXPR && func_name_node->children[0].text) {
-                        obj_name = func_name_node->children[0].text;
-                    }
-                    if (func_name_node->children[1].type == AST_EXPR && func_name_node->children[1].text) {
-                        method_name = func_name_node->children[1].text;
-                    }
-                    
-                    if (obj_name && method_name) {
-                        // Get the object
-                        MycoObject* obj = get_object_value(obj_name);
-                        if (obj) {
-                            // Get the method property
-                            void* method_prop = object_get_property(obj, method_name);
-                            if (method_prop) {
-                                // Check if it's a method (for now, just check if it's "method")
-                                char* method_value = (char*)method_prop;
-                                if (method_value && strcmp(method_value, "method") == 0) {
-                                    // This is a method - execute it
-                                    // TODO: Implement actual method execution
-                                    // For now, just print a message
-                                    printf("Method '%s' called on object '%s'\n", method_name, obj_name);
-                                } else {
-                                    fprintf(stderr, "Error: Property '%s' is not a method at line %d\n", method_name, ast->line);
-                                }
-                            } else {
-                                fprintf(stderr, "Error: Method '%s' not found in object '%s' at line %d\n", method_name, obj_name, ast->line);
-                                return;
-                            }
-                        } else {
-                            fprintf(stderr, "Error: Object '%s' not found at line %d\n", obj_name, ast->line);
-                            return;
-                        }
-                    } else {
-                        fprintf(stderr, "Error: Invalid method call syntax at line %d\n", ast->line);
-                        return;
-                    }
-                    return;
-                }
-                
-                // This is a regular function call
-                char* func_name = func_name_node->text;
-                if (func_name) {
-                    // Find the function
-                    ASTNode* func = find_function_global(func_name);
-                    if (func) {
-                        // Execute the function with arguments
-                        long long result = eval_user_function_call(func, ast);
-                        return;
-                    } else {
-                        fprintf(stderr, "Error: Function '%s' not found\n", func_name);
-                    }
-                }
-            }
+
 
             // Check if it's a number
             char* endptr;
@@ -2635,7 +3771,93 @@ void eval_evaluate(ASTNode* ast) {
             
             // Handle regular numeric assignment
             int64_t value = eval_expression(&ast->children[1]);
+            
+            // Check if this is actually a string literal assignment
+            if (ast->children[1].type == AST_EXPR && ast->children[1].text && is_string_literal(ast->children[1].text)) {
+                // This is a string literal assignment - store in string environment
+                size_t len = strlen(ast->children[1].text);
+                if (len >= 2) {
+                    char* clean_str = strdup(ast->children[1].text + 1); // Skip first quote
+                    clean_str[len - 2] = '\0'; // Remove last quote
+                    set_str_value(var_name, clean_str);
+                    free(clean_str);
+                } else {
+                    set_str_value(var_name, "");
+                }
+            } else if (value == -1) {
+                // This is a string concatenation result or string function result
+                if (last_concat_result) {
+                    // String concatenation result
+                    set_str_value(var_name, last_concat_result);
+                } else {
+                    // String function result - check all possible string function results
+                    const char* str_result = get_str_value("__last_replace_result");
+                    if (str_result) {
+                        set_str_value(var_name, strdup(str_result));
+                    } else {
+                        // Check for trim() function result 
+                        str_result = get_str_value("__last_trim_result");
+                        if (str_result) {
+                            set_str_value(var_name, strdup(str_result));
+                        } else {
+                            // Check for join() function result 
+                            str_result = get_str_value("__last_join_result");
+                            if (str_result) {
+                                set_str_value(var_name, strdup(str_result));
+                            } else {
+                                // Check for first() function result 
+                                str_result = get_str_value("__last_first_result");
+                                if (str_result && strlen(str_result) > 0) {
+                                    set_str_value(var_name, strdup(str_result));
+                                } else {
+                                    // Check for last() function result
+                                    str_result = get_str_value("__last_last_result");
+                                    if (str_result && strlen(str_result) > 0) {
+                                        set_str_value(var_name, strdup(str_result));
+                                    } else {
+                                        // Check for pop() function result
+                                        str_result = get_str_value("__last_pop_result");
+                                        if (str_result && strlen(str_result) > 0) {
+                                            set_str_value(var_name, strdup(str_result));
+                                        } else {
+                                            // Check for to_string result
+                                            str_result = get_str_value("__last_tostring_result");
+                                            if (str_result && strlen(str_result) > 0) {
+                                                set_str_value(var_name, strdup(str_result));
+                                            } else {
+                                                set_str_value(var_name, "");
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            } else if (value == -2) {
+                // This is an array function result - get from predictable variable
+                MycoArray* array_result = get_array_value("__last_split_result");
+                if (array_result) {
+                    set_array_value(var_name, array_result);
+                } else {
+                    array_result = get_array_value("__last_slice_result");
+                    if (array_result) {
+                        set_array_value(var_name, array_result);
+                    } else {
+                        array_result = get_array_value("__last_object_keys_result");
+                        if (array_result) {
+                            set_array_value(var_name, array_result);
+                        } else {
+                            // Fallback: create empty array
+                            MycoArray* empty_array = create_array(1, 0);
+                            set_array_value(var_name, empty_array);
+                        }
+                    }
+                }
+            } else {
+                // This is a numeric assignment
             set_var_value(var_name, value);
+            }
             return;
         }
 
@@ -2883,4 +4105,18 @@ static void eval_print(ASTNode* ast) {
         }
     }
     printf("\n");
+} 
+
+// Helper function to get an array variable from the environment
+MycoArray* get_array_value(const char* name) {
+    // Search from the end (most recent variables first) to prioritize function parameters
+    for (int i = var_env_size - 1; i >= 0; i--) {
+        if (var_env[i].name && strcmp(var_env[i].name, name) == 0) {
+            if (var_env[i].type == VAR_TYPE_ARRAY) {
+                return var_env[i].array_value;
+            }
+            return NULL;
+        }
+    }
+    return NULL;
 } 

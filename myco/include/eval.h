@@ -26,6 +26,7 @@ MycoArray* create_array(int initial_capacity, int is_string_array);
 void destroy_array(MycoArray* array);
 int array_push(MycoArray* array, void* element);
 void* array_get(MycoArray* array, int index);
+const char* array_get_string(MycoArray* array, int index);
 int array_set(MycoArray* array, int index, void* element);
 int array_size(MycoArray* array);
 int array_capacity(MycoArray* array);
