@@ -9,18 +9,19 @@
 6. [Operators](#operators)
 7. [Objects](#objects)
 8. [Arrays](#arrays)
-9. [Control Flow](#control-flow)
-10. [Functions](#functions)
-11. [Built-in Functions](#built-in-functions)
-12. [Standard Library](#standard-library)
-13. [Examples](#examples)
-14. [Error Handling](#error-handling)
+9. [Sets](#sets)
+10. [Control Flow](#control-flow)
+11. [Functions](#functions)
+12. [Built-in Functions](#built-in-functions)
+13. [Standard Library](#standard-library)
+14. [Examples](#examples)
+15. [Error Handling](#error-handling)
 
 ## Overview
 
 Myco is a modern, lightweight programming language designed for simplicity and expressiveness. It features dynamic typing, object-oriented capabilities, and a clean syntax inspired by Lua and Python.
 
-**Version**: 1.1.1  
+**Version**: 1.1.6  
 **License**: MIT  
 **Repository**: https://github.com/TrendyBananaYT/myco
 
@@ -100,6 +101,13 @@ let person = {
     age: 30,
     city: "New York"
 };
+```
+
+### Sets
+Sets are collections of unique elements. Currently, Sets are created and manipulated using built-in functions.
+```myco
+# Sets are created programmatically using set functions
+# Note: Set literal syntax {1, 2, 3} coming in future version
 ```
 
 ## Variables
@@ -255,6 +263,48 @@ let last = numbers[4];     # Last element
 numbers[0] = 10;
 fruits[1] = "grape";
 ```
+
+## Sets
+
+Sets are collections that automatically maintain unique elements. Myco's Set data type provides efficient operations for mathematical set operations and data deduplication.
+
+### Set Creation
+Currently, Sets are created programmatically using the `create_set()` function and manipulated with built-in Set functions:
+```myco
+# Sets are created and managed using built-in functions
+# Future versions will support Set literal syntax: {1, 2, 3}
+```
+
+### Set Operations
+Sets automatically ensure all elements are unique and provide efficient membership testing.
+
+#### Adding Elements
+```myco
+# Note: Sets must be created programmatically in current version
+# set_add(setName, element) - adds element if not already present
+```
+
+#### Checking Membership
+```myco
+# set_has(setName, element) - returns 1 if element exists, 0 otherwise
+```
+
+#### Getting Set Size
+```myco
+# set_size(setName) - returns number of unique elements in the set
+```
+
+### Set Characteristics
+- **Unique Elements**: Automatically prevents duplicate values
+- **Efficient Lookup**: Fast membership testing
+- **Type Support**: Supports both numeric and string sets
+- **Memory Managed**: Automatic allocation and cleanup
+
+### Future Enhancements
+Upcoming versions will include:
+- Set literal syntax: `{1, 2, 3}`
+- Set operations: `union()`, `intersection()`, `difference()`
+- Set iteration and advanced manipulation
 
 ## Control Flow
 
@@ -490,6 +540,31 @@ let number = 42;
 let text = to_string(number);  # "42"
 ```
 
+### Set Functions
+
+#### `set_has(set, element)`
+Checks if a set contains a specific element.
+```myco
+# Returns 1 (true) if element exists, 0 (false) otherwise
+# Supports both numeric and string elements
+```
+
+#### `set_add(set, element)`
+Adds an element to a set (only if not already present).
+```myco
+# Returns 1 on success (including if element already exists)
+# Automatically maintains uniqueness constraint
+```
+
+#### `set_size(set)`
+Returns the number of unique elements in a set.
+```myco
+# Returns integer count of elements
+# Empty sets return 0
+```
+
+**Note**: Set creation and literal syntax will be enhanced in future versions. Current implementation provides the foundation for advanced Set operations.
+
 ## Standard Library
 
 Myco includes a comprehensive standard library with functions for common programming tasks:
@@ -497,6 +572,7 @@ Myco includes a comprehensive standard library with functions for common program
 - **Array manipulation**: push, pop, slice, reverse, join
 - **String processing**: split, trim, replace
 - **Object operations**: keys, values, property checking
+- **Set operations**: set_has, set_add, set_size
 - **Type conversion**: to_string
 - **Utility functions**: len for size checking
 
@@ -656,24 +732,28 @@ displayRectangle(8, 4);
 
 ## Language Features Summary
 
-**Current Version**: 1.1.1
+**Current Version**: 1.1.6
 
 **Completed Features**:
 - Variables and basic data types
 - Arithmetic and logical operators
 - Objects with dot and bracket notation
 - Arrays with indexing and assignment
+- **Sets with unique element collections**
 - Control flow (if/else, loops)
 - Function definitions and calls
-- 16 built-in functions
+- **19 built-in functions** (including Set operations)
 - String concatenation and manipulation
 - Nested object support
 - Dynamic property access
+- **Set data type with core operations**
 
 **Upcoming Features** (v2.0.0 roadmap):
+- **Set literal syntax**: `{1, 2, 3}`
+- **Set operations**: `union()`, `intersection()`, `difference()`
 - Enhanced error handling
 - Module system
-- Advanced array operations
+- Advanced array operations (filter, map, reduce)
 - Performance optimizations
 - Extended standard library
 - IDE integration tools
