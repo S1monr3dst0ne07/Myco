@@ -2532,15 +2532,15 @@ long long eval_expression(ASTNode* ast) {
                 }
                 
                 MycoObject* obj = get_object_value(obj_name);
-                // object_keys - obj found: %p, property_count: %d\n", obj, obj ? obj->property_count : 0);
+
                 if (obj && obj->property_count > 0) {
                     // Create a new string array to hold the keys
                     MycoArray* keys_array = create_array(1, 1); // String array
-                    // object_keys - keys_array created: %p\n", keys_array);
+
                     if (keys_array) {
                         for (int i = 0; i < obj->property_count; i++) {
                             if (obj->property_names[i]) {
-                                // object_keys - adding property: %s\n", obj->property_names[i]);
+
                                 array_push(keys_array, strdup(obj->property_names[i]));
                             }
                         }
@@ -2549,13 +2549,195 @@ long long eval_expression(ASTNode* ast) {
                         set_array_value("__last_object_keys_result", keys_array);
 
                         
-                        // object_keys - returning -2\n");
                         return -2; // Indicate array result
                     }
                 }
             }
-            // object_keys - returning 0 (failure)\n");
             return 0;
+        } else if (func_name && strcmp(func_name, "values") == 0) {
+            // values(obj) - return array of property values
+            if (ast->child_count < 2 || ast->children[1].child_count < 1) {
+                fprintf(stderr, "Error: values() function requires one argument\n");
+                return 0;
+            }
+            
+            ASTNode* obj_node = &ast->children[1].children[0];
+            if (obj_node->type == AST_EXPR && obj_node->text) {
+                // Extract the actual variable name from the string literal
+                const char* obj_name = obj_node->text;
+                if (is_string_literal(obj_name)) {
+                    // Remove quotes from the string literal
+                    size_t len = strlen(obj_name);
+                    if (len >= 2) {
+                        char* temp_name = malloc(len - 1);
+                        if (temp_name) {
+                            strncpy(temp_name, obj_name + 1, len - 2);
+                            temp_name[len - 2] = '\0';
+                            obj_name = temp_name;
+                        }
+                    }
+                }
+                
+                MycoObject* obj = get_object_value(obj_name);
+                if (obj && obj->property_count > 0) {
+                    // Create a new array to hold the values (mixed types)
+                    MycoArray* values_array = create_array(1, 0); // Start as numeric array, convert if needed
+                    if (values_array) {
+                        // Determine if we need a string array by checking the first value
+                        int needs_string_array = 0;
+                        for (int i = 0; i < obj->property_count; i++) {
+                            void* prop_value = obj->property_values[i];
+                            if ((long long)prop_value > 1000000) {
+                                // Check if this looks like a string
+                                char* str_value = (char*)prop_value;
+                                if (str_value && str_value[0] != '\0' && 
+                                    ((str_value[0] >= 'A' && str_value[0] <= 'Z') || 
+                                     (str_value[0] >= 'a' && str_value[0] <= 'z') ||
+                                     str_value[0] == ' ' || str_value[0] == '_')) {
+                                    needs_string_array = 1;
+                                    break;
+                                }
+                            }
+                        }
+                        
+                        // Convert to string array if needed
+                        if (needs_string_array) {
+                            values_array->is_string_array = 1;
+                            values_array->str_elements = (char**)tracked_malloc(values_array->capacity * sizeof(char*), __FILE__, __LINE__, "values_str_array");
+                            // Initialize string elements
+                            for (int i = 0; i < values_array->capacity; i++) {
+                                values_array->str_elements[i] = NULL;
+                            }
+                        }
+                        
+                        // Add all property values to the array
+                        for (int i = 0; i < obj->property_count; i++) {
+                            void* prop_value = obj->property_values[i];
+                            
+                            if (needs_string_array) {
+                                // Convert all values to strings
+                                if ((long long)prop_value > 1000000) {
+                                    char* str_value = (char*)prop_value;
+                                    if (str_value && str_value[0] != '\0' && 
+                                        ((str_value[0] >= 'A' && str_value[0] <= 'Z') || 
+                                         (str_value[0] >= 'a' && str_value[0] <= 'z') ||
+                                         str_value[0] == ' ' || str_value[0] == '_')) {
+                                        array_push(values_array, strdup(str_value));
+                        } else {
+                                        // Convert number to string
+                                        char num_str[32];
+                                        snprintf(num_str, sizeof(num_str), "%lld", (long long)prop_value);
+                                        array_push(values_array, strdup(num_str));
+                                    }
+                                } else {
+                                    // Convert number to string
+                                    char num_str[32];
+                                    snprintf(num_str, sizeof(num_str), "%lld", (long long)prop_value);
+                                    array_push(values_array, strdup(num_str));
+                                }
+                            } else {
+                                // Keep as numeric array
+                                long long* value_ptr = (long long*)tracked_malloc(sizeof(long long), __FILE__, __LINE__, "values_num");
+                                *value_ptr = (long long)prop_value;
+                                array_push(values_array, value_ptr);
+                            }
+                        }
+                        
+                        // Clear other array results to avoid conflicts
+                        set_array_value("__last_object_keys_result", NULL);
+                        set_array_value("__last_split_result", NULL);
+                        set_array_value("__last_slice_result", NULL);
+                        
+                        // Store the values array in a predictable variable name
+                        set_array_value("__last_values_result", values_array);
+                        return -2; // Indicate array result
+                    }
+                }
+            }
+            return 0;
+        } else if (func_name && strcmp(func_name, "has_key") == 0) {
+            // has_key(obj, key) - check if object has a property
+            if (ast->child_count < 2 || ast->children[1].child_count < 2) {
+                fprintf(stderr, "Error: has_key() function requires two arguments\n");
+                            return 0;
+            }
+            
+            // Get object argument
+            ASTNode* obj_node = &ast->children[1].children[0];
+            const char* obj_name = NULL;
+            if (obj_node->type == AST_EXPR && obj_node->text) {
+                obj_name = obj_node->text;
+                if (is_string_literal(obj_name)) {
+                    // Remove quotes from the string literal
+                    size_t len = strlen(obj_name);
+                    if (len >= 2) {
+                        char* temp_name = malloc(len - 1);
+                        if (temp_name) {
+                            strncpy(temp_name, obj_name + 1, len - 2);
+                            temp_name[len - 2] = '\0';
+                            obj_name = temp_name;
+                        }
+                    }
+                }
+            }
+            
+            // Get key argument
+            ASTNode* key_node = &ast->children[1].children[1];
+            const char* key_name = NULL;
+            if (key_node->type == AST_EXPR && key_node->text) {
+                key_name = key_node->text;
+                if (is_string_literal(key_name)) {
+                    // Remove quotes from the string literal
+                    size_t len = strlen(key_name);
+                    if (len >= 2) {
+                        char* temp_key = malloc(len - 1);
+                        if (temp_key) {
+                            strncpy(temp_key, key_name + 1, len - 2);
+                            temp_key[len - 2] = '\0';
+                            key_name = temp_key;
+                        }
+                    }
+                }
+            }
+            
+            if (obj_name && key_name) {
+                MycoObject* obj = get_object_value(obj_name);
+                if (obj) {
+                    // Use the existing object_has_property function
+                    return object_has_property(obj, key_name) ? 1 : 0;
+                }
+            }
+            return 0; // Object not found or invalid arguments
+        } else if (func_name && strcmp(func_name, "size") == 0) {
+            // size(obj) - return number of properties in object
+            if (ast->child_count < 2 || ast->children[1].child_count < 1) {
+                fprintf(stderr, "Error: size() function requires one argument\n");
+                return 0;
+            }
+            
+            ASTNode* obj_node = &ast->children[1].children[0];
+            if (obj_node->type == AST_EXPR && obj_node->text) {
+                // Extract the actual variable name from the string literal
+                const char* obj_name = obj_node->text;
+                if (is_string_literal(obj_name)) {
+                    // Remove quotes from the string literal
+                    size_t len = strlen(obj_name);
+                    if (len >= 2) {
+                        char* temp_name = malloc(len - 1);
+                        if (temp_name) {
+                            strncpy(temp_name, obj_name + 1, len - 2);
+                            temp_name[len - 2] = '\0';
+                            obj_name = temp_name;
+                        }
+                    }
+                }
+                
+                MycoObject* obj = get_object_value(obj_name);
+                if (obj) {
+                    return obj->property_count;
+                }
+            }
+            return 0; // Object not found or no properties
         } else if (func_name && strcmp(func_name, "to_string") == 0) {
             // to_string(value) - convert any value to string
             if (ast->child_count < 2 || ast->children[1].child_count < 1) {
@@ -2595,7 +2777,7 @@ long long eval_expression(ASTNode* ast) {
                                         strcat(result_str, str_val);
                                         strcat(result_str, "\"");
                                     }
-                        } else {
+            } else {
                                     long long* num_val = (long long*)array_get(array, i);
                                     if (num_val) {
                                         char num_str[32];
@@ -2652,7 +2834,7 @@ long long eval_expression(ASTNode* ast) {
             // first(array) - get first element without removing
             if (ast->child_count < 2 || ast->children[1].child_count < 1) {
                 fprintf(stderr, "Error: first() function requires one argument\n");
-                            return 0;
+                return 0;
             }
             
             ASTNode* array_node = &ast->children[1].children[0];
@@ -2688,7 +2870,7 @@ long long eval_expression(ASTNode* ast) {
                         set_str_value("__last_pop_result", "");
                         return -1; // Indicate string result
                         }
-                        } else {
+            } else {
                         // For numeric arrays, return the first number
                         long long* first_num = (long long*)array_get(array, 0);
                         if (first_num) {
@@ -3156,43 +3338,43 @@ void eval_evaluate(ASTNode* ast) {
                                 str_val = last_concat_result;
                             } else if (arg->text) {
                                 // This is a string variable
-                                // print - checking string variable: %s\n", arg->text);
+
                                 str_val = get_str_value(arg->text);
-                                // print - string variable value: %s\n", str_val ? str_val : "(null)");
+
                             } else {
                                 // This might be a function call result - look for predictable result variables
-                                // print - searching for function result strings\n");
+
                                 // Check for replace() function result first
                                 str_val = get_str_value("__last_replace_result");
-                                // print - __last_replace_result: %s\n", str_val ? str_val : "(null)");
+
                                 if (!str_val) {
                                     // Check for trim() function result
                                     str_val = get_str_value("__last_trim_result");
-                                    // print - __last_trim_result: %s\n", str_val ? str_val : "(null)");
+
                                 }
                                 if (!str_val) {
                                     // Check for join() function result
                                     str_val = get_str_value("__last_join_result");
-                                    // print - __last_join_result: %s\n", str_val ? str_val : "(null)");
+
                                 }
                                 if (!str_val) {
                                     str_val = get_str_value("__last_tostring_result");
-                                    // print - __last_tostring_result: %s\n", str_val ? str_val : "(null)");
+
                                 }
                                 if (!str_val) {
                                     // Check for first() function result
                                     str_val = get_str_value("__last_first_result");
-                                    // print - __last_first_result: %s\n", str_val ? str_val : "(null)");
+
                                 }
                                 if (!str_val) {
                                     // Check for last() function result
                                     str_val = get_str_value("__last_last_result");
-                                    // print - __last_last_result: %s\n", str_val ? str_val : "(null)");
+
                                 }
                                 if (!str_val) {
                                     // Check for pop() function result
                                     str_val = get_str_value("__last_pop_result");
-                                    // print - __last_pop_result: %s\n", str_val ? str_val : "(null)");
+
                                 }
                             }
                             
@@ -3203,28 +3385,33 @@ void eval_evaluate(ASTNode* ast) {
                             }
                         } else if (value == -2) {
                             // This is an array variable - get and print the array contents
-                            // print - value == -2, arg->text: %s\n", arg->text ? arg->text : "(null)");
+
                             MycoArray* array = NULL;
                             if (arg->text) {
                                 // Direct variable reference
                                 array = get_array_value(arg->text);
-                                // print - direct array reference: %s, found: %p\n", arg->text, array);
+
                             } else {
                                 // This might be a function call result - look for predictable result variables
-                                // print - searching for function result arrays\n");
-                                array = get_array_value("__last_split_result");
+                                // Check most recent functions first
+                                array = get_array_value("__last_values_result");
                                 if (array) {
-                                    // print - found __last_split_result: %p\n", array);
+
                                 } else {
-                                    array = get_array_value("__last_slice_result");
+                                    array = get_array_value("__last_split_result");
                                     if (array) {
-                                        // print - found __last_slice_result: %p\n", array);
+
                                     } else {
-                                        array = get_array_value("__last_object_keys_result");
+                                        array = get_array_value("__last_slice_result");
                                         if (array) {
-                                            // print - found __last_object_keys_result: %p\n", array);
+
                                         } else {
-                                            // print - no array function result found\n");
+                                            array = get_array_value("__last_object_keys_result");
+                                            if (array) {
+
+                                            } else {
+
+                                            }
                                         }
                                     }
                                 }
@@ -3264,20 +3451,50 @@ void eval_evaluate(ASTNode* ast) {
                                         if (j > 0) printf(", ");
                                         printf("%s: ", obj->property_names[j]);
                                         
-                                        // Check if the property value is a string or number
+                                        // Check if the property value is a string, object, or number
                                         void* prop_value = obj->property_values[j];
                                         if ((long long)prop_value > 1000000) {
-                                            // This is likely a string pointer
-                                            char* str_value = (char*)prop_value;
-                                            if (str_value && str_value[0] != '\0' && 
-                                                ((str_value[0] >= 'A' && str_value[0] <= 'Z') || 
-                                                 (str_value[0] >= 'a' && str_value[0] <= 'z') ||
-                                                 str_value[0] == ' ' || str_value[0] == '_')) {
-                                                // This is a string - print it
-                                                printf("\"%s\"", str_value);
+                                            // First, check if this might be a nested object
+                                            MycoObject* nested_obj = (MycoObject*)prop_value;
+                                            // Simple heuristic: check if it has object-like structure
+                                            if (nested_obj && nested_obj->property_names && 
+                                                nested_obj->property_values && nested_obj->property_count >= 0 && 
+                                                nested_obj->capacity > 0 && nested_obj->property_count <= nested_obj->capacity) {
+                                                // This looks like a nested object - print it recursively
+                                                printf("{");
+                                                for (int k = 0; k < nested_obj->property_count; k++) {
+                                                    if (k > 0) printf(", ");
+                                                    printf("%s: ", nested_obj->property_names[k]);
+                                                    void* nested_prop_value = nested_obj->property_values[k];
+                                                    // For simplicity, assume nested properties are strings or numbers (no deep nesting for now)
+                                                    if ((long long)nested_prop_value > 1000000) {
+                                                        char* nested_str = (char*)nested_prop_value;
+                                                        if (nested_str && nested_str[0] != '\0' && 
+                                                            ((nested_str[0] >= 'A' && nested_str[0] <= 'Z') || 
+                                                             (nested_str[0] >= 'a' && nested_str[0] <= 'z') ||
+                                                             nested_str[0] == ' ' || nested_str[0] == '_')) {
+                                                            printf("\"%s\"", nested_str);
+                                                        } else {
+                                                            printf("%lld", (long long)nested_prop_value);
+                                                        }
+                                                    } else {
+                                                        printf("%lld", (long long)nested_prop_value);
+                                                    }
+                                                }
+                                                printf("}");
                                             } else {
-                                                // Invalid string pointer, treat as number
-                                                printf("%lld", (long long)prop_value);
+                                                // This is likely a string pointer
+                                                char* str_value = (char*)prop_value;
+                                                if (str_value && str_value[0] != '\0' && 
+                                                    ((str_value[0] >= 'A' && str_value[0] <= 'Z') || 
+                                                     (str_value[0] >= 'a' && str_value[0] <= 'z') ||
+                                                     str_value[0] == ' ' || str_value[0] == '_')) {
+                                                    // This is a string - print it
+                                                    printf("\"%s\"", str_value);
+                                                } else {
+                                                    // Invalid string pointer, treat as number
+                                                    printf("%lld", (long long)prop_value);
+                                                }
                                             }
                                         } else {
                                             // This is a number
@@ -3318,8 +3535,35 @@ void eval_evaluate(ASTNode* ast) {
                                 if (prop_value) {
                                     // Check if it's a string or number
                                     // If the pointer value is small (< 1000000), it's likely a number
-                                    // If it's large, it's likely a string pointer
+                                    // If it's large, it's likely a string pointer or nested object
                                     if ((long long)prop_value > 1000000) {
+                                        // First, check if this might be a nested object
+                                        MycoObject* nested_obj = (MycoObject*)prop_value;
+                                        if (nested_obj && nested_obj->property_names && 
+                                            nested_obj->property_values && nested_obj->property_count >= 0 && 
+                                            nested_obj->capacity > 0 && nested_obj->property_count <= nested_obj->capacity) {
+                                            // This looks like a nested object - print it recursively
+                                            printf("{");
+                                            for (int k = 0; k < nested_obj->property_count; k++) {
+                                                if (k > 0) printf(", ");
+                                                printf("%s: ", nested_obj->property_names[k]);
+                                                void* nested_prop_value = nested_obj->property_values[k];
+                                                if ((long long)nested_prop_value > 1000000) {
+                                                    char* nested_str = (char*)nested_prop_value;
+                                                    if (nested_str && nested_str[0] != '\0' && 
+                                                        ((nested_str[0] >= 'A' && nested_str[0] <= 'Z') || 
+                                                         (nested_str[0] >= 'a' && nested_str[0] <= 'z') ||
+                                                         nested_str[0] == ' ' || nested_str[0] == '_')) {
+                                                        printf("\"%s\"", nested_str);
+                                                    } else {
+                                                        printf("%lld", (long long)nested_prop_value);
+                                                    }
+                                                } else {
+                                                    printf("%lld", (long long)nested_prop_value);
+                                                }
+                                            }
+                                            printf("}");
+                                        } else {
                                         // This is likely a string pointer
                                         char* str_value = (char*)prop_value;
                                         if (str_value && str_value[0] != '\0' && 
@@ -3331,6 +3575,7 @@ void eval_evaluate(ASTNode* ast) {
                                         } else {
                                             // Invalid string pointer, treat as number
                                             printf("%lld", (long long)prop_value);
+                                            }
                                         }
                                     } else {
                                         // This is a number
@@ -3407,20 +3652,48 @@ void eval_evaluate(ASTNode* ast) {
                                     if (j > 0) printf(", ");
                                     printf("%s: ", obj->property_names[j]);
                                     
-                                    // Check if the property value is a string or number
+                                    // Check if the property value is a string, object, or number
                                     void* prop_value = obj->property_values[j];
                                     if ((long long)prop_value > 1000000) {
-                                        // This is likely a string pointer
-                                        char* str_value = (char*)prop_value;
-                                        if (str_value && str_value[0] != '\0' && 
-                                            ((str_value[0] >= 'A' && str_value[0] <= 'Z') || 
-                                             (str_value[0] >= 'a' && str_value[0] <= 'z') ||
-                                             str_value[0] == ' ' || str_value[0] == '_')) {
-                                            // This is a string - print it
-                                            printf("\"%s\"", str_value);
+                                        // First, check if this might be a nested object
+                                        MycoObject* nested_obj = (MycoObject*)prop_value;
+                                        if (nested_obj && nested_obj->property_names && 
+                                            nested_obj->property_values && nested_obj->property_count >= 0 && 
+                                            nested_obj->capacity > 0 && nested_obj->property_count <= nested_obj->capacity) {
+                                            // This looks like a nested object - print it recursively
+                                            printf("{");
+                                            for (int k = 0; k < nested_obj->property_count; k++) {
+                                                if (k > 0) printf(", ");
+                                                printf("%s: ", nested_obj->property_names[k]);
+                                                void* nested_prop_value = nested_obj->property_values[k];
+                                                if ((long long)nested_prop_value > 1000000) {
+                                                    char* nested_str = (char*)nested_prop_value;
+                                                    if (nested_str && nested_str[0] != '\0' && 
+                                                        ((nested_str[0] >= 'A' && nested_str[0] <= 'Z') || 
+                                                         (nested_str[0] >= 'a' && nested_str[0] <= 'z') ||
+                                                         nested_str[0] == ' ' || nested_str[0] == '_')) {
+                                                        printf("\"%s\"", nested_str);
+                                                    } else {
+                                                        printf("%lld", (long long)nested_prop_value);
+                                                    }
+                                                } else {
+                                                    printf("%lld", (long long)nested_prop_value);
+                                                }
+                                            }
+                                            printf("}");
                                         } else {
-                                            // Invalid string pointer, treat as number
-                                            printf("%lld", (long long)prop_value);
+                                            // This is likely a string pointer
+                                            char* str_value = (char*)prop_value;
+                                            if (str_value && str_value[0] != '\0' && 
+                                                ((str_value[0] >= 'A' && str_value[0] <= 'Z') || 
+                                                 (str_value[0] >= 'a' && str_value[0] <= 'z') ||
+                                                 str_value[0] == ' ' || str_value[0] == '_')) {
+                                                // This is a string - print it
+                                                printf("\"%s\"", str_value);
+                                            } else {
+                                                // Invalid string pointer, treat as number
+                                                printf("%lld", (long long)prop_value);
+                                            }
                                         }
                                     } else {
                                         // This is a number
@@ -3836,21 +4109,27 @@ void eval_evaluate(ASTNode* ast) {
                 }
             } else if (value == -2) {
                 // This is an array function result - get from predictable variable
-                MycoArray* array_result = get_array_value("__last_split_result");
+                // Check most recent functions first
+                MycoArray* array_result = get_array_value("__last_values_result");
                 if (array_result) {
                     set_array_value(var_name, array_result);
                 } else {
-                    array_result = get_array_value("__last_slice_result");
+                    array_result = get_array_value("__last_split_result");
                     if (array_result) {
                         set_array_value(var_name, array_result);
                     } else {
-                        array_result = get_array_value("__last_object_keys_result");
+                        array_result = get_array_value("__last_slice_result");
                         if (array_result) {
                             set_array_value(var_name, array_result);
                         } else {
-                            // Fallback: create empty array
-                            MycoArray* empty_array = create_array(1, 0);
-                            set_array_value(var_name, empty_array);
+                            array_result = get_array_value("__last_object_keys_result");
+                            if (array_result) {
+                                set_array_value(var_name, array_result);
+                            } else {
+                                // Fallback: create empty array
+                                MycoArray* empty_array = create_array(1, 0);
+                                set_array_value(var_name, empty_array);
+                            }
                         }
                     }
                 }
