@@ -735,18 +735,17 @@ displayRectangle(8, 4);
 **Current Version**: 1.1.6
 
 **Completed Features**:
-- Variables and basic data types
+- Variables and basic data types (numbers, strings, booleans)
 - Arithmetic and logical operators
 - Objects with dot and bracket notation
 - Arrays with indexing and assignment
 - **Sets with unique element collections**
 - Control flow (if/else, loops)
 - Function definitions and calls
-- **19 built-in functions** (including Set operations)
+- **19 built-in functions** (arrays, strings, objects, sets)
 - String concatenation and manipulation
-- Nested object support
-- Dynamic property access
-- **Set data type with core operations**
+- Nested object support with deep object creation
+- Dynamic property access and bracket notation assignment
 
 **Upcoming Features** (v2.0.0 roadmap):
 - **Set literal syntax**: `{1, 2, 3}`
