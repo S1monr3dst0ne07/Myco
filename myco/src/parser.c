@@ -483,18 +483,32 @@ static ASTNode* parse_primary(Token* tokens, int* current) {
         }
         (*current)++; // Skip ']'
         
-        // Create array access node
-        ASTNode* access_node = (ASTNode*)tracked_malloc(sizeof(ASTNode), __FILE__, __LINE__, "parse_primary_array_access");
-        access_node->type = AST_ARRAY_ACCESS;
-        access_node->text = strdup("access");
-        access_node->children = (ASTNode*)tracked_malloc(2 * sizeof(ASTNode), __FILE__, __LINE__, "parse_primary_array_access");
+        // Determine if this should be object bracket access or array access
+        // Check if the base expression is likely an object
+        int is_object_access = 0;
+        if (node->type == AST_EXPR && node->text) {
+            // For simple identifiers, we'll default to object access for now
+            // This is a heuristic - in a full implementation we'd check the variable type
+            is_object_access = 1;
+        }
+        
+        // Create appropriate access node
+        ASTNode* access_node = (ASTNode*)tracked_malloc(sizeof(ASTNode), __FILE__, __LINE__, "parse_primary_bracket_access");
+        if (is_object_access) {
+            access_node->type = AST_OBJECT_BRACKET_ACCESS;
+            access_node->text = strdup("bracket_access");
+        } else {
+            access_node->type = AST_ARRAY_ACCESS;
+            access_node->text = strdup("access");
+        }
+        access_node->children = (ASTNode*)tracked_malloc(2 * sizeof(ASTNode), __FILE__, __LINE__, "parse_primary_bracket_access");
         access_node->child_count = 2;
         access_node->next = NULL;
         access_node->line = node->line;
         
-        // First child is the array expression (could be identifier or more complex expression)
+        // First child is the base expression (array or object)
         deep_copy_ast_node(&access_node->children[0], node);
-        // Second child is the index expression
+        // Second child is the index/key expression
         deep_copy_ast_node(&access_node->children[1], index_expr);
         
         // Clean up

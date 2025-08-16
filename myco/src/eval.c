@@ -1872,6 +1872,85 @@ long long eval_expression(ASTNode* ast) {
         return (long long)prop_value;
     }
     
+    // Handle object bracket access: obj["key"] or obj[variable]
+    if (ast->type == AST_OBJECT_BRACKET_ACCESS) {
+        if (ast->child_count < 2) {
+            return 0;
+        }
+        
+        // First child is the object expression, second child is the key expression
+        ASTNode* obj_expr = &ast->children[0];
+        ASTNode* key_expr = &ast->children[1];
+        
+        // Get the object (assume simple identifier for now)
+        MycoObject* obj = NULL;
+        if (obj_expr->type == AST_EXPR && obj_expr->text) {
+            obj = get_object_value(obj_expr->text);
+        }
+        
+        if (!obj) {
+            return 0;
+        }
+        
+        // Evaluate the key expression to get the property name
+        const char* prop_name = NULL;
+        long long key_result = eval_expression(key_expr);
+        
+        if (key_result == 1) {
+            // This is a string literal - extract the key
+            if (key_expr->text && is_string_literal(key_expr->text)) {
+                size_t len = strlen(key_expr->text);
+                if (len >= 2) {
+                    char* temp_key = malloc(len - 1);
+                    if (temp_key) {
+                        strncpy(temp_key, key_expr->text + 1, len - 2);
+                        temp_key[len - 2] = '\0';
+                        prop_name = temp_key;
+                    }
+                }
+            }
+        } else if (key_result == -1) {
+            // This is a string variable - get its value
+            if (key_expr->text) {
+                prop_name = get_str_value(key_expr->text);
+            }
+        }
+        
+        if (!prop_name) {
+            return 0;
+        }
+        
+        // Get the property value
+        void* prop_value = object_get_property(obj, prop_name);
+        if (!prop_value) {
+            return 0;
+        }
+        
+        // Determine if it's a string or number
+        if ((long long)prop_value > 1000000) {
+            // Likely a string pointer
+            char* str_value = (char*)prop_value;
+            size_t len = strnlen(str_value, 256);
+            if (len > 0 && len < 256) {
+                int looks_like_string = 1;
+                for (size_t i = 0; i < len && i < 10; i++) {
+                    if (str_value[i] < 32 || str_value[i] > 126) {
+                        looks_like_string = 0;
+                        break;
+                    }
+                }
+                if (looks_like_string) {
+                    // Simple approach: print the string directly and return special value
+                    printf("%s", str_value);
+                    return -999; // Special value: already printed, don't process further
+                }
+            }
+        }
+        
+        // Otherwise, assume it's a number
+        return (long long)prop_value;
+    }
+    
     // Handle function calls (text="call" with children)
     if (ast->text && strcmp(ast->text, "call") == 0 && ast->child_count >= 2) {
         // Get function name from first child
@@ -3328,7 +3407,10 @@ void eval_evaluate(ASTNode* ast) {
                     } else {
                         // Variable or number
                         int64_t value = eval_expression(arg);
-                        if (value == -1) {
+                        if (value == -999) {
+                            // Already printed, skip further processing
+                            // Do nothing - value was already output by eval_expression
+                        } else if (value == -1) {
                             // This is a string variable or concatenation result - get and print the actual string value
 
                             const char* str_val = NULL;
@@ -3508,7 +3590,7 @@ void eval_evaluate(ASTNode* ast) {
                             } else {
                                 printf("(null)");
                             }
-                        } else {
+                        } else if (value != -999) {
                         printf("%lld", (long long)value);
                         }
                     }
@@ -3707,7 +3789,7 @@ void eval_evaluate(ASTNode* ast) {
                         } else {
                             printf("(null)");
                         }
-                    } else {
+                    } else if (value != -999) {
                     printf("%lld", (long long)value);
                     }
                 }
