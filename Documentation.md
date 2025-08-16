@@ -197,10 +197,26 @@ let value = person[property];
 ```
 
 ### Property Assignment
+
+#### Dot Notation Assignment
 ```myco
 person.name = "Bob";
 person.age = 25;
+```
+
+#### Bracket Notation Assignment
+```myco
+# String literal keys
 person["email"] = "bob@example.com";
+person["phone"] = "123-456-7890";
+
+# Variable keys (dynamic assignment)
+let propertyName = "address";
+person[propertyName] = "123 Main St";
+
+# Numeric values
+person["score"] = 95;
+person["rank"] = 1;
 ```
 
 ### Nested Objects

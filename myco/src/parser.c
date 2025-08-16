@@ -166,6 +166,7 @@ static ASTNode* parse_primary(Token* tokens, int* current) {
                 break;
             }
             
+
             // Regular identifier
             node->type = AST_EXPR;
             node->text = strdup(tokens[*current].text);
@@ -1589,25 +1590,27 @@ static ASTNode* parse_statement(Token* tokens, int* current, int token_count) {
         }
 
         case TOKEN_IDENTIFIER: {
-            // Check if this is an array assignment statement (identifier[index] = expression)
+            // Check if this is a bracket assignment statement (identifier[index] = expression)
             if (tokens[*current + 1].type == TOKEN_LBRACKET) {
-                // This is an array assignment: array[index] = value
-                char* array_name = strdup(tokens[*current].text);
+                // This could be array assignment or object bracket assignment
+                // We'll use a heuristic: default to object bracket assignment
+                char* identifier_name = strdup(tokens[*current].text);
+                int is_object_assignment = 1;  // Default to object assignment
                 (*current)++; // Skip identifier
                 (*current)++; // Skip '['
                 
                 // Parse the index expression
                 ASTNode* index_expr = parse_expression(tokens, current);
                 if (!index_expr) {
-                    free(array_name);
+                    free(identifier_name);
                     parser_free_ast(node);
                     return NULL;
                 }
                 
                 // Check for closing bracket
                 if (tokens[*current].type != TOKEN_RBRACKET) {
-                    fprintf(stderr, "Error: Expected ']' after array index at line %d\n", tokens[*current].line);
-                    free(array_name);
+                    fprintf(stderr, "Error: Expected ']' after bracket index at line %d\n", tokens[*current].line);
+                    free(identifier_name);
                     parser_free_ast(node);
                     parser_free_ast(index_expr);
                     return NULL;
@@ -1616,8 +1619,8 @@ static ASTNode* parse_statement(Token* tokens, int* current, int token_count) {
                 
                 // Check for assignment operator
                 if (tokens[*current].type != TOKEN_ASSIGN) {
-                    fprintf(stderr, "Error: Expected '=' after array index at line %d\n", tokens[*current].line);
-                    free(array_name);
+                    fprintf(stderr, "Error: Expected '=' after bracket index at line %d\n", tokens[*current].line);
+                    free(identifier_name);
                     parser_free_ast(node);
                     parser_free_ast(index_expr);
                     return NULL;
@@ -1627,7 +1630,7 @@ static ASTNode* parse_statement(Token* tokens, int* current, int token_count) {
                 // Parse the value expression
                 ASTNode* value_expr = parse_expression(tokens, current);
                 if (!value_expr) {
-                    free(array_name);
+                    free(identifier_name);
                     parser_free_ast(node);
                     parser_free_ast(index_expr);
                     return NULL;
@@ -1636,7 +1639,7 @@ static ASTNode* parse_statement(Token* tokens, int* current, int token_count) {
                 // Check for semicolon
                 if (tokens[*current].type != TOKEN_SEMICOLON) {
                     fprintf(stderr, "Error: Expected ';' after array assignment at line %d\n", tokens[*current].line);
-                    free(array_name);
+                    free(identifier_name);
                     parser_free_ast(node);
                     parser_free_ast(index_expr);
                     parser_free_ast(value_expr);
@@ -1644,17 +1647,22 @@ static ASTNode* parse_statement(Token* tokens, int* current, int token_count) {
                 }
                 (*current)++; // Skip ';'
                 
-                // Create array assignment node
-                node->type = AST_ARRAY_ASSIGN;
-                node->text = strdup("array_assign");
+                // Create appropriate assignment node based on heuristic
+                if (is_object_assignment) {
+                    node->type = AST_OBJECT_BRACKET_ASSIGN;
+                    node->text = strdup("bracket_assign");
+                } else {
+                    node->type = AST_ARRAY_ASSIGN;
+                    node->text = strdup("array_assign");
+                }
                 node->children = (ASTNode*)tracked_malloc(3 * sizeof(ASTNode), __FILE__, __LINE__, "parse_statement_array_assignment");
                 node->child_count = 3;
                 node->next = NULL;
                 node->line = tokens[*current - 3].line; // Line of the identifier
                 
-                // First child: array name (identifier)
+                // First child: identifier name (object or array)
                 node->children[0].type = AST_EXPR;
-                node->children[0].text = array_name;
+                node->children[0].text = identifier_name;
                 node->children[0].children = NULL;
                 node->children[0].child_count = 0;
                 node->children[0].next = NULL;

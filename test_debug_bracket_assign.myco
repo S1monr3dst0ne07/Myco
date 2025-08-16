@@ -1,0 +1,5 @@
+# Test what happens with bracket assignment
+let obj = {name: "Alice", age: 30};
+print("Before assignment:", obj);
+obj["test"] = "new value";
+print("After assignment:", obj);

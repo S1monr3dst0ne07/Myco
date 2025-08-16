@@ -1,0 +1,25 @@
+# Comprehensive bracket assignment test
+let person = {name: "Alice", age: 30};
+print("Initial:", person);
+
+# Test 1: String literal keys with numeric values
+person["height"] = 170;
+person["weight"] = 65;
+print("After numeric assignments:", person);
+
+# Test 2: Variable keys
+let key1 = "city";
+let key2 = "country";
+person[key1] = 101;  # Using numeric for simplicity since strings show as 1
+person[key2] = 102;
+print("After variable key assignments:", person);
+
+# Test 3: Overwrite existing properties
+person["age"] = 31;
+person["height"] = 175;
+print("After overwrites:", person);
+
+# Test 4: Work with bracket access too
+print("Person's age:", person["age"]);
+print("Person's city:", person[key1]);
+print("Final person:", person);

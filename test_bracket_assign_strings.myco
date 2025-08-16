@@ -1,0 +1,5 @@
+let obj = {name: "Alice"};
+print("Before:", obj);
+obj["city"] = "New York";
+obj["country"] = "USA";
+print("After:", obj);

@@ -1,0 +1,5 @@
+let obj = {name: "Alice", age: 30};
+print("Before:", obj);
+obj["newAge"] = 35;
+obj["score"] = 100;
+print("After:", obj);

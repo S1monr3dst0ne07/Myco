@@ -4353,6 +4353,66 @@ void eval_evaluate(ASTNode* ast) {
 
 
 
+        case AST_OBJECT_BRACKET_ASSIGN: {
+            if (ast->child_count < 3) {
+                fprintf(stderr, "Error: Invalid object bracket assignment structure\n");
+                return;
+            }
+
+            char* obj_name = ast->children[0].text;
+            if (!obj_name) {
+                fprintf(stderr, "Error: Object name is NULL at line %d\n", ast->line);
+                return;
+            }
+
+            // Get the object variable
+            MycoObject* obj = get_object_value(obj_name);
+            if (!obj) {
+                fprintf(stderr, "Error: Object '%s' not found at line %d\n", obj_name, ast->line);
+                return;
+            }
+
+            // Evaluate the key expression to get the property name
+            const char* prop_name = NULL;
+            ASTNode* key_expr = &ast->children[1];
+            long long key_result = eval_expression(key_expr);
+            
+            if (key_result == 1) {
+                // String literal - extract the key
+                if (key_expr->text && is_string_literal(key_expr->text)) {
+                    size_t len = strlen(key_expr->text);
+                    if (len >= 2) {
+                        char* temp_key = malloc(len - 1);
+                        if (temp_key) {
+                            strncpy(temp_key, key_expr->text + 1, len - 2);
+                            temp_key[len - 2] = '\0';
+                            prop_name = temp_key;
+                        }
+                    }
+                }
+            } else if (key_result == -1) {
+                // String variable - get its value
+                if (key_expr->text) {
+                    prop_name = get_str_value(key_expr->text);
+                }
+            }
+
+            if (!prop_name) {
+                fprintf(stderr, "Error: Could not determine property name at line %d\n", ast->line);
+                return;
+            }
+
+            // Evaluate the value expression
+            long long value = eval_expression(&ast->children[2]);
+
+            // Set the object property (simplified approach like existing AST_OBJECT_ASSIGN)
+            if (!object_set_property(obj, prop_name, (void*)(long long)value)) {
+                fprintf(stderr, "Error: Failed to set object property at line %d\n", ast->line);
+                return;
+            }
+            break;
+        }
+
         case AST_ARRAY_ASSIGN: {
             if (ast->child_count < 3) {
                 fprintf(stderr, "Error: Invalid array assignment structure\n");
