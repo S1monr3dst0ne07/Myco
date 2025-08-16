@@ -2817,6 +2817,84 @@ long long eval_expression(ASTNode* ast) {
                 }
             }
             return 0; // Object not found or no properties
+        } else if (func_name && strcmp(func_name, "remove") == 0) {
+            // remove(obj, key) - delete property from object
+            if (ast->child_count < 2 || ast->children[1].child_count < 2) {
+                fprintf(stderr, "Error: remove() function requires two arguments\n");
+                return 0;
+            }
+            
+            // Get object argument
+            ASTNode* obj_node = &ast->children[1].children[0];
+            const char* obj_name = NULL;
+            if (obj_node->type == AST_EXPR && obj_node->text) {
+                obj_name = obj_node->text;
+                if (is_string_literal(obj_name)) {
+                    // Remove quotes from the string literal
+                    size_t len = strlen(obj_name);
+                    if (len >= 2) {
+                        char* temp_name = malloc(len - 1);
+                        if (temp_name) {
+                            strncpy(temp_name, obj_name + 1, len - 2);
+                            temp_name[len - 2] = '\0';
+                            obj_name = temp_name;
+                        }
+                    }
+                }
+            }
+            
+            // Get key argument
+            ASTNode* key_node = &ast->children[1].children[1];
+            const char* key_name = NULL;
+            if (key_node->type == AST_EXPR && key_node->text) {
+                if (is_string_literal(key_node->text)) {
+                    // String literal - remove quotes
+                    key_name = key_node->text;
+                    size_t len = strlen(key_name);
+                    if (len >= 2) {
+                        char* temp_key = malloc(len - 1);
+                        if (temp_key) {
+                            strncpy(temp_key, key_name + 1, len - 2);
+                            temp_key[len - 2] = '\0';
+                            key_name = temp_key;
+                        }
+                    }
+            } else {
+                    // Variable - get string value
+                    key_name = get_str_value(key_node->text);
+                }
+            }
+            
+            if (obj_name && key_name) {
+                MycoObject* obj = get_object_value(obj_name);
+                if (obj) {
+                    // Find property index
+                    int index = -1;
+                    for (int i = 0; i < obj->property_count; i++) {
+                        if (obj->property_names[i] && strcmp(obj->property_names[i], key_name) == 0) {
+                            index = i;
+                            break;
+                        }
+                    }
+                    
+                    if (index != -1) {
+                        // Free memory for removed property name
+                        tracked_free(obj->property_names[index], __FILE__, __LINE__, "remove_property_name");
+                        
+                        // Shift arrays left to fill gap
+                        for (int i = index; i < obj->property_count - 1; i++) {
+                            obj->property_names[i] = obj->property_names[i + 1];
+                            obj->property_values[i] = obj->property_values[i + 1];
+                        }
+                        
+                        // Update count
+                        obj->property_count--;
+                        
+                        return 1; // Success
+                    }
+                }
+            }
+            return 0; // Object not found, property not found, or invalid arguments
         } else if (func_name && strcmp(func_name, "to_string") == 0) {
             // to_string(value) - convert any value to string
             if (ast->child_count < 2 || ast->children[1].child_count < 1) {

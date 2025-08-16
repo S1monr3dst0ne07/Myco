@@ -449,6 +449,22 @@ let person = {name: "Alice", age: 30, city: "NYC"};
 let count = size(person);  # 3
 ```
 
+#### `remove(object, key)`
+Removes a property from an object.
+```myco
+let person = {name: "Alice", age: 30, temp: "delete_me"};
+let success = remove(person, "temp");  # 1 (true)
+print("Person:", person);  # {name: "Alice", age: 30}
+
+# Variable key
+let key = "age";
+let result = remove(person, key);  # 1 (true)
+print("Person:", person);  # {name: "Alice"}
+
+# Non-existent property
+let failed = remove(person, "missing");  # 0 (false)
+```
+
 ### Utility Functions
 
 #### `to_string(value)`
