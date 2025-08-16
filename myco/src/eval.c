@@ -300,6 +300,9 @@ static int str_env_capacity = 0;
 // Global variable to store the last string concatenation result
 static char* last_concat_result = NULL;
 
+// Global object reference for chained property access
+static MycoObject* __chained_object_ref = NULL;
+
 // Simple module alias mapping
 typedef struct {
     char* alias;
@@ -1895,12 +1898,22 @@ long long eval_expression(ASTNode* ast) {
             return 0;
         }
         
-        // For now, we'll assume the left value is an object pointer
-        // This is a temporary solution - we need proper object reference handling
-        MycoObject* obj = (MycoObject*)left_value;
+        // Handle object reference from recursive evaluation
+        MycoObject* obj = NULL;
+        if (left_value == -10) {
+            // Object reference was stored globally
+            obj = __chained_object_ref;
+            if (!obj) {
+                fprintf(stderr, "Error: Lost object reference in chained access at line %d\n", ast->line);
+                return 0;
+            }
+        } else {
+            // Traditional approach - cast the value back to object pointer
+            obj = (MycoObject*)left_value;
         if (!obj) {
             fprintf(stderr, "Error: Invalid object reference at line %d\n", ast->line);
             return 0;
+            }
         }
         
         // Get the property value
@@ -1927,18 +1940,23 @@ long long eval_expression(ASTNode* ast) {
             }
         }
         
-        // Check if the property value is an object (using heuristic)
-        if ((long long)prop_value > 1000000) {
-            // This might be a MycoObject pointer - check if it's a valid object
+        // Check if the property value is an object for chained access
+        // Note: This is foundation work for future chained access implementation
+        if (prop_value && (long long)prop_value > 1000000) {
             MycoObject* potential_obj = (MycoObject*)prop_value;
-            if (potential_obj && potential_obj->property_names && potential_obj->property_values && 
-                potential_obj->property_count >= 0 && potential_obj->capacity > 0) {
-                // This is a valid object - return it for chained access
-                return (long long)prop_value;
+            // Validate if this is a valid object (simplified for future enhancement)
+            if (potential_obj && 
+                potential_obj->property_names && 
+                potential_obj->property_values && 
+                potential_obj->property_count >= 0 && 
+                potential_obj->capacity > 0) {      
+                // This is a valid object - store for future chained access
+                __chained_object_ref = potential_obj;
+                return -10;  // Special code: object reference stored globally
             }
         }
         
-        // Otherwise, assume it's a number or invalid pointer
+        // For non-object values (numbers, strings), return as-is
         return (long long)prop_value;
     }
     
