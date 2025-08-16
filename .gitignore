@@ -28,3 +28,6 @@ Thumbs.db
 
 # Development Plan
 DevelopmentPlan.md
+
+# Test files
+test_*.myco
