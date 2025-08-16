@@ -276,12 +276,14 @@ typedef struct {
         VAR_TYPE_NUMBER,
         VAR_TYPE_STRING,
         VAR_TYPE_ARRAY,
-        VAR_TYPE_OBJECT
+        VAR_TYPE_OBJECT,
+        VAR_TYPE_SET
     } type;
     long long number_value;
     char* string_value;
     MycoArray* array_value;
     MycoObject* object_value;
+    MycoSet* set_value;
 } VarEntry;
 
 static VarEntry* var_env = NULL;
@@ -2875,6 +2877,133 @@ long long eval_expression(ASTNode* ast) {
                 }
             }
             return 0; // Object not found or invalid arguments
+        } else if (func_name && strcmp(func_name, "set_has") == 0) {
+            // set_has(set, element) - check if set contains element
+            if (ast->child_count < 2 || ast->children[1].child_count < 2) {
+                fprintf(stderr, "Error: set_has() function requires two arguments\n");
+                return 0;
+            }
+            
+            // Get set argument
+            ASTNode* set_node = &ast->children[1].children[0];
+            const char* set_name = NULL;
+            if (set_node->type == AST_EXPR && set_node->text) {
+                set_name = set_node->text;
+            }
+            
+            MycoSet* set = get_set_value(set_name);
+            if (!set) {
+                fprintf(stderr, "Error: First argument to set_has() must be a set\n");
+                return 0;
+            }
+            
+            // Get element to check
+            long long element_value = eval_expression(&ast->children[1].children[1]);
+            if (error_occurred) return 0;
+            
+            // Check if element exists in set
+            if (set->is_string_set) {
+                // For string sets, check if it's a string literal or variable
+                if (element_value == -1) {
+                    // String variable
+                    const char* str_value = get_str_value(ast->children[1].children[1].text);
+                    if (str_value) {
+                        return set_has(set, (void*)str_value) ? 1 : 0;
+                    }
+                } else if (element_value == 1 && ast->children[1].children[1].text && 
+                          ast->children[1].children[1].text[0] == '"') {
+                    // String literal
+                    char* str_literal = ast->children[1].children[1].text;
+                    size_t len = strlen(str_literal);
+                    if (len >= 2) {
+                        char* temp_str = malloc(len - 1);
+                        if (temp_str) {
+                            strncpy(temp_str, str_literal + 1, len - 2);
+                            temp_str[len - 2] = '\0';
+                            int result = set_has(set, (void*)temp_str) ? 1 : 0;
+                            free(temp_str);
+                return result;
+                        }
+                    }
+                }
+                return 0;
+            } else {
+                // For numeric sets
+                return set_has(set, (void*)&element_value) ? 1 : 0;
+            }
+        } else if (func_name && strcmp(func_name, "set_add") == 0) {
+            // set_add(set, element) - add element to set
+            if (ast->child_count < 2 || ast->children[1].child_count < 2) {
+                fprintf(stderr, "Error: set_add() function requires two arguments\n");
+                return 0;
+            }
+            
+            // Get set argument
+            ASTNode* set_node = &ast->children[1].children[0];
+            const char* set_name = NULL;
+            if (set_node->type == AST_EXPR && set_node->text) {
+                set_name = set_node->text;
+            }
+            
+            MycoSet* set = get_set_value(set_name);
+            if (!set) {
+                fprintf(stderr, "Error: First argument to set_add() must be a set\n");
+                return 0;
+            }
+            
+            // Get element to add
+            long long element_value = eval_expression(&ast->children[1].children[1]);
+            if (error_occurred) return 0;
+            
+            // Add element to set
+            if (set->is_string_set) {
+                // Handle string elements
+                if (element_value == -1) {
+                    // String variable
+                    const char* str_value = get_str_value(ast->children[1].children[1].text);
+                    if (str_value) {
+                        return set_add(set, (void*)str_value) ? 1 : 0;
+                    }
+                } else if (element_value == 1 && ast->children[1].children[1].text && 
+                          ast->children[1].children[1].text[0] == '"') {
+                    // String literal
+                    char* str_literal = ast->children[1].children[1].text;
+                    size_t len = strlen(str_literal);
+                    if (len >= 2) {
+                        char* temp_str = malloc(len - 1);
+                        if (temp_str) {
+                            strncpy(temp_str, str_literal + 1, len - 2);
+                            temp_str[len - 2] = '\0';
+                            int result = set_add(set, (void*)temp_str) ? 1 : 0;
+                            free(temp_str);
+                            return result;
+                        }
+                    }
+                }
+                return 0;
+            } else {
+                // For numeric sets
+                return set_add(set, (void*)&element_value) ? 1 : 0;
+            }
+        } else if (func_name && strcmp(func_name, "set_size") == 0) {
+            // set_size(set) - return number of elements in set
+            if (ast->child_count < 2 || ast->children[1].child_count < 1) {
+                fprintf(stderr, "Error: set_size() function requires one argument\n");
+                return 0;
+            }
+            
+            // Get set argument
+            ASTNode* set_node = &ast->children[1].children[0];
+            const char* set_name = NULL;
+            if (set_node->type == AST_EXPR && set_node->text) {
+                set_name = set_node->text;
+            }
+            
+            MycoSet* set = get_set_value(set_name);
+            if (set) {
+                return set_size(set);
+            }
+            return 0; // Set not found
         } else if (func_name && strcmp(func_name, "size") == 0) {
             // size(obj) - return number of properties in object
             if (ast->child_count < 2 || ast->children[1].child_count < 1) {
@@ -4668,3 +4797,102 @@ MycoArray* get_array_value(const char* name) {
     }
     return NULL;
 } 
+
+// ========================= SET MANAGEMENT FUNCTIONS =========================
+
+int set_has(MycoSet* set, void* element) {
+    if (!set || !element) return 0;
+    
+    for (int i = 0; i < set->element_count; i++) {
+        if (set->is_string_set) {
+            char* str_elem = (char*)set->elements[i];
+            char* target_str = (char*)element;
+            if (str_elem && target_str && strcmp(str_elem, target_str) == 0) {
+                return 1;
+            }
+        } else {
+            long long* num_elem = (long long*)set->elements[i];
+            long long* target_num = (long long*)element;
+            if (num_elem && target_num && *num_elem == *target_num) {
+                return 1;
+            }
+        }
+    }
+    return 0;
+}
+
+int set_add(MycoSet* set, void* element) {
+    if (!set || !element) return 0;
+    
+    // Check if element already exists (sets contain unique elements)
+    if (set_has(set, element)) {
+        return 1; // Element already exists, consider this success
+    }
+    
+    // Expand capacity if needed
+    if (set->element_count >= set->capacity) {
+        int new_capacity = set->capacity * 2;
+        void** new_elements = (void**)tracked_realloc(set->elements, 
+            new_capacity * sizeof(void*), __FILE__, __LINE__, "set_add_expand");
+        if (!new_elements) return 0;
+        
+        set->elements = new_elements;
+        set->capacity = new_capacity;
+    }
+    
+    // Add the element
+    if (set->is_string_set) {
+        set->elements[set->element_count] = strdup((char*)element);
+    } else {
+        long long* new_num = (long long*)tracked_malloc(sizeof(long long), __FILE__, __LINE__, "set_add_number");
+        if (!new_num) return 0;
+        *new_num = *(long long*)element;
+        set->elements[set->element_count] = new_num;
+    }
+    
+    set->element_count++;
+    return 1;
+}
+
+int set_size(MycoSet* set) {
+    return set ? set->element_count : 0;
+}
+
+void set_set_value(const char* name, MycoSet* set) {
+    // Check if variable already exists
+    for (int i = 0; i < var_env_size; i++) {
+        if (var_env[i].name && strcmp(var_env[i].name, name) == 0) {
+            var_env[i].type = VAR_TYPE_SET;
+            var_env[i].set_value = set;
+            return;
+        }
+    }
+    
+    // Add new variable
+    if (var_env_size >= var_env_capacity) {
+        int new_capacity = var_env_capacity == 0 ? 16 : var_env_capacity * 2;
+        VarEntry* new_env = (VarEntry*)tracked_realloc(var_env, 
+            new_capacity * sizeof(VarEntry), __FILE__, __LINE__, "expand_var_env_set");
+        if (!new_env) return;
+        
+        var_env = new_env;
+        var_env_capacity = new_capacity;
+    }
+    
+    var_env[var_env_size].name = strdup(name);
+    var_env[var_env_size].type = VAR_TYPE_SET;
+    var_env[var_env_size].set_value = set;
+    var_env_size++;
+}
+
+MycoSet* get_set_value(const char* name) {
+    for (int i = var_env_size - 1; i >= 0; i--) {
+        if (var_env[i].name && strcmp(var_env[i].name, name) == 0) {
+            if (var_env[i].type == VAR_TYPE_SET) {
+                return var_env[i].set_value;
+            }
+            return NULL;
+        }
+    }
+    return NULL;
+}

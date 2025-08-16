@@ -21,6 +21,14 @@ typedef struct MycoObject {
     int is_method;           // Flag for future method support
 } MycoObject;
 
+// Set data structure for unique collections
+typedef struct MycoSet {
+    void** elements;             // Dynamic array of unique elements
+    int element_count;           // Current number of elements
+    int capacity;                // Current allocated capacity
+    int is_string_set;           // Flag for string vs integer sets
+} MycoSet;
+
 // Array management function prototypes
 MycoArray* create_array(int initial_capacity, int is_string_array);
 void destroy_array(MycoArray* array);
@@ -43,6 +51,17 @@ int object_has_property(MycoObject* obj, const char* name);
 void cleanup_object_env();
 MycoObject* get_object_value(const char* name);
 void set_object_value(const char* name, MycoObject* obj);
+
+// Set management function prototypes
+MycoSet* create_set(int initial_capacity, int is_string_set);
+void destroy_set(MycoSet* set);
+int set_add(MycoSet* set, void* element);
+int set_has(MycoSet* set, void* element);
+int set_remove(MycoSet* set, void* element);
+int set_size(MycoSet* set);
+void cleanup_set_env();
+MycoSet* get_set_value(const char* name);
+void set_set_value(const char* name, MycoSet* set);
 
 // Function prototypes
 void eval_evaluate(ASTNode* ast);
