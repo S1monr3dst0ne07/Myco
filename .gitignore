@@ -1,8 +1,4 @@
 # Build artifacts
-myco
-myco_*
-myco.exe
-myco.exe_*
 output.c
 
 # macOS system files
