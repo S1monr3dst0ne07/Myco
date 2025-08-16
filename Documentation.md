@@ -1,0 +1,651 @@
+# Myco Programming Language Documentation
+
+## Table of Contents
+1. [Overview](#overview)
+2. [Installation](#installation)
+3. [Basic Syntax](#basic-syntax)
+4. [Data Types](#data-types)
+5. [Variables](#variables)
+6. [Operators](#operators)
+7. [Objects](#objects)
+8. [Arrays](#arrays)
+9. [Control Flow](#control-flow)
+10. [Functions](#functions)
+11. [Built-in Functions](#built-in-functions)
+12. [Standard Library](#standard-library)
+13. [Examples](#examples)
+14. [Error Handling](#error-handling)
+
+## Overview
+
+Myco is a modern, lightweight programming language designed for simplicity and expressiveness. It features dynamic typing, object-oriented capabilities, and a clean syntax inspired by Lua and Python.
+
+**Version**: 1.1.1  
+**License**: MIT  
+**Repository**: https://github.com/TrendyBananaYT/myco
+
+## Installation
+
+### Prerequisites
+- GCC compiler
+- Make build system
+- Git (for source installation)
+
+### Building from Source
+```bash
+git clone https://github.com/TrendyBananaYT/myco.git
+cd myco/myco
+make
+```
+
+### Running Programs
+```bash
+./myco filename.myco
+```
+
+## Basic Syntax
+
+### Comments
+```myco
+# Single-line comment
+```
+
+### Statements
+All statements end with a semicolon:
+```myco
+print("Hello, World!");
+let x = 42;
+```
+
+### Printing
+```myco
+print("Hello");
+print("Value:", 42);
+print(variable);
+```
+
+## Data Types
+
+### Numbers
+```myco
+let integer = 42;
+let negative = -17;
+let zero = 0;
+```
+
+### Strings
+```myco
+let name = "Alice";
+let message = "Hello, World!";
+let empty = "";
+```
+
+### Booleans
+```myco
+let isTrue = 1;    # True
+let isFalse = 0;   # False
+```
+
+### Arrays
+```myco
+let numbers = [1, 2, 3, 4, 5];
+let strings = ["apple", "banana", "cherry"];
+let mixed = [1, "hello", 42];
+```
+
+### Objects
+```myco
+let person = {
+    name: "Alice",
+    age: 30,
+    city: "New York"
+};
+```
+
+## Variables
+
+### Declaration and Assignment
+```myco
+let variableName = value;
+```
+
+### Examples
+```myco
+let name = "Bob";
+let age = 25;
+let isActive = 1;
+let scores = [95, 87, 92];
+```
+
+### Variable Naming Rules
+- Must start with a letter (a-z, A-Z)
+- Can contain letters, numbers, and underscores
+- Case-sensitive
+- Cannot use reserved keywords
+
+## Operators
+
+### Arithmetic Operators
+```myco
+let a = 10;
+let b = 3;
+
+let sum = a + b;        # Addition: 13
+let diff = a - b;       # Subtraction: 7
+let product = a * b;    # Multiplication: 30
+let quotient = a / b;   # Division: 3
+let remainder = a % b;  # Modulo: 1
+```
+
+### String Concatenation
+```myco
+let firstName = "John";
+let lastName = "Doe";
+let fullName = firstName + " " + lastName;  # "John Doe"
+```
+
+### Comparison Operators
+```myco
+let x = 10;
+let y = 20;
+
+let equal = x == y;         # Equality
+let notEqual = x != y;      # Inequality
+let less = x < y;           # Less than
+let greater = x > y;        # Greater than
+let lessEqual = x <= y;     # Less than or equal
+let greaterEqual = x >= y;  # Greater than or equal
+```
+
+### Logical Operators
+```myco
+let a = 1;  # True
+let b = 0;  # False
+
+let and = a && b;   # Logical AND
+let or = a || b;    # Logical OR
+let not = !a;       # Logical NOT
+```
+
+## Objects
+
+### Object Creation
+```myco
+let person = {
+    name: "Alice",
+    age: 30,
+    email: "alice@example.com"
+};
+```
+
+### Property Access
+
+#### Dot Notation
+```myco
+let name = person.name;
+let age = person.age;
+```
+
+#### Bracket Notation
+```myco
+let name = person["name"];
+let age = person["age"];
+
+# Dynamic property access
+let property = "name";
+let value = person[property];
+```
+
+### Property Assignment
+```myco
+person.name = "Bob";
+person.age = 25;
+person["email"] = "bob@example.com";
+```
+
+### Nested Objects
+```myco
+let user = {
+    name: "Alice",
+    address: {
+        street: "123 Main St",
+        city: "New York",
+        zip: "10001"
+    }
+};
+
+let city = user.address.city;
+let street = user["address"]["street"];
+```
+
+## Arrays
+
+### Array Creation
+```myco
+let numbers = [1, 2, 3, 4, 5];
+let fruits = ["apple", "banana", "orange"];
+let empty = [];
+```
+
+### Array Access
+```myco
+let first = numbers[0];    # First element
+let second = numbers[1];   # Second element
+let last = numbers[4];     # Last element
+```
+
+### Array Assignment
+```myco
+numbers[0] = 10;
+fruits[1] = "grape";
+```
+
+## Control Flow
+
+### Conditional Statements
+
+#### If Statement
+```myco
+if condition:
+    # code block
+end
+```
+
+#### If-Else Statement
+```myco
+if condition:
+    # code if true
+else:
+    # code if false
+end
+```
+
+#### If-Else If Statement
+```myco
+if condition1:
+    # code block 1
+else if condition2:
+    # code block 2
+else:
+    # default code block
+end
+```
+
+### Loops
+
+#### While Loop
+```myco
+while condition:
+    # code block
+end
+```
+
+#### For Loop
+```myco
+for i in start:end:
+    # code block
+end
+```
+
+### Examples
+```myco
+let count = 0;
+while count < 5:
+    print("Count:", count);
+    count = count + 1;
+end
+
+for i in 0:10:
+    print("Number:", i);
+end
+```
+
+## Functions
+
+### Function Declaration
+```myco
+func functionName(parameter1, parameter2):
+    # function body
+    return value;
+end
+```
+
+### Function Call
+```myco
+let result = functionName(argument1, argument2);
+```
+
+### Examples
+```myco
+func add(a, b):
+    return a + b;
+end
+
+func greet(name):
+    return "Hello, " + name + "!";
+end
+
+let sum = add(5, 3);
+let message = greet("Alice");
+```
+
+## Built-in Functions
+
+### Array Functions
+
+#### `len(array)`
+Returns the length of an array or string.
+```myco
+let numbers = [1, 2, 3, 4];
+let length = len(numbers);  # 4
+
+let text = "Hello";
+let textLength = len(text); # 5
+```
+
+#### `push(array, element)`
+Adds an element to the end of an array.
+```myco
+let fruits = ["apple", "banana"];
+push(fruits, "orange");
+# fruits is now ["apple", "banana", "orange"]
+```
+
+#### `pop(array)`
+Removes and returns the last element of an array.
+```myco
+let numbers = [1, 2, 3];
+let last = pop(numbers);  # 3
+# numbers is now [1, 2]
+```
+
+#### `first(array)`
+Returns the first element of an array.
+```myco
+let numbers = [10, 20, 30];
+let firstNum = first(numbers);  # 10
+```
+
+#### `last(array)`
+Returns the last element of an array.
+```myco
+let numbers = [10, 20, 30];
+let lastNum = last(numbers);  # 30
+```
+
+#### `reverse(array)`
+Reverses the order of elements in an array.
+```myco
+let numbers = [1, 2, 3, 4];
+reverse(numbers);
+# numbers is now [4, 3, 2, 1]
+```
+
+#### `slice(array, start, end)`
+Returns a portion of an array from start to end (exclusive).
+```myco
+let numbers = [1, 2, 3, 4, 5];
+let subset = slice(numbers, 1, 4);  # [2, 3, 4]
+```
+
+#### `join(array, separator)`
+Joins array elements into a string with a separator.
+```myco
+let words = ["Hello", "World"];
+let sentence = join(words, " ");  # "Hello World"
+```
+
+### String Functions
+
+#### `split(string, delimiter)`
+Splits a string into an array using a delimiter.
+```myco
+let text = "apple,banana,cherry";
+let fruits = split(text, ",");  # ["apple", "banana", "cherry"]
+```
+
+#### `trim(string)`
+Removes whitespace from the beginning and end of a string.
+```myco
+let text = "  Hello World  ";
+let cleaned = trim(text);  # "Hello World"
+```
+
+#### `replace(string, old, new)`
+Replaces all occurrences of a substring with another string.
+```myco
+let text = "Hello World";
+let newText = replace(text, "World", "Universe");  # "Hello Universe"
+```
+
+### Object Functions
+
+#### `object_keys(object)`
+Returns an array of object property names.
+```myco
+let person = {name: "Alice", age: 30};
+let keys = object_keys(person);  # ["name", "age"]
+```
+
+#### `values(object)`
+Returns an array of object property values.
+```myco
+let person = {name: "Alice", age: 30};
+let vals = values(person);  # ["Alice", "30"]
+```
+
+#### `has_key(object, key)`
+Checks if an object has a specific property.
+```myco
+let person = {name: "Alice", age: 30};
+let hasName = has_key(person, "name");    # 1 (true)
+let hasEmail = has_key(person, "email");  # 0 (false)
+```
+
+#### `size(object)`
+Returns the number of properties in an object.
+```myco
+let person = {name: "Alice", age: 30, city: "NYC"};
+let count = size(person);  # 3
+```
+
+### Utility Functions
+
+#### `to_string(value)`
+Converts a value to its string representation.
+```myco
+let number = 42;
+let text = to_string(number);  # "42"
+```
+
+## Standard Library
+
+Myco includes a comprehensive standard library with functions for common programming tasks:
+
+- **Array manipulation**: push, pop, slice, reverse, join
+- **String processing**: split, trim, replace
+- **Object operations**: keys, values, property checking
+- **Type conversion**: to_string
+- **Utility functions**: len for size checking
+
+## Examples
+
+### Basic Program
+```myco
+# Simple greeting program
+let name = "Alice";
+let age = 30;
+
+print("Hello, " + name + "!");
+print("You are " + to_string(age) + " years old.");
+```
+
+### Working with Arrays
+```myco
+# Array operations
+let numbers = [1, 2, 3, 4, 5];
+
+print("Original array:", numbers);
+print("Length:", len(numbers));
+print("First element:", first(numbers));
+print("Last element:", last(numbers));
+
+push(numbers, 6);
+print("After push:", numbers);
+
+let popped = pop(numbers);
+print("Popped element:", popped);
+print("After pop:", numbers);
+
+reverse(numbers);
+print("Reversed:", numbers);
+```
+
+### Working with Objects
+```myco
+# Object operations
+let person = {
+    name: "Bob",
+    age: 25,
+    city: "San Francisco",
+    email: "bob@example.com"
+};
+
+print("Person:", person);
+print("Name:", person.name);
+print("Age:", person["age"]);
+
+let keys = object_keys(person);
+print("Properties:", keys);
+
+let vals = values(person);
+print("Values:", vals);
+
+print("Has email?", has_key(person, "email"));
+print("Has phone?", has_key(person, "phone"));
+```
+
+### String Processing
+```myco
+# String manipulation
+let text = "  apple,banana,cherry  ";
+
+let cleaned = trim(text);
+print("Trimmed:", cleaned);
+
+let fruits = split(cleaned, ",");
+print("Split:", fruits);
+
+let joined = join(fruits, " | ");
+print("Joined:", joined);
+
+let replaced = replace(joined, "banana", "grape");
+print("Replaced:", replaced);
+```
+
+### Control Flow Example
+```myco
+# Conditional logic and loops
+let scores = [85, 92, 78, 96, 88];
+let total = 0;
+let count = len(scores);
+
+# Calculate total
+for i in 0:count:
+    total = total + scores[i];
+end
+
+let average = total / count;
+print("Average score:", average);
+
+# Grade classification
+if average >= 90:
+    print("Grade: A");
+else if average >= 80:
+    print("Grade: B");
+else if average >= 70:
+    print("Grade: C");
+else:
+    print("Grade: F");
+end
+```
+
+### Function Example
+```myco
+# Function definition and usage
+func calculateArea(length, width):
+    return length * width;
+end
+
+func displayRectangle(length, width):
+    let area = calculateArea(length, width);
+    print("Rectangle: " + to_string(length) + " x " + to_string(width));
+    print("Area: " + to_string(area));
+end
+
+displayRectangle(5, 3);
+displayRectangle(8, 4);
+```
+
+## Error Handling
+
+### Common Errors
+
+#### Syntax Errors
+- Missing semicolons
+- Unmatched braces or brackets
+- Invalid identifiers
+
+#### Runtime Errors
+- Accessing undefined variables
+- Array index out of bounds
+- Invalid function calls
+
+#### Type Errors
+- Incompatible operations
+- Invalid property access
+
+### Best Practices
+
+1. **Always use semicolons** to terminate statements
+2. **Check array bounds** before accessing elements
+3. **Validate object properties** before access
+4. **Use meaningful variable names**
+5. **Test functions with various inputs**
+6. **Handle edge cases** in conditional logic
+
+### Debugging Tips
+
+1. Use `print()` statements to trace program execution
+2. Check variable values at different points
+3. Verify array and object contents
+4. Test with simple inputs first
+5. Break complex expressions into smaller parts
+
+## Language Features Summary
+
+**Current Version**: 1.1.1
+
+**Completed Features**:
+- Variables and basic data types
+- Arithmetic and logical operators
+- Objects with dot and bracket notation
+- Arrays with indexing and assignment
+- Control flow (if/else, loops)
+- Function definitions and calls
+- 16 built-in functions
+- String concatenation and manipulation
+- Nested object support
+- Dynamic property access
+
+**Upcoming Features** (v2.0.0 roadmap):
+- Enhanced error handling
+- Module system
+- Advanced array operations
+- Performance optimizations
+- Extended standard library
+- IDE integration tools
+
+---
+
+*For more information, visit the [official repository](https://github.com/TrendyBananaYT/myco) or contribute to the project.*
