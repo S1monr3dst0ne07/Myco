@@ -1054,6 +1054,65 @@ MycoObject* create_object(int initial_capacity) {
 }
 
 /**
+ * @brief Creates an object from an AST_OBJECT_LITERAL node (recursive helper)
+ * @param ast The AST_OBJECT_LITERAL node to process
+ * @return Pointer to the created object, or NULL on failure
+ */
+MycoObject* create_object_from_literal(ASTNode* ast) {
+    if (!ast || ast->type != AST_OBJECT_LITERAL) {
+        return NULL;
+    }
+    
+    // Create object with appropriate capacity
+    MycoObject* obj = create_object(ast->child_count);
+    if (!obj) {
+        return NULL;
+    }
+    
+    // Add properties to the object
+    for (int i = 0; i < ast->child_count; i++) {
+        if (ast->children[i].type == AST_EXPR && 
+            ast->children[i].text && 
+            strcmp(ast->children[i].text, "prop") == 0 &&
+            ast->children[i].child_count == 2) {
+            
+            // Get property name
+            char* prop_name = ast->children[i].children[0].text;
+            if (!prop_name) continue;
+            
+            // Handle property value based on its type
+            if (ast->children[i].children[1].type == AST_OBJECT_LITERAL) {
+                // Recursive case: nested object literal
+                MycoObject* nested_obj = create_object_from_literal(&ast->children[i].children[1]);
+                if (nested_obj) {
+                    object_set_property(obj, prop_name, nested_obj);
+                } else {
+                    object_set_property(obj, prop_name, (void*)0);
+                }
+            } else if (ast->children[i].children[1].type == AST_EXPR && 
+                       ast->children[i].children[1].text &&
+                       ast->children[i].children[1].text[0] == '"') {
+                // String literal
+                char* str_value = ast->children[i].children[1].text;
+                if (strlen(str_value) >= 2) {
+                    char* clean_str = strdup(str_value + 1); // Skip first quote
+                    clean_str[strlen(clean_str) - 1] = '\0'; // Remove last quote
+                    object_set_property(obj, prop_name, clean_str);
+                } else {
+                    object_set_property(obj, prop_name, strdup(""));
+                }
+            } else {
+                // Evaluate as expression (number)
+                long long prop_value = eval_expression(&ast->children[i].children[1]);
+                object_set_property(obj, prop_name, (void*)(long long)prop_value);
+            }
+        }
+    }
+    
+    return obj;
+}
+
+/**
  * @brief Destroys an object and frees all associated memory
  * @param obj The object to destroy
  */
@@ -1868,7 +1927,18 @@ long long eval_expression(ASTNode* ast) {
             }
         }
         
-        // Return the property value (for now, assume it's a number)
+        // Check if the property value is an object (using heuristic)
+        if ((long long)prop_value > 1000000) {
+            // This might be a MycoObject pointer - check if it's a valid object
+            MycoObject* potential_obj = (MycoObject*)prop_value;
+            if (potential_obj && potential_obj->property_names && potential_obj->property_values && 
+                potential_obj->property_count >= 0 && potential_obj->capacity > 0) {
+                // This is a valid object - return it for chained access
+                return (long long)prop_value;
+            }
+        }
+        
+        // Otherwise, assume it's a number or invalid pointer
         return (long long)prop_value;
     }
     
@@ -4123,53 +4193,14 @@ void eval_evaluate(ASTNode* ast) {
                         
                         // Check if the property value is a nested object literal
                         if (ast->children[1].children[i].children[1].type == AST_OBJECT_LITERAL) {
-                            // This is a nested object: {user: {name: "John"}}
-                            // Create the nested object
-                            MycoObject* nested_obj = create_object(ast->children[1].children[i].children[1].child_count);
-                            if (!nested_obj) {
+                            // This is a nested object: use recursive helper function
+                            MycoObject* nested_obj = create_object_from_literal(&ast->children[1].children[i].children[1]);
+                            if (nested_obj) {
+                                object_set_property(obj, prop_name, nested_obj);
+                            } else {
                                 fprintf(stderr, "Error: Failed to create nested object at line %d\n", ast->line);
-                                continue;
+                                object_set_property(obj, prop_name, (void*)0);
                             }
-                            
-                            // Add properties to the nested object
-                            for (int j = 0; j < ast->children[1].children[i].children[1].child_count; j++) {
-                                if (ast->children[1].children[i].children[1].children[j].type == AST_EXPR && 
-                                    ast->children[1].children[i].children[1].children[j].text && 
-                                    strcmp(ast->children[1].children[i].children[1].children[j].text, "prop") == 0 &&
-                                    ast->children[1].children[i].children[1].children[j].child_count == 2) {
-                                    
-                                    // Get nested property name and value
-                                    char* nested_prop_name = ast->children[1].children[i].children[1].children[j].children[0].text;
-                                    if (!nested_prop_name) continue;
-                                    
-                                    // Check if the nested property value is a string literal
-                                    if (ast->children[1].children[i].children[1].children[j].children[1].type == AST_EXPR && 
-                                        ast->children[1].children[i].children[1].children[j].children[1].text &&
-                                        ast->children[1].children[i].children[1].children[j].children[1].text[0] == '"') {
-                                        // This is a string literal like "John"
-                                        // Store the string directly (remove quotes)
-                                        char* str_value = ast->children[1].children[i].children[1].children[j].children[1].text;
-                                        if (strlen(str_value) >= 2) {
-                                            // Remove quotes and store the string
-                                            char* clean_str = strdup(str_value + 1); // Skip first quote
-                                            clean_str[strlen(clean_str) - 1] = '\0'; // Remove last quote
-                                            object_set_property(nested_obj, nested_prop_name, clean_str);
-                                        } else {
-                                            // Empty string
-                                            object_set_property(nested_obj, nested_prop_name, strdup(""));
-                                        }
-                                    } else {
-                                        // Evaluate the nested property value as a simple expression (number)
-                                        long long nested_prop_value = eval_expression(&ast->children[1].children[i].children[1].children[j].children[1]);
-                                        
-                                        // Store the nested property as a number
-                                        object_set_property(nested_obj, nested_prop_name, (void*)(long long)nested_prop_value);
-                                    }
-                                }
-                            }
-                            
-                            // Store the nested object as the property value
-                            object_set_property(obj, prop_name, nested_obj);
                         } else {
                             // Check if the property value is a string literal
                             if (ast->children[1].children[i].children[1].type == AST_EXPR && 
