@@ -1,4 +1,0 @@
-# Test bracket assignment syntax parsing
-let obj = {name: "Alice"};
-obj["age"] = 25;
-print("Object:", obj);

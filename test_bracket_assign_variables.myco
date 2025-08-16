@@ -1,7 +1,0 @@
-let obj = {name: "Alice"};
-let key1 = "age";
-let key2 = "score";
-print("Before:", obj);
-obj[key1] = 25;
-obj[key2] = 95;
-print("After:", obj);
