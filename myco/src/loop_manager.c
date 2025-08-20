@@ -30,6 +30,7 @@
  * - Cross-platform compatibility
  */
 
+#define _POSIX_C_SOURCE 200809L
 #include "loop_manager.h"
 #include <stdio.h>
 #include <stdlib.h>
