@@ -215,6 +215,12 @@ static ASTNode* find_function_in_any_module(const char* name);
 #define ERROR_INPUT_FAILED       ((SEV_ERROR << 16) | (MOD_IO << 8) | ERR_INPUT_FAILED)
 #define ERROR_INVALID_INPUT      ((SEV_ERROR << 16) | (MOD_IO << 8) | ERR_INVALID_INPUT)
 
+#ifdef _WIN32
+  #define strcasecmp _stricmp
+#else
+  #include <strings.h> // for strcasecmp
+#endif
+
 // Error messages
 static const char* error_messages[] = {
     "No error",
