@@ -9,7 +9,7 @@ Discord: https://discord.gg/CR8xcKb3zM
 
 ## 🌟 What is Myco?
 
-**Myco** is a lightweight, expressive scripting language designed for simplicity, readability, and just a touch of magic. Inspired by every aspect of other languages I hate and my weird obsession with Fungi, Myco is built to be both intuitive and powerful for small scripts or full programs.
+**Myco** is a lightweight, expressive scripting language designed for simplicity, readability, and just a touch of magic. Inspired by every aspect of other languages I hate and my weird obsession with Fungi, Myco is built to be both intuitive and powerful for small scripts or full programs. I did not use AI for this project, I do not like using AI for my work as it is buggy and does not give me good results.
 
 ---
 
