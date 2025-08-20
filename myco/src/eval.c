@@ -57,11 +57,6 @@
 #include <time.h>
 
 // Array data structure is now defined in eval.h
-#ifdef _WIN32
-// Windows doesn't have curl by default, so we'll skip websocat functionality
-#else
-#include <curl/curl.h>
-#endif
 
 /*******************************************************************************
  * LOOP EXECUTION STATE MANAGEMENT
