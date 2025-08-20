@@ -3,15 +3,15 @@
 
 // Build configuration macros
 #ifdef NDEBUG
-    #define MYCO_RELEASE 1
-    #define MYCO_DEBUG 0
+    #define MYCO_RELEASE TRUE
+    #define MYCO_DEBUG FALSE
 #else
-    #define MYCO_RELEASE 0
-    #define MYCO_DEBUG 1
+    #define MYCO_RELEASE FALSE
+    #define MYCO_DEBUG TRUE
 #endif
 
 // Performance optimization macros
-#ifdef MYCO_RELEASE
+#if MYCO_RELEASE
     // Release mode: maximum performance, minimal size
     #define DEBUG_PRINT(fmt, ...) ((void)0)
     #define DEBUG_MEMORY_TRACKING 0
