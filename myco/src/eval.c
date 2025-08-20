@@ -438,34 +438,39 @@ static int ensure_dir(const char* path) {
 
 static int ensure_websocat(char* out_path, size_t out_sz) {
     const char* env = getenv("MYCO_WEBSOCAT");
-    if (env && env[0] && file_executable(env)) { snprintf(out_path, out_sz, "%s", env); return 0; }
+    if (env && env[0] && file_executable(env)) {
+        snprintf(out_path, out_sz, "%s", env);
+        return 0;
+    }
 
-    // Try local .myco/bin/websocat
+    // Check local tool in ~/.myco/bin
     const char* rel_dir = ".myco/bin";
     (void)ensure_dir(".myco"); (void)ensure_dir(rel_dir);
     char local_bin[512]; snprintf(local_bin, sizeof(local_bin), "%s/websocat", rel_dir);
-    if (file_executable(local_bin)) { snprintf(out_path, out_sz, "%s", local_bin); return 0; }
-
-    // Determine OS/arch for download URL
-    struct utsname un; uname(&un);
-    const char* url = NULL;
-    // Default to macOS x86_64
-    if (strcmp(un.sysname, "Darwin") == 0) {
-        if (strcmp(un.machine, "arm64") == 0 || strcmp(un.machine, "aarch64") == 0) {
-            url = "https://github.com/vi/websocat/releases/download/v1.12.0/websocat_macos_arm64";
-        } else {
-            url = "https://github.com/vi/websocat/releases/download/v1.12.0/websocat_macos";
-        }
-    } else {
-        // Assume Linux amd64
-        url = "https://github.com/vi/websocat/releases/download/v1.12.0/websocat_amd64-linux";
+    if (file_executable(local_bin)) {
+        snprintf(out_path, out_sz, "%s", local_bin);
+        return 0;
     }
-    char cmd[1024];
-    snprintf(cmd, sizeof(cmd), "curl -L -sS -o %s %s && chmod +x %s", local_bin, url, local_bin);
-    int rc = system(cmd);
-    if (rc == 0 && file_executable(local_bin)) { snprintf(out_path, out_sz, "%s", local_bin); return 0; }
+
+    // Opt-in fetch only
+    const char* fetch = getenv("MYCO_FETCH_DEPS");
+    if (fetch && (strcmp(fetch,"1")==0 || strcasecmp(fetch,"true")==0)) {
+        // TODO: safe downloader + SHA-256 verify before chmod/exec
+        fprintf(stderr,
+            "[myco] error: automatic dependency fetch disabled until checksum verification is implemented.\n"
+            "Set MYCO_WEBSOCAT to a trusted binary path, or install websocat manually.\n");
+        return -2;
+    }
+
+    // Default: fail with actionable instructions
+    fprintf(stderr,
+        "[myco] missing dependency: websocat\n"
+        " - Set MYCO_WEBSOCAT=/path/to/websocat\n"
+        " - Or install to ~/.myco/bin/websocat (chmod +x)\n"
+        " - Recommended source: https://github.com/vi/websocat/releases (verify checksum)\n");
     return -1;
 }
+
 
 static int gateway_spawn_websocat(const char* url) {
     int inpipe[2];
