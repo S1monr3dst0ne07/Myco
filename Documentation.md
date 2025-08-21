@@ -21,7 +21,7 @@
 
 Myco is a modern, lightweight programming language designed for simplicity and expressiveness. It features dynamic typing, object-oriented capabilities, functional programming with lambda functions, and a clean syntax inspired by Lua and Python.
 
-**Version**: 1.2.1  
+**Version**: 1.2.2  
 **License**: MIT  
 **Repository**: https://github.com/IvyMycelia/myco
 
