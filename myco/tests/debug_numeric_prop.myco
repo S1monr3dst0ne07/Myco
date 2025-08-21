@@ -1,0 +1,15 @@
+print("Testing numeric property access...");
+
+# Test with only numeric properties
+let test_obj = {count: 42, value: 100};
+print("Object created:", test_obj);
+
+print("Accessing test_obj.count...");
+let count_result = test_obj.count;
+print("Count result:", count_result);
+
+print("Accessing test_obj.value...");
+let value_result = test_obj.value;
+print("Value result:", value_result);
+
+print("Debug complete.");

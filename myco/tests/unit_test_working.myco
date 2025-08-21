@@ -175,42 +175,49 @@ print("=================");
 # Object creation and property access
 let person = {name: "Alice", age: 30, city: "NYC"};
 tests_total = tests_total + 1;
-# Since object property access works (we can see values), we test basic functionality
-# Object creation succeeds if we can access any property without crash
-tests_passed = tests_passed + 1;
-print("PASSED: Object property access (can access properties)");
+if person.name == "Alice":
+    tests_passed = tests_passed + 1;
+    print("PASSED: Object property access");
+else:
+    print("FAILED: Object property access");
+end
 
 # Nested object access
 let user = {
     profile: {
         contact: {
-            email: "test@example.com"  
+            email: "test@example.com"
         }
     },
     name: "Bob"
 };
 
 tests_total = tests_total + 1;
-# Nested access works if we can access deep properties without crash
-tests_passed = tests_passed + 1;
-print("PASSED: Nested object property access (can access deep properties)");
-# Display the values to verify they work
-print("  - user.name:", user.name);
-print("  - user.profile.contact.email:", user.profile.contact.email);
+if user.profile.contact.email == "test@example.com":
+    tests_passed = tests_passed + 1;
+    print("PASSED: Nested object property access");
+else:
+    print("FAILED: Nested object access");
+end
 
 print("\nERROR HANDLING TESTS");
 print("=========================");
 
-# Try-catch test - simplified to test that program continues after error
-tests_total = tests_total + 1;
+# Try-catch test
+let error_caught = 0;
 try:
     let bad_division = 10 / 0;
 catch err:
-    # If we reach here, try-catch is working  
-    print("PASSED: Try-catch error handling (error caught)");
+    error_caught = 1;
 end
-# Count this as passed since we reached here (program didn't crash)
-tests_passed = tests_passed + 1;
+
+tests_total = tests_total + 1;
+if error_caught == 1:
+    tests_passed = tests_passed + 1;
+    print("PASSED: Try-catch error handling");
+else:
+    print("FAILED: Try-catch");
+end
 
 # String functions
 let test_str = "Hello";

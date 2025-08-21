@@ -1,0 +1,11 @@
+print("Testing len() function on object properties...");
+
+let person = {name: "Alice", age: 30};
+print("Object:", person);
+
+print("person.name =", person.name);
+let name_len = len(person.name);
+print("len(person.name) =", name_len);
+print("Is name_len == 5?", name_len == 5);
+
+print("Done.");

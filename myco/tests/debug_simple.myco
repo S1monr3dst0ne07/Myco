@@ -1,0 +1,24 @@
+print("Starting simple debug test...");
+
+let test_var = 0;
+
+func simple_test(value: int): int:
+    print("Function called with:", value);
+    test_var = test_var + 1;
+    return value + 1;
+end
+
+print("Before function call, test_var =", test_var);
+let result = simple_test(5);
+print("After function call, test_var =", test_var);
+print("Function result:", result);
+
+# Direct test of function call in condition
+if simple_test(10) > 10:
+    print("Condition test passed");
+else:
+    print("Condition test failed");
+end
+
+print("Final test_var =", test_var);
+print("Debug complete.");
