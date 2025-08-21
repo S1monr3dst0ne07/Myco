@@ -1051,10 +1051,19 @@ MycoObject* create_object(int initial_capacity) {
         return NULL;
     }
     
+    obj->property_types = (PropertyType*)tracked_malloc(initial_capacity * sizeof(PropertyType), __FILE__, __LINE__, "create_object_types");
+    if (!obj->property_types) {
+        tracked_free(obj->property_values, __FILE__, __LINE__, "create_object_types_fail");
+        tracked_free(obj->property_names, __FILE__, __LINE__, "create_object_types_fail");
+        tracked_free(obj, __FILE__, __LINE__, "create_object_types_fail");
+        return NULL;
+    }
+    
     // Initialize all properties to NULL
     for (int i = 0; i < initial_capacity; i++) {
         obj->property_names[i] = NULL;
         obj->property_values[i] = NULL;
+        obj->property_types[i] = PROP_TYPE_NUMBER; // Default type
     }
     
     obj->property_count = 0;
@@ -1096,9 +1105,9 @@ MycoObject* create_object_from_literal(ASTNode* ast) {
                 // Recursive case: nested object literal
                 MycoObject* nested_obj = create_object_from_literal(&ast->children[i].children[1]);
                 if (nested_obj) {
-                    object_set_property(obj, prop_name, nested_obj);
+                    object_set_property_typed(obj, prop_name, nested_obj, PROP_TYPE_OBJECT);
                 } else {
-                    object_set_property(obj, prop_name, (void*)0);
+                    object_set_property_typed(obj, prop_name, (void*)0, PROP_TYPE_NUMBER);
                 }
             } else if (ast->children[i].children[1].type == AST_EXPR && 
                        ast->children[i].children[1].text &&
@@ -1108,14 +1117,14 @@ MycoObject* create_object_from_literal(ASTNode* ast) {
                 if (strlen(str_value) >= 2) {
                     char* clean_str = strdup(str_value + 1); // Skip first quote
                     clean_str[strlen(clean_str) - 1] = '\0'; // Remove last quote
-                    object_set_property(obj, prop_name, clean_str);
+                    object_set_property_typed(obj, prop_name, clean_str, PROP_TYPE_STRING);
                 } else {
-                    object_set_property(obj, prop_name, strdup(""));
+                    object_set_property_typed(obj, prop_name, strdup(""), PROP_TYPE_STRING);
                 }
             } else {
                 // Evaluate as expression (number)
                 long long prop_value = eval_expression(&ast->children[i].children[1]);
-                object_set_property(obj, prop_name, (void*)(long long)prop_value);
+                object_set_property_typed(obj, prop_name, (void*)(long long)prop_value, PROP_TYPE_NUMBER);
             }
         }
     }
@@ -1146,19 +1155,23 @@ void destroy_object(MycoObject* obj) {
     if (obj->property_values) {
         tracked_free(obj->property_values, __FILE__, __LINE__, "destroy_object_values_array");
     }
+    if (obj->property_types) {
+        tracked_free(obj->property_types, __FILE__, __LINE__, "destroy_object_types_array");
+    }
     
     // Free the object itself
     tracked_free(obj, __FILE__, __LINE__, "destroy_object");
 }
 
 /**
- * @brief Sets a property on an object
+ * @brief Sets a property on an object with type tracking
  * @param obj The object to modify
  * @param name The property name
  * @param value The property value
+ * @param type The property type
  * @return 1 on success, 0 on failure
  */
-int object_set_property(MycoObject* obj, const char* name, void* value) {
+int object_set_property_typed(MycoObject* obj, const char* name, void* value, PropertyType type) {
     if (!obj || !name) return 0;
     
     // Check if property already exists
@@ -1166,6 +1179,7 @@ int object_set_property(MycoObject* obj, const char* name, void* value) {
         if (obj->property_names[i] && strcmp(obj->property_names[i], name) == 0) {
             // Update existing property
             obj->property_values[i] = value;
+            obj->property_types[i] = type;
             return 1;
         }
     }
@@ -1182,13 +1196,22 @@ int object_set_property(MycoObject* obj, const char* name, void* value) {
             return 0;
         }
         
+        PropertyType* new_types = (PropertyType*)tracked_realloc(obj->property_types, new_capacity * sizeof(PropertyType), __FILE__, __LINE__, "object_set_property_types");
+        if (!new_types) {
+            tracked_free(new_values, __FILE__, __LINE__, "object_set_property_types_fail");
+            tracked_free(new_names, __FILE__, __LINE__, "object_set_property_types_fail");
+            return 0;
+        }
+        
         obj->property_names = new_names;
         obj->property_values = new_values;
+        obj->property_types = new_types;
         
         // Initialize new slots to NULL
         for (int i = obj->capacity; i < new_capacity; i++) {
             obj->property_names[i] = NULL;
             obj->property_values[i] = NULL;
+            obj->property_types[i] = PROP_TYPE_NUMBER; // Default type
         }
         
         obj->capacity = new_capacity;
@@ -1197,9 +1220,40 @@ int object_set_property(MycoObject* obj, const char* name, void* value) {
     // Add new property
     obj->property_names[obj->property_count] = strdup(name);
     obj->property_values[obj->property_count] = value;
+    obj->property_types[obj->property_count] = type;
     obj->property_count++;
     
     return 1;
+}
+
+/**
+ * @brief Sets a property on an object (legacy function, defaults to number type)
+ * @param obj The object to modify
+ * @param name The property name
+ * @param value The property value
+ * @return 1 on success, 0 on failure
+ */
+int object_set_property(MycoObject* obj, const char* name, void* value) {
+    // Default to number type for backward compatibility
+    return object_set_property_typed(obj, name, value, PROP_TYPE_NUMBER);
+}
+
+/**
+ * @brief Gets the type of a property from an object
+ * @param obj The object to access
+ * @param name The property name
+ * @return The property type, or PROP_TYPE_NUMBER if not found
+ */
+PropertyType object_get_property_type(MycoObject* obj, const char* name) {
+    if (!obj || !name) return PROP_TYPE_NUMBER;
+    
+    for (int i = 0; i < obj->property_count; i++) {
+        if (obj->property_names[i] && strcmp(obj->property_names[i], name) == 0) {
+            return obj->property_types[i];
+        }
+    }
+    
+    return PROP_TYPE_NUMBER; // Default if not found
 }
 
 /**
@@ -1636,6 +1690,8 @@ long long eval_expression(ASTNode* ast) {
                         return 0;
                     }
     
+
+    
     if (error_occurred) {
         return 0;
     }
@@ -1867,6 +1923,7 @@ long long eval_expression(ASTNode* ast) {
     
     // Handle object property access
     if (ast->type == AST_DOT) {
+
         if (ast->child_count < 2) {
             fprintf(stderr, "Error: Invalid object property access structure\n");
             return 0;
@@ -1918,9 +1975,9 @@ long long eval_expression(ASTNode* ast) {
         } else {
             // Traditional approach - cast the value back to object pointer
             obj = (MycoObject*)left_value;
-        if (!obj) {
-            fprintf(stderr, "Error: Invalid object reference at line %d\n", ast->line);
-            return 0;
+            if (!obj) {
+                fprintf(stderr, "Error: Invalid object reference at line %d\n", ast->line);
+                return 0;
             }
         }
         
@@ -1949,22 +2006,17 @@ long long eval_expression(ASTNode* ast) {
         }
         
         // Check if the property value is an object for chained access
-        // Note: This is foundation work for future chained access implementation
-        if (prop_value && (long long)prop_value > 1000000) {
-            MycoObject* potential_obj = (MycoObject*)prop_value;
-            // Validate if this is a valid object (simplified for future enhancement)
-            if (potential_obj && 
-                potential_obj->property_names && 
-                potential_obj->property_values && 
-                potential_obj->property_count >= 0 && 
-                potential_obj->capacity > 0) {      
-                // This is a valid object - store for future chained access
-                __chained_object_ref = potential_obj;
-                return -10;  // Special code: object reference stored globally
-            }
+        PropertyType prop_type = object_get_property_type(obj, prop_name);
+        if (prop_type == PROP_TYPE_OBJECT && prop_value) {
+            MycoObject* nested_obj = (MycoObject*)prop_value;
+            // This is a nested object - store for chained access
+            __chained_object_ref = nested_obj;
+
+            return -10;  // Special code: object reference stored globally
         }
         
         // For non-object values (numbers, strings), return as-is
+
         return (long long)prop_value;
     }
     
@@ -4349,10 +4401,10 @@ void eval_evaluate(ASTNode* ast) {
                             // This is a nested object: use recursive helper function
                             MycoObject* nested_obj = create_object_from_literal(&ast->children[1].children[i].children[1]);
                             if (nested_obj) {
-                                object_set_property(obj, prop_name, nested_obj);
+                                object_set_property_typed(obj, prop_name, nested_obj, PROP_TYPE_OBJECT);
                             } else {
                                 fprintf(stderr, "Error: Failed to create nested object at line %d\n", ast->line);
-                                object_set_property(obj, prop_name, (void*)0);
+                                object_set_property_typed(obj, prop_name, (void*)0, PROP_TYPE_NUMBER);
                             }
                         } else {
                             // Check if the property value is a string literal
@@ -4366,17 +4418,17 @@ void eval_evaluate(ASTNode* ast) {
                                     // Remove quotes and store the string
                                     char* clean_str = strdup(str_value + 1); // Skip first quote
                                     clean_str[strlen(clean_str) - 1] = '\0'; // Remove last quote
-                                    object_set_property(obj, prop_name, clean_str);
+                                    object_set_property_typed(obj, prop_name, clean_str, PROP_TYPE_STRING);
                                 } else {
                                     // Empty string
-                                    object_set_property(obj, prop_name, strdup(""));
+                                    object_set_property_typed(obj, prop_name, strdup(""), PROP_TYPE_STRING);
                                 }
                             } else {
                                 // Evaluate the property value as a simple expression (number)
                                 long long prop_value = eval_expression(&ast->children[1].children[i].children[1]);
                                 
                                 // Store the property as a number
-                                object_set_property(obj, prop_name, (void*)(long long)prop_value);
+                                object_set_property_typed(obj, prop_name, (void*)(long long)prop_value, PROP_TYPE_NUMBER);
                             }
                         }
                     }

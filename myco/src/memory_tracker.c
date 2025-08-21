@@ -302,7 +302,7 @@ void tracked_free(void* ptr, const char* file, int line, const char* function) {
         }
     }
     
-    // If we get here, the pointer wasn't tracked
+    // If we get here, the pointer wasn't tracked (ruh roh)
     #if DEBUG_MEMORY_TRACKING
     fprintf(stderr, "Warning: Attempting to free untracked pointer %p\n", ptr);
     #endif

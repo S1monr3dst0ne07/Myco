@@ -12,13 +12,21 @@ typedef struct {
     int is_string_array;     // Flag for string vs integer arrays
 } MycoArray;
 
+// Property type enumeration
+typedef enum {
+    PROP_TYPE_NUMBER,   // Numeric value (long long cast to void*)
+    PROP_TYPE_STRING,   // String value (char*)
+    PROP_TYPE_OBJECT    // Nested object (MycoObject*)
+} PropertyType;
+
 // Object data structure for key-value pairs
 typedef struct MycoObject {
-    char** property_names;   // Dynamic array of property names
-    void** property_values;  // Dynamic array of property values
-    int property_count;      // Current number of properties
-    int capacity;            // Current allocated capacity
-    int is_method;           // Flag for future method support
+    char** property_names;      // Dynamic array of property names
+    void** property_values;     // Dynamic array of property values
+    PropertyType* property_types; // Dynamic array of property types
+    int property_count;         // Current number of properties
+    int capacity;               // Current allocated capacity
+    int is_method;              // Flag for future method support
 } MycoObject;
 
 // Set data structure for unique collections
@@ -45,7 +53,9 @@ void set_array_value(const char* name, MycoArray* array);
 // Object management function prototypes
 MycoObject* create_object(int initial_capacity);
 void destroy_object(MycoObject* obj);
+int object_set_property_typed(MycoObject* obj, const char* name, void* value, PropertyType type);
 int object_set_property(MycoObject* obj, const char* name, void* value);
+PropertyType object_get_property_type(MycoObject* obj, const char* name);
 void* object_get_property(MycoObject* obj, const char* name);
 int object_has_property(MycoObject* obj, const char* name);
 void cleanup_object_env();
