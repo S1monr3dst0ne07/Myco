@@ -19,9 +19,9 @@
 
 ## Overview
 
-Myco is a modern, lightweight programming language designed for simplicity and expressiveness. It features dynamic typing, object-oriented capabilities, and a clean syntax inspired by Lua and Python.
+Myco is a modern, lightweight programming language designed for simplicity and expressiveness. It features dynamic typing, object-oriented capabilities, functional programming with lambda functions, and a clean syntax inspired by Lua and Python.
 
-**Version**: 1.1.9  
+**Version**: 1.2.1  
 **License**: MIT  
 **Repository**: https://github.com/IvyMycelia/myco
 
@@ -264,6 +264,44 @@ numbers[0] = 10;
 fruits[1] = "grape";
 ```
 
+### Functional Array Operations ⭐ **NEW in v1.2.1**
+Myco now supports functional programming operations on arrays using lambda functions:
+
+#### Filtering Arrays
+```myco
+let numbers = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+
+# Filter even numbers using lambda
+let isEven = x => x % 2 == 0;
+let evens = filter(numbers, isEven);
+
+# Filter long words
+let words = ["hello", "world", "myco", "lambda"];
+let longWords = filter(words, word => len(word) > 4);
+```
+
+#### Transforming Arrays
+```myco
+# Double all numbers
+let double = x => x * 2;
+let doubled = map(numbers, double);
+
+# Get word lengths
+let wordLengths = map(words, word => len(word));
+```
+
+#### Reducing Arrays
+```myco
+# Sum all numbers
+let add = (acc, x) => acc + x;
+let sum = reduce(numbers, 0, add);
+
+# Find maximum value
+let max = reduce(numbers, numbers[0], (acc, x) => acc > x ? acc : x);
+```
+
+**Note**: These functions maintain backward compatibility with numeric operation codes while adding powerful lambda support.
+
 ## Sets
 
 Sets are collections that automatically maintain unique elements. Myco's Set data type provides efficient operations for mathematical set operations and data deduplication.
@@ -381,6 +419,47 @@ end
 let result = functionName(argument1, argument2);
 ```
 
+### Lambda Functions ⭐ **NEW in v1.2.1**
+Myco now supports lambda functions (arrow functions) for functional programming:
+
+#### Basic Lambda Syntax
+```myco
+# Single parameter
+let double = x => x * 2;
+let result = double(5);  # 10
+
+# Multiple parameters
+let add = (a, b) => a + b;
+let sum = add(10, 20);  # 30
+
+# No parameters
+let getFive = () => 5;
+let value = getFive();  # 5
+```
+
+#### Lambda with Variable Capture
+```myco
+let base = 10;
+let addBase = x => x + base;  # Captures 'base' variable
+let result = addBase(5);      # 15
+```
+
+#### Complex Lambda Expressions
+```myco
+let square = x => x * x;
+let isEven = x => x % 2 == 0;
+let complex = x => square(x) + x + 1;
+
+let result = complex(3);  # 13
+```
+
+#### Nested Lambda Calls
+```myco
+let double = x => x * 2;
+let add = (a, b) => a + b;
+let result = add(double(3), double(4));  # 14
+```
+
 ### Examples
 ```myco
 func add(a, b):
@@ -459,6 +538,45 @@ Joins array elements into a string with a separator.
 ```myco
 let words = ["Hello", "World"];
 let sentence = join(words, " ");  # "Hello World"
+```
+
+#### `filter(array, condition)` ⭐ **NEW: Lambda Support**
+Filters array elements based on a condition or lambda function.
+```myco
+# Numeric operation codes (legacy)
+let evens = filter(numbers, 1);  # Filter even numbers
+
+# Lambda functions (v1.2.1+)
+let isEven = x => x % 2 == 0;
+let evens = filter(numbers, isEven);
+
+let longWords = filter(words, word => len(word) > 4);
+```
+
+#### `map(array, operation)` ⭐ **NEW: Lambda Support**
+Transforms array elements using an operation or lambda function.
+```myco
+# Numeric operation codes (legacy)
+let doubled = map(numbers, 0);  # Double all numbers
+
+# Lambda functions (v1.2.1+)
+let double = x => x * 2;
+let doubled = map(numbers, double);
+
+let wordLengths = map(words, word => len(word));
+```
+
+#### `reduce(array, operation, initial)` ⭐ **NEW: Lambda Support**
+Reduces array to a single value using an operation or lambda function.
+```myco
+# Numeric operation codes (legacy)
+let sum = reduce(numbers, 0, 0);  # Sum all numbers
+
+# Lambda functions (v1.2.1+)
+let add = (acc, x) => acc + x;
+let sum = reduce(numbers, 0, add);
+
+let product = reduce(numbers, 1, (acc, x) => acc * x);
 ```
 
 ### String Functions
@@ -763,4 +881,4 @@ displayRectangle(8, 4);
 
 ---
 
-*For more information, visit the [official repository](https://github.com/TrendyBananaYT/myco) or contribute to the project.*
+*For more information, visit the [official repository](https://github.com/IvyMycelia/myco) or contribute to the project.*
