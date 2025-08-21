@@ -1257,6 +1257,86 @@ PropertyType object_get_property_type(MycoObject* obj, const char* name) {
 }
 
 /**
+ * @brief Helper function to recursively evaluate chained property access for printing
+ * @param ast The AST node to evaluate (could be AST_EXPR or AST_DOT)
+ * @return Pointer to the final property value, or NULL if not found
+ */
+static void* evaluate_chained_property_for_print(ASTNode* ast, PropertyType* out_type) {
+    if (!ast || !out_type) return NULL;
+    
+    if (ast->type == AST_EXPR && ast->text) {
+        // Base case: simple identifier, get the object
+        MycoObject* obj = get_object_value(ast->text);
+        if (obj) {
+            *out_type = PROP_TYPE_OBJECT;
+            return obj;
+        }
+        return NULL;
+    } else if (ast->type == AST_DOT && ast->child_count >= 2) {
+        // Recursive case: evaluate left side, then get property from right side
+        PropertyType left_type;
+        void* left_value = evaluate_chained_property_for_print(&ast->children[0], &left_type);
+        
+        if (!left_value || left_type != PROP_TYPE_OBJECT) {
+            return NULL;
+        }
+        
+        // Get property name from right side
+        if (ast->children[1].type == AST_EXPR && ast->children[1].text) {
+            MycoObject* obj = (MycoObject*)left_value;
+            const char* prop_name = ast->children[1].text;
+            
+            // Get property value and type
+            void* prop_value = object_get_property(obj, prop_name);
+            *out_type = object_get_property_type(obj, prop_name);
+            
+            return prop_value;
+        }
+    }
+    
+    return NULL;
+}
+
+/**
+ * @brief Helper function to print a property value based on its type
+ * @param prop_value The property value to print
+ * @param prop_type The type of the property
+ */
+static void print_property_value(void* prop_value, PropertyType prop_type) {
+    if (!prop_value) {
+        printf("0");
+        return;
+    }
+    
+    switch (prop_type) {
+        case PROP_TYPE_STRING: {
+            char* str_value = (char*)prop_value;
+            printf("%s", str_value);
+            break;
+        }
+        case PROP_TYPE_NUMBER: {
+            printf("%lld", (long long)prop_value);
+            break;
+        }
+        case PROP_TYPE_OBJECT: {
+            MycoObject* obj = (MycoObject*)prop_value;
+            printf("{");
+            for (int i = 0; i < obj->property_count; i++) {
+                if (i > 0) printf(", ");
+                printf("%s: ", obj->property_names[i]);
+                
+                // Recursively print nested property values
+                void* nested_value = obj->property_values[i];
+                PropertyType nested_type = obj->property_types[i];
+                print_property_value(nested_value, nested_type);
+            }
+            printf("}");
+            break;
+        }
+    }
+}
+
+/**
  * @brief Gets a property from an object
  * @param obj The object to access
  * @param name The property name
@@ -3886,55 +3966,10 @@ void eval_evaluate(ASTNode* ast) {
                                         if (j > 0) printf(", ");
                                         printf("%s: ", obj->property_names[j]);
                                         
-                                        // Check if the property value is a string, object, or number
+                                        // Use type-based printing instead of heuristics
                                         void* prop_value = obj->property_values[j];
-                                        if ((long long)prop_value > 1000000) {
-                                            // First, check if this might be a nested object
-                                            MycoObject* nested_obj = (MycoObject*)prop_value;
-                                            // Simple heuristic: check if it has object-like structure
-                                            if (nested_obj && nested_obj->property_names && 
-                                                nested_obj->property_values && nested_obj->property_count >= 0 && 
-                                                nested_obj->capacity > 0 && nested_obj->property_count <= nested_obj->capacity) {
-                                                // This looks like a nested object - print it recursively
-                                                printf("{");
-                                                for (int k = 0; k < nested_obj->property_count; k++) {
-                                                    if (k > 0) printf(", ");
-                                                    printf("%s: ", nested_obj->property_names[k]);
-                                                    void* nested_prop_value = nested_obj->property_values[k];
-                                                    // For simplicity, assume nested properties are strings or numbers (no deep nesting for now)
-                                                    if ((long long)nested_prop_value > 1000000) {
-                                                        char* nested_str = (char*)nested_prop_value;
-                                                        if (nested_str && nested_str[0] != '\0' && 
-                                                            ((nested_str[0] >= 'A' && nested_str[0] <= 'Z') || 
-                                                             (nested_str[0] >= 'a' && nested_str[0] <= 'z') ||
-                                                             nested_str[0] == ' ' || nested_str[0] == '_')) {
-                                                            printf("\"%s\"", nested_str);
-                                                        } else {
-                                                            printf("%lld", (long long)nested_prop_value);
-                                                        }
-                                                    } else {
-                                                        printf("%lld", (long long)nested_prop_value);
-                                                    }
-                                                }
-                                                printf("}");
-                                            } else {
-                                                // This is likely a string pointer
-                                                char* str_value = (char*)prop_value;
-                                                if (str_value && str_value[0] != '\0' && 
-                                                    ((str_value[0] >= 'A' && str_value[0] <= 'Z') || 
-                                                     (str_value[0] >= 'a' && str_value[0] <= 'z') ||
-                                                     str_value[0] == ' ' || str_value[0] == '_')) {
-                                                    // This is a string - print it
-                                                    printf("\"%s\"", str_value);
-                                                } else {
-                                                    // Invalid string pointer, treat as number
-                                                    printf("%lld", (long long)prop_value);
-                                                }
-                                            }
-                                        } else {
-                                            // This is a number
-                                            printf("%lld", (long long)prop_value);
-                                        }
+                                        PropertyType prop_type = obj->property_types[j];
+                                        print_property_value(prop_value, prop_type);
                                     }
                                     printf("}");
                                 } else {
@@ -3948,85 +3983,14 @@ void eval_evaluate(ASTNode* ast) {
                         }
                     }
                 } else if (arg->type == AST_DOT) {
-                    // Handle dot expressions (object property access)
-                    if (arg->child_count >= 2) {
-                        // Get the object name and property name
-                        char* obj_name = NULL;
-                        char* prop_name = NULL;
-                        
-                        if (arg->children[0].type == AST_EXPR && arg->children[0].text) {
-                            obj_name = arg->children[0].text;
-                        }
-                        if (arg->children[1].type == AST_EXPR && arg->children[1].text) {
-                            prop_name = arg->children[1].text;
-                        }
-                        
-                        if (obj_name && prop_name) {
-                            // Get the object
-                            MycoObject* obj = get_object_value(obj_name);
-                            if (obj) {
-                                // Get the property value
-                                void* prop_value = object_get_property(obj, prop_name);
-                                if (prop_value) {
-                                    // Check if it's a string or number
-                                    // If the pointer value is small (< 1000000), it's likely a number
-                                    // If it's large, it's likely a string pointer or nested object
-                                    if ((long long)prop_value > 1000000) {
-                                        // First, check if this might be a nested object
-                                        MycoObject* nested_obj = (MycoObject*)prop_value;
-                                        if (nested_obj && nested_obj->property_names && 
-                                            nested_obj->property_values && nested_obj->property_count >= 0 && 
-                                            nested_obj->capacity > 0 && nested_obj->property_count <= nested_obj->capacity) {
-                                            // This looks like a nested object - print it recursively
-                                            printf("{");
-                                            for (int k = 0; k < nested_obj->property_count; k++) {
-                                                if (k > 0) printf(", ");
-                                                printf("%s: ", nested_obj->property_names[k]);
-                                                void* nested_prop_value = nested_obj->property_values[k];
-                                                if ((long long)nested_prop_value > 1000000) {
-                                                    char* nested_str = (char*)nested_prop_value;
-                                                    if (nested_str && nested_str[0] != '\0' && 
-                                                        ((nested_str[0] >= 'A' && nested_str[0] <= 'Z') || 
-                                                         (nested_str[0] >= 'a' && nested_str[0] <= 'z') ||
-                                                         nested_str[0] == ' ' || nested_str[0] == '_')) {
-                                                        printf("\"%s\"", nested_str);
-                                                    } else {
-                                                        printf("%lld", (long long)nested_prop_value);
-                                                    }
-                                                } else {
-                                                    printf("%lld", (long long)nested_prop_value);
-                                                }
-                                            }
-                                            printf("}");
-                                        } else {
-                                        // This is likely a string pointer
-                                        char* str_value = (char*)prop_value;
-                                        if (str_value && str_value[0] != '\0' && 
-                                            ((str_value[0] >= 'A' && str_value[0] <= 'Z') || 
-                                             (str_value[0] >= 'a' && str_value[0] <= 'z') ||
-                                             str_value[0] == ' ' || str_value[0] == '_')) {
-                                            // This is a string - print it
-                                            printf("%s", str_value);
-                                        } else {
-                                            // Invalid string pointer, treat as number
-                                            printf("%lld", (long long)prop_value);
-                                            }
-                                        }
-                                    } else {
-                                        // This is a number
-                                        printf("%lld", (long long)prop_value);
-                                    }
-                                } else {
-                                    printf("0"); // Property not found
-                                }
-                            } else {
-                                printf("0"); // Object not found
-                            }
-                        } else {
-                            printf("0"); // Invalid dot expression
-                        }
+                    // Handle dot expressions (object property access) with chaining support
+                    PropertyType prop_type;
+                    void* prop_value = evaluate_chained_property_for_print(arg, &prop_type);
+                    
+                    if (prop_value) {
+                        print_property_value(prop_value, prop_type);
                     } else {
-                        printf("0"); // Invalid dot expression
+                        printf("0"); // Property not found or evaluation failed
                     }
                 } else {
                     int64_t value = eval_expression(arg);
@@ -4087,53 +4051,10 @@ void eval_evaluate(ASTNode* ast) {
                                     if (j > 0) printf(", ");
                                     printf("%s: ", obj->property_names[j]);
                                     
-                                    // Check if the property value is a string, object, or number
+                                    // Use type-based printing instead of heuristics
                                     void* prop_value = obj->property_values[j];
-                                    if ((long long)prop_value > 1000000) {
-                                        // First, check if this might be a nested object
-                                        MycoObject* nested_obj = (MycoObject*)prop_value;
-                                        if (nested_obj && nested_obj->property_names && 
-                                            nested_obj->property_values && nested_obj->property_count >= 0 && 
-                                            nested_obj->capacity > 0 && nested_obj->property_count <= nested_obj->capacity) {
-                                            // This looks like a nested object - print it recursively
-                                            printf("{");
-                                            for (int k = 0; k < nested_obj->property_count; k++) {
-                                                if (k > 0) printf(", ");
-                                                printf("%s: ", nested_obj->property_names[k]);
-                                                void* nested_prop_value = nested_obj->property_values[k];
-                                                if ((long long)nested_prop_value > 1000000) {
-                                                    char* nested_str = (char*)nested_prop_value;
-                                                    if (nested_str && nested_str[0] != '\0' && 
-                                                        ((nested_str[0] >= 'A' && nested_str[0] <= 'Z') || 
-                                                         (nested_str[0] >= 'a' && nested_str[0] <= 'z') ||
-                                                         nested_str[0] == ' ' || nested_str[0] == '_')) {
-                                                        printf("\"%s\"", nested_str);
-                                                    } else {
-                                                        printf("%lld", (long long)nested_prop_value);
-                                                    }
-                                                } else {
-                                                    printf("%lld", (long long)nested_prop_value);
-                                                }
-                                            }
-                                            printf("}");
-                                        } else {
-                                            // This is likely a string pointer
-                                            char* str_value = (char*)prop_value;
-                                            if (str_value && str_value[0] != '\0' && 
-                                                ((str_value[0] >= 'A' && str_value[0] <= 'Z') || 
-                                                 (str_value[0] >= 'a' && str_value[0] <= 'z') ||
-                                                 str_value[0] == ' ' || str_value[0] == '_')) {
-                                                // This is a string - print it
-                                                printf("\"%s\"", str_value);
-                                            } else {
-                                                // Invalid string pointer, treat as number
-                                                printf("%lld", (long long)prop_value);
-                                            }
-                                        }
-                                    } else {
-                                        // This is a number
-                                        printf("%lld", (long long)prop_value);
-                                    }
+                                    PropertyType prop_type = obj->property_types[j];
+                                    print_property_value(prop_value, prop_type);
                                 }
                                 printf("}");
                             } else {
