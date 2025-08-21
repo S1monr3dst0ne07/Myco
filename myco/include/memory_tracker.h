@@ -37,6 +37,7 @@ void* tracked_malloc(size_t size, const char* file, int line, const char* functi
 void* tracked_calloc(size_t nmemb, size_t size, const char* file, int line, const char* function);
 void* tracked_realloc(void* ptr, size_t size, const char* file, int line, const char* function);
 void tracked_free(void* ptr, const char* file, int line, const char* function);
+char* tracked_strdup(const char* str, const char* file, int line, const char* function);
 
 // Memory tracking functions
 void print_memory_usage(void);

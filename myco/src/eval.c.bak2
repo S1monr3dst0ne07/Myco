@@ -979,7 +979,7 @@ int array_push(MycoArray* array, void* element) {
     
     // Add the element
     if (array->is_string_array) {
-        array->str_elements[array->size] = tracked_strdup((char*)element, __FILE__, __LINE__, "eval");
+        array->str_elements[array->size] = tracked_strdup((char*, __FILE__, __LINE__, "eval")element);
     } else {
         array->elements[array->size] = *(long long*)element;
     }
@@ -1003,7 +1003,7 @@ int array_set(MycoArray* array, int index, void* element) {
         if (array->str_elements[index]) {
             tracked_free(array->str_elements[index], __FILE__, __LINE__, "array_set_str");
         }
-        array->str_elements[index] = tracked_strdup((char*)element, __FILE__, __LINE__, "eval");
+        array->str_elements[index] = tracked_strdup((char*, __FILE__, __LINE__, "eval")element);
     } else {
         array->elements[index] = *(long long*)element;
     }
@@ -2129,7 +2129,7 @@ long long eval_expression(ASTNode* ast) {
             if (key_expr->text && is_string_literal(key_expr->text)) {
                 size_t len = strlen(key_expr->text);
                 if (len >= 2) {
-                    char* temp_key = tracked_malloc(len - 1, __FILE__, __LINE__, "eval");
+                    char* temp_key = malloc(len - 1);
                     if (temp_key) {
                         strncpy(temp_key, key_expr->text + 1, len - 2);
                         temp_key[len - 2] = '\0';
@@ -2278,7 +2278,7 @@ long long eval_expression(ASTNode* ast) {
                     // Remove quotes from the string literal
                     size_t len = strlen(array_name);
                     if (len >= 2) {
-                        char* temp_name = tracked_malloc(len - 1, __FILE__, __LINE__, "eval");
+                        char* temp_name = malloc(len - 1);
                         if (temp_name) {
                             strncpy(temp_name, array_name + 1, len - 2);
                             temp_name[len - 2] = '\0';
@@ -2341,7 +2341,7 @@ long long eval_expression(ASTNode* ast) {
                     // Remove quotes from the string literal
                     size_t len = strlen(array_name);
                     if (len >= 2) {
-                        char* temp_name = tracked_malloc(len - 1, __FILE__, __LINE__, "eval");
+                        char* temp_name = malloc(len - 1);
                         if (temp_name) {
                             strncpy(temp_name, array_name + 1, len - 2);
                             temp_name[len - 2] = '\0';
@@ -2838,7 +2838,7 @@ long long eval_expression(ASTNode* ast) {
                     // Remove quotes from the string literal
                     size_t len = strlen(obj_name);
                     if (len >= 2) {
-                        char* temp_name = tracked_malloc(len - 1, __FILE__, __LINE__, "eval");
+                        char* temp_name = malloc(len - 1);
                         if (temp_name) {
                             strncpy(temp_name, obj_name + 1, len - 2);
                             temp_name[len - 2] = '\0';
@@ -2885,7 +2885,7 @@ long long eval_expression(ASTNode* ast) {
                     // Remove quotes from the string literal
                     size_t len = strlen(obj_name);
                     if (len >= 2) {
-                        char* temp_name = tracked_malloc(len - 1, __FILE__, __LINE__, "eval");
+                        char* temp_name = malloc(len - 1);
                         if (temp_name) {
                             strncpy(temp_name, obj_name + 1, len - 2);
                             temp_name[len - 2] = '\0';
@@ -2987,7 +2987,7 @@ long long eval_expression(ASTNode* ast) {
                     // Remove quotes from the string literal
                     size_t len = strlen(obj_name);
                     if (len >= 2) {
-                        char* temp_name = tracked_malloc(len - 1, __FILE__, __LINE__, "eval");
+                        char* temp_name = malloc(len - 1);
                         if (temp_name) {
                             strncpy(temp_name, obj_name + 1, len - 2);
                             temp_name[len - 2] = '\0';
@@ -3006,7 +3006,7 @@ long long eval_expression(ASTNode* ast) {
                     // Remove quotes from the string literal
                     size_t len = strlen(key_name);
                     if (len >= 2) {
-                        char* temp_key = tracked_malloc(len - 1, __FILE__, __LINE__, "eval");
+                        char* temp_key = malloc(len - 1);
                         if (temp_key) {
                             strncpy(temp_key, key_name + 1, len - 2);
                             temp_key[len - 2] = '\0';
@@ -3063,7 +3063,7 @@ long long eval_expression(ASTNode* ast) {
                     char* str_literal = ast->children[1].children[1].text;
                     size_t len = strlen(str_literal);
                     if (len >= 2) {
-                        char* temp_str = tracked_malloc(len - 1, __FILE__, __LINE__, "eval");
+                        char* temp_str = malloc(len - 1);
                         if (temp_str) {
                             strncpy(temp_str, str_literal + 1, len - 2);
                             temp_str[len - 2] = '\0';
@@ -3117,7 +3117,7 @@ long long eval_expression(ASTNode* ast) {
                     char* str_literal = ast->children[1].children[1].text;
                     size_t len = strlen(str_literal);
                     if (len >= 2) {
-                        char* temp_str = tracked_malloc(len - 1, __FILE__, __LINE__, "eval");
+                        char* temp_str = malloc(len - 1);
                         if (temp_str) {
                             strncpy(temp_str, str_literal + 1, len - 2);
                             temp_str[len - 2] = '\0';
@@ -3166,7 +3166,7 @@ long long eval_expression(ASTNode* ast) {
                     // Remove quotes from the string literal
                     size_t len = strlen(obj_name);
                     if (len >= 2) {
-                        char* temp_name = tracked_malloc(len - 1, __FILE__, __LINE__, "eval");
+                        char* temp_name = malloc(len - 1);
                         if (temp_name) {
                             strncpy(temp_name, obj_name + 1, len - 2);
                             temp_name[len - 2] = '\0';
@@ -3197,7 +3197,7 @@ long long eval_expression(ASTNode* ast) {
                     // Remove quotes from the string literal
                     size_t len = strlen(obj_name);
                     if (len >= 2) {
-                        char* temp_name = tracked_malloc(len - 1, __FILE__, __LINE__, "eval");
+                        char* temp_name = malloc(len - 1);
                         if (temp_name) {
                             strncpy(temp_name, obj_name + 1, len - 2);
                             temp_name[len - 2] = '\0';
@@ -3216,7 +3216,7 @@ long long eval_expression(ASTNode* ast) {
                     key_name = key_node->text;
                     size_t len = strlen(key_name);
                     if (len >= 2) {
-                        char* temp_key = tracked_malloc(len - 1, __FILE__, __LINE__, "eval");
+                        char* temp_key = malloc(len - 1);
                         if (temp_key) {
                             strncpy(temp_key, key_name + 1, len - 2);
                             temp_key[len - 2] = '\0';
@@ -3286,7 +3286,7 @@ long long eval_expression(ASTNode* ast) {
                 if (arg_node->type == AST_EXPR && arg_node->text) {
                     MycoArray* array = get_array_value(arg_node->text);
                     if (array) {
-                        result_str = tracked_malloc(256, __FILE__, __LINE__, "eval");
+                        result_str = malloc(256);
                         if (result_str) {
                             strcpy(result_str, "[");
                             for (int i = 0; i < array->size; i++) {
@@ -3317,7 +3317,7 @@ long long eval_expression(ASTNode* ast) {
                 if (arg_node->type == AST_EXPR && arg_node->text) {
                     MycoObject* obj = get_object_value(arg_node->text);
                     if (obj) {
-                        result_str = tracked_malloc(256, __FILE__, __LINE__, "eval");
+                        result_str = malloc(256);
                         if (result_str) {
                             strcpy(result_str, "{");
                             for (int i = 0; i < obj->property_count; i++) {
@@ -3335,7 +3335,7 @@ long long eval_expression(ASTNode* ast) {
                 }
             } else {
                 // Numeric value - convert to string
-                result_str = tracked_malloc(32, __FILE__, __LINE__, "eval");
+                result_str = malloc(32);
                 if (result_str) {
                     snprintf(result_str, 32, "%lld", value);
                 }
@@ -3366,7 +3366,7 @@ long long eval_expression(ASTNode* ast) {
                     // Remove quotes from the string literal
                     size_t len = strlen(array_name);
                     if (len >= 2) {
-                        char* temp_name = tracked_malloc(len - 1, __FILE__, __LINE__, "eval");
+                        char* temp_name = malloc(len - 1);
                         if (temp_name) {
                             strncpy(temp_name, array_name + 1, len - 2);
                             temp_name[len - 2] = '\0';
@@ -3417,7 +3417,7 @@ long long eval_expression(ASTNode* ast) {
                     // Remove quotes from the string literal
                     size_t len = strlen(array_name);
                     if (len >= 2) {
-                        char* temp_name = tracked_malloc(len - 1, __FILE__, __LINE__, "eval");
+                        char* temp_name = malloc(len - 1);
                         if (temp_name) {
                             strncpy(temp_name, array_name + 1, len - 2);
                             temp_name[len - 2] = '\0';
@@ -3470,7 +3470,7 @@ long long eval_expression(ASTNode* ast) {
                     // Remove quotes from the string literal
                     size_t len = strlen(array_name);
                     if (len >= 2) {
-                        char* temp_name = tracked_malloc(len - 1, __FILE__, __LINE__, "eval");
+                        char* temp_name = malloc(len - 1);
                         if (temp_name) {
                             strncpy(temp_name, array_name + 1, len - 2);
                             temp_name[len - 2] = '\0';
@@ -4489,8 +4489,6 @@ void eval_evaluate(ASTNode* ast) {
                 return;
             }
 
-            if (ast->child_count == 3) {
-                // Simple assignment: obj.prop = value
             char* obj_name = ast->children[0].text;
             char* prop_name = ast->children[1].text;
             if (!obj_name || !prop_name) {
@@ -4511,118 +4509,6 @@ void eval_evaluate(ASTNode* ast) {
             // Set the object property
             if (!object_set_property(obj, prop_name, (void*)(long long)value)) {
                 fprintf(stderr, "Error: Failed to set object property at line %d\n", ast->line);
-                return;
-            }
-            }
-            else if (ast->child_count == 4) {
-                // Nested assignment: obj.prop1.prop2 = value
-                char* obj_name = ast->children[0].text;
-                char* prop1_name = ast->children[1].text;
-                char* prop2_name = ast->children[2].text;
-                if (!obj_name || !prop1_name || !prop2_name) {
-                    fprintf(stderr, "Error: Object or property names are NULL at line %d\n", ast->line);
-                return;
-            }
-
-                // Get the root object
-                MycoObject* root_obj = get_object_value(obj_name);
-                if (!root_obj) {
-                    fprintf(stderr, "Error: Object '%s' not found at line %d\n", obj_name, ast->line);
-            return;
-        }
-
-                // Get the intermediate object (prop1)
-                void* prop1_value = object_get_property(root_obj, prop1_name);
-                PropertyType prop1_type = object_get_property_type(root_obj, prop1_name);
-                
-                if (prop1_type != PROP_TYPE_OBJECT) {
-                    fprintf(stderr, "Error: Property '%s.%s' is not an object at line %d\n", 
-                            obj_name, prop1_name, ast->line);
-                    return;
-                }
-
-                MycoObject* intermediate_obj = (MycoObject*)prop1_value;
-                if (!intermediate_obj) {
-                    fprintf(stderr, "Error: Property '%s.%s' is NULL at line %d\n", 
-                            obj_name, prop1_name, ast->line);
-                    return;
-                }
-
-                // Evaluate the value expression
-                long long value = eval_expression(&ast->children[3]);
-
-                // Set the final property (prop2) on the intermediate object
-                if (!object_set_property(intermediate_obj, prop2_name, (void*)(long long)value)) {
-                    fprintf(stderr, "Error: Failed to set nested property '%s.%s.%s' at line %d\n", 
-                            obj_name, prop1_name, prop2_name, ast->line);
-                    return;
-                }
-            }
-            else if (ast->child_count == 5) {
-                // 4-level nested assignment: obj.prop1.prop2.prop3 = value
-                char* obj_name = ast->children[0].text;
-                char* prop1_name = ast->children[1].text;
-                char* prop2_name = ast->children[2].text;
-                char* prop3_name = ast->children[3].text;
-                if (!obj_name || !prop1_name || !prop2_name || !prop3_name) {
-                    fprintf(stderr, "Error: Object or property names are NULL at line %d\n", ast->line);
-                    return;
-                }
-
-                // Get the root object
-                MycoObject* root_obj = get_object_value(obj_name);
-                if (!root_obj) {
-                    fprintf(stderr, "Error: Object '%s' not found at line %d\n", obj_name, ast->line);
-                    return;
-                }
-
-                // Get the first intermediate object (prop1)
-                void* prop1_value = object_get_property(root_obj, prop1_name);
-                PropertyType prop1_type = object_get_property_type(root_obj, prop1_name);
-                
-                if (prop1_type != PROP_TYPE_OBJECT) {
-                    fprintf(stderr, "Error: Property '%s.%s' is not an object at line %d\n", 
-                            obj_name, prop1_name, ast->line);
-                    return;
-                }
-
-                MycoObject* intermediate1_obj = (MycoObject*)prop1_value;
-                if (!intermediate1_obj) {
-                    fprintf(stderr, "Error: Property '%s.%s' is NULL at line %d\n", 
-                            obj_name, prop1_name, ast->line);
-                    return;
-                }
-
-                // Get the second intermediate object (prop2)
-                void* prop2_value = object_get_property(intermediate1_obj, prop2_name);
-                PropertyType prop2_type = object_get_property_type(intermediate1_obj, prop2_name);
-                
-                if (prop2_type != PROP_TYPE_OBJECT) {
-                    fprintf(stderr, "Error: Property '%s.%s.%s' is not an object at line %d\n", 
-                            obj_name, prop1_name, prop2_name, ast->line);
-                    return;
-                }
-
-                MycoObject* intermediate2_obj = (MycoObject*)prop2_value;
-                if (!intermediate2_obj) {
-                    fprintf(stderr, "Error: Property '%s.%s.%s' is NULL at line %d\n", 
-                            obj_name, prop1_name, prop2_name, ast->line);
-                    return;
-                }
-
-                // Evaluate the value expression
-                long long value = eval_expression(&ast->children[4]);
-
-                // Set the final property (prop3) on the second intermediate object
-                if (!object_set_property(intermediate2_obj, prop3_name, (void*)(long long)value)) {
-                    fprintf(stderr, "Error: Failed to set nested property '%s.%s.%s.%s' at line %d\n", 
-                            obj_name, prop1_name, prop2_name, prop3_name, ast->line);
-                    return;
-                }
-            }
-            else {
-                fprintf(stderr, "Error: Unsupported nested assignment depth (child_count=%d) at line %d\n", 
-                        ast->child_count, ast->line);
                 return;
             }
 
@@ -4662,7 +4548,7 @@ void eval_evaluate(ASTNode* ast) {
                 if (key_expr->text && is_string_literal(key_expr->text)) {
                     size_t len = strlen(key_expr->text);
                     if (len >= 2) {
-                        char* temp_key = tracked_malloc(len - 1, __FILE__, __LINE__, "eval");
+                        char* temp_key = malloc(len - 1);
                         if (temp_key) {
                             strncpy(temp_key, key_expr->text + 1, len - 2);
                             temp_key[len - 2] = '\0';
@@ -5071,7 +4957,7 @@ int set_add(MycoSet* set, void* element) {
     
     // Add the element
     if (set->is_string_set) {
-        set->elements[set->element_count] = tracked_strdup((char*)element, __FILE__, __LINE__, "eval");
+        set->elements[set->element_count] = tracked_strdup((char*, __FILE__, __LINE__, "eval")element);
     } else {
         long long* new_num = (long long*)tracked_malloc(sizeof(long long), __FILE__, __LINE__, "set_add_number");
         if (!new_num) return 0;

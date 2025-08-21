@@ -22,6 +22,7 @@
 #include <string.h>
 #include <ctype.h>
 #include "lexer.h"
+#include "memory_tracker.h"
 
 /*******************************************************************************
  * KEYWORD IDENTIFICATION
@@ -165,7 +166,7 @@ Token* lexer_tokenize(const char* source) {
         if (*p == '.' && *(p + 1) != '/' && *(p + 1) != '.') {
             GROW_TOKENS_IF_NEEDED();
             tokens[token_count].type = TOKEN_DOT;
-            tokens[token_count].text = strdup(".");
+            tokens[token_count].text = tracked_strdup(".", __FILE__, __LINE__, "lexer_dot");
             tokens[token_count].line = line;
             token_count++;
             p++;
@@ -176,7 +177,7 @@ Token* lexer_tokenize(const char* source) {
         if (strncmp(p, "and", 3) == 0 && (p[3] == ' ' || p[3] == '\t' || p[3] == '\n' || p[3] == '\r' || p[3] == '\0')) {
             GROW_TOKENS_IF_NEEDED();
             tokens[token_count].type = TOKEN_OPERATOR;
-            tokens[token_count].text = strdup("and");
+            tokens[token_count].text = tracked_strdup("and", __FILE__, __LINE__, "lexer_and");
             p += 3; // Skip 'and' completely, no need for loop increment
             tokens[token_count].line = line;
             token_count++;
@@ -184,7 +185,7 @@ Token* lexer_tokenize(const char* source) {
         } else if (strncmp(p, "or", 2) == 0 && (p[2] == ' ' || p[2] == '\t' || p[2] == '\n' || p[2] == '\r' || p[2] == '\0')) {
             GROW_TOKENS_IF_NEEDED();
             tokens[token_count].type = TOKEN_OPERATOR;
-            tokens[token_count].text = strdup("or");
+            tokens[token_count].text = tracked_strdup("or", __FILE__, __LINE__, "lexer_or");
             p += 2; // Skip 'or' completely, no need for loop increment
             tokens[token_count].line = line;
             token_count++;
@@ -269,7 +270,7 @@ Token* lexer_tokenize(const char* source) {
                 if (len + 1 >= cap) { cap = cap ? cap * 2 : 32; buf = (char*)realloc(buf, cap); }
                 buf[len++] = ch;
             }
-            if (!buf) { buf = (char*)malloc(1); buf[0] = '\0'; }
+            if (!buf) { buf = (char*)tracked_malloc(1, __FILE__, __LINE__, "lexer_init"); buf[0] = '\0'; }
             if (*(p-1) != '"') { // no closing quote found
                 fprintf(stderr, "Error: Unterminated string at line %d\n", line);
                 free(tokens);
@@ -289,44 +290,44 @@ Token* lexer_tokenize(const char* source) {
         // Check for multi-character operators first
         GROW_TOKENS_IF_NEEDED();
         switch (*p) {
-            case '+': tokens[token_count].type = TOKEN_OPERATOR; tokens[token_count].text = strdup("+"); break;
-            case '-': tokens[token_count].type = TOKEN_OPERATOR; tokens[token_count].text = strdup("-"); break;
-            case '*': tokens[token_count].type = TOKEN_OPERATOR; tokens[token_count].text = strdup("*"); break;
-            case '/': tokens[token_count].type = TOKEN_OPERATOR; tokens[token_count].text = strdup("/"); break;
-            case '%': tokens[token_count].type = TOKEN_OPERATOR; tokens[token_count].text = strdup("%"); break;
-            case ':': tokens[token_count].type = TOKEN_COLON; tokens[token_count].text = strdup(":"); break;
-            case ';': tokens[token_count].type = TOKEN_SEMICOLON; tokens[token_count].text = strdup(";"); break;
-            case '(': tokens[token_count].type = TOKEN_LPAREN; tokens[token_count].text = strdup("("); break;
-            case ')': tokens[token_count].type = TOKEN_RPAREN; tokens[token_count].text = strdup(")"); break;
-            case ',': tokens[token_count].type = TOKEN_COMMA; tokens[token_count].text = strdup(","); break;
-                    case '[': tokens[token_count].type = TOKEN_LBRACKET; tokens[token_count].text = strdup("["); break;
-        case ']': tokens[token_count].type = TOKEN_RBRACKET; tokens[token_count].text = strdup("]"); break;
-        case '{': tokens[token_count].type = TOKEN_LBRACE; tokens[token_count].text = strdup("{"); break;
-        case '}': tokens[token_count].type = TOKEN_RBRACE; tokens[token_count].text = strdup("}"); break;
+            case '+': tokens[token_count].type = TOKEN_OPERATOR; tokens[token_count].text = tracked_strdup("+", __FILE__, __LINE__, "lexer_plus"); break;
+            case '-': tokens[token_count].type = TOKEN_OPERATOR; tokens[token_count].text = tracked_strdup("-", __FILE__, __LINE__, "lexer_minus"); break;
+            case '*': tokens[token_count].type = TOKEN_OPERATOR; tokens[token_count].text = tracked_strdup("*", __FILE__, __LINE__, "lexer_mult"); break;
+            case '/': tokens[token_count].type = TOKEN_OPERATOR; tokens[token_count].text = tracked_strdup("/", __FILE__, __LINE__, "lexer_div"); break;
+            case '%': tokens[token_count].type = TOKEN_OPERATOR; tokens[token_count].text = tracked_strdup("%", __FILE__, __LINE__, "lexer_mod"); break;
+            case ':': tokens[token_count].type = TOKEN_COLON; tokens[token_count].text = tracked_strdup(":", __FILE__, __LINE__, "lexer_colon"); break;
+            case ';': tokens[token_count].type = TOKEN_SEMICOLON; tokens[token_count].text = tracked_strdup(";", __FILE__, __LINE__, "lexer_semicolon"); break;
+            case '(': tokens[token_count].type = TOKEN_LPAREN; tokens[token_count].text = tracked_strdup("(", __FILE__, __LINE__, "lexer_lparen"); break;
+            case ')': tokens[token_count].type = TOKEN_RPAREN; tokens[token_count].text = tracked_strdup(")", __FILE__, __LINE__, "lexer_rparen"); break;
+            case ',': tokens[token_count].type = TOKEN_COMMA; tokens[token_count].text = tracked_strdup(",", __FILE__, __LINE__, "lexer_comma"); break;
+                    case '[': tokens[token_count].type = TOKEN_LBRACKET; tokens[token_count].text = tracked_strdup("[", __FILE__, __LINE__, "lexer_lbracket"); break;
+        case ']': tokens[token_count].type = TOKEN_RBRACKET; tokens[token_count].text = tracked_strdup("]", __FILE__, __LINE__, "lexer_rbracket"); break;
+        case '{': tokens[token_count].type = TOKEN_LBRACE; tokens[token_count].text = tracked_strdup("{", __FILE__, __LINE__, "lexer_lbrace"); break;
+        case '}': tokens[token_count].type = TOKEN_RBRACE; tokens[token_count].text = tracked_strdup("}", __FILE__, __LINE__, "lexer_rbrace"); break;
             case '<':
                 if (*(p + 1) == '=') {
                     tokens[token_count].type = TOKEN_OPERATOR;
-                    tokens[token_count].text = strdup("<=");
+                    tokens[token_count].text = tracked_strdup("<=", __FILE__, __LINE__, "lexer_operator");
                     p++;
                 } else {
                     tokens[token_count].type = TOKEN_OPERATOR;
-                    tokens[token_count].text = strdup("<");
+                    tokens[token_count].text = tracked_strdup("<", __FILE__, __LINE__, "lexer_lt");
                 }
                 break;
             case '>':
                 if (*(p + 1) == '=') {
                     tokens[token_count].type = TOKEN_OPERATOR;
-                    tokens[token_count].text = strdup(">=");
+                    tokens[token_count].text = tracked_strdup(">=", __FILE__, __LINE__, "lexer_operator");
                     p++;
                 } else {
                     tokens[token_count].type = TOKEN_OPERATOR;
-                    tokens[token_count].text = strdup(">");
+                    tokens[token_count].text = tracked_strdup(">", __FILE__, __LINE__, "lexer_gt");
                 }
                 break;
             case '!':
                 if (*(p + 1) == '=') {
                     tokens[token_count].type = TOKEN_OPERATOR;
-                    tokens[token_count].text = strdup("!=");
+                    tokens[token_count].text = tracked_strdup("!=", __FILE__, __LINE__, "lexer_operator");
                     p++;
                 } else {
                     fprintf(stderr, "Error: Unknown character '%c' at line %d\n", *p, line);
@@ -337,11 +338,11 @@ Token* lexer_tokenize(const char* source) {
             case '=':
                 if (*(p + 1) == '=') {
                     tokens[token_count].type = TOKEN_OPERATOR;
-                    tokens[token_count].text = strdup("==");
+                    tokens[token_count].text = tracked_strdup("==", __FILE__, __LINE__, "lexer_operator");
                     p++;
                 } else {
                     tokens[token_count].type = TOKEN_ASSIGN;
-                    tokens[token_count].text = strdup("=");
+                    tokens[token_count].text = tracked_strdup("=", __FILE__, __LINE__, "lexer_operator");
                 }
                 break;
             default:

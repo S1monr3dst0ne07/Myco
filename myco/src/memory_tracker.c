@@ -310,6 +310,17 @@ void tracked_free(void* ptr, const char* file, int line, const char* function) {
     free(ptr);
 }
 
+char* tracked_strdup(const char* str, const char* file, int line, const char* function) {
+    if (!str) return NULL;
+    
+    size_t len = strlen(str) + 1;
+    char* result = (char*)tracked_malloc(len, file, line, function);
+    if (result) {
+        strcpy(result, str);
+    }
+    return result;
+}
+
 // Print current memory usage
 void print_memory_usage(void) {
     #if ENABLE_MEMORY_STATS
