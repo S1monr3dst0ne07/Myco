@@ -1,12 +1,14 @@
 # Build artifacts
 output.c
 *.exe
+*_arm64
 *.out
 *.o
 *.obj
 *.so
 *.dll
 *.dylib
+myco/myco
 
 
 # macOS system files
