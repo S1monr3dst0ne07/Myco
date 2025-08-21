@@ -2055,9 +2055,9 @@ long long eval_expression(ASTNode* ast) {
         } else {
             // Traditional approach - cast the value back to object pointer
             obj = (MycoObject*)left_value;
-            if (!obj) {
-                fprintf(stderr, "Error: Invalid object reference at line %d\n", ast->line);
-                return 0;
+        if (!obj) {
+            fprintf(stderr, "Error: Invalid object reference at line %d\n", ast->line);
+            return 0;
             }
         }
         
@@ -2184,6 +2184,15 @@ long long eval_expression(ASTNode* ast) {
         // Get function name from first child
         ASTNode* func_name_node = &ast->children[0];
         char* func_name = func_name_node->text;
+        
+        // First check for user-defined functions
+        if (func_name) {
+            ASTNode* user_func = find_function_global(func_name);
+            if (user_func) {
+                // Call user-defined function
+                return eval_user_function_call(user_func, ast);
+            }
+        }
         
         if (func_name && strcmp(func_name, "len") == 0) {
             // len() function - works with strings and arrays
@@ -3960,7 +3969,7 @@ void eval_evaluate(ASTNode* ast) {
                             // This is an object variable - get and print the object contents
                             if (arg->text) {
                                 MycoObject* obj = get_object_value(arg->text);
-                                if (obj) {
+                            if (obj) {
                                     printf("{");
                                     for (int j = 0; j < obj->property_count; j++) {
                                         if (j > 0) printf(", ");
@@ -3987,12 +3996,12 @@ void eval_evaluate(ASTNode* ast) {
                     PropertyType prop_type;
                     void* prop_value = evaluate_chained_property_for_print(arg, &prop_type);
                     
-                    if (prop_value) {
+                                if (prop_value) {
                         print_property_value(prop_value, prop_type);
-                    } else {
+                                        } else {
                         printf("0"); // Property not found or evaluation failed
-                    }
-                } else {
+                                        }
+                                    } else {
                     int64_t value = eval_expression(arg);
                     if (value == -1) {
                         // This is a string variable or concatenation result - get and print the actual string value
@@ -4006,8 +4015,8 @@ void eval_evaluate(ASTNode* ast) {
                                 printf("%s", str_val);
                             } else {
                                 printf("(null)");
-                            }
-                        } else {
+                                    }
+                                } else {
                             printf("(null)");
                         }
                     } else if (value == -2) {
@@ -4022,10 +4031,10 @@ void eval_evaluate(ASTNode* ast) {
                                         char* str_elem = (char*)array_get(array, j);
                                         if (str_elem) {
                                             printf("\"%s\"", str_elem);
-                                        } else {
+                            } else {
                                             printf("(null)");
-                                        }
-                                    } else {
+                            }
+                        } else {
                                         long long* num_elem = (long long*)array_get(array, j);
                                         if (num_elem) {
                                             printf("%lld", *num_elem);
@@ -4035,10 +4044,10 @@ void eval_evaluate(ASTNode* ast) {
                                     }
                                 }
                                 printf("]");
-                            } else {
+                    } else {
                                 printf("(null)");
-                            }
-                        } else {
+                    }
+                } else {
                             printf("(null)");
                         }
                     } else if (value == -3) {
@@ -4662,6 +4671,132 @@ void eval_evaluate(ASTNode* ast) {
                 // Register the function for later calls
                 register_function(ast->text, ast);
             }
+            return;
+        }
+
+        case AST_SWITCH: {
+            // Switch statement handling
+            if (ast->child_count < 2) {
+                fprintf(stderr, "Error: Invalid switch statement structure\n");
+                return;
+            }
+
+            // Evaluate switch expression
+            int64_t switch_value = eval_expression(&ast->children[0]);
+            
+            // Get cases block (second child)
+            ASTNode* cases_block = &ast->children[1];
+            if (cases_block->type != AST_BLOCK) {
+                fprintf(stderr, "Error: Switch cases must be in a block\n");
+                return;
+            }
+
+            // Look for matching case or default
+            int case_matched = 0;
+            int execute_remaining = 0; // For fall-through behavior
+            
+            for (int i = 0; i < cases_block->child_count; i++) {
+                ASTNode* case_node = &cases_block->children[i];
+                
+                if (case_node->type == AST_CASE && case_node->child_count >= 2) {
+                    // Evaluate case value
+                    int64_t case_value = eval_expression(&case_node->children[0]);
+                    
+                    if (case_value == switch_value || execute_remaining) {
+                        case_matched = 1;
+                        execute_remaining = 1; // Enable fall-through
+                        
+                        // Execute case body
+                        eval_evaluate(&case_node->children[1]);
+                        
+                        // Check for break (in a real implementation, we'd need break handling)
+                        // For now, we'll execute only the matching case
+                        break;
+                    }
+                } else if (case_node->type == AST_DEFAULT && case_node->child_count >= 1) {
+                    if (!case_matched || execute_remaining) {
+                        // Execute default case
+                        eval_evaluate(&case_node->children[0]);
+                        break;
+                    }
+                }
+            }
+            return;
+        }
+
+        case AST_TRY: {
+            // Try/catch handling
+            if (ast->child_count < 1) {
+                fprintf(stderr, "Error: Invalid try statement structure\n");
+                return;
+            }
+
+            // Save current error state and flags
+            int saved_error_occurred = error_occurred;
+            int saved_error_value = error_value;
+            int saved_in_try_block = in_try_block;
+            int saved_error_printed = error_printed;
+            
+            // Reset error state for try block
+            error_occurred = 0;
+            error_value = 0;
+            in_try_block = 1;  // Set flag to suppress error printing
+            error_printed = 0;
+
+            // Execute try block
+            eval_evaluate(&ast->children[0]);
+
+            // Check if an error occurred during try block execution
+            if (error_occurred && ast->child_count >= 2) {
+                // Look for catch block
+                for (int i = 1; i < ast->child_count; i++) {
+                    ASTNode* catch_node = &ast->children[i];
+                    if (catch_node->type == AST_CATCH && catch_node->child_count >= 2) {
+                        // Set error variable if catch has a variable name
+                        if (catch_node->children[0].text) {
+                            set_var_value(catch_node->children[0].text, error_value);
+                        }
+                        
+                        // Execute catch block
+                        in_catch_block = 1;
+                        eval_evaluate(&catch_node->children[1]);
+                        in_catch_block = 0;
+                        break;
+                    }
+                }
+                // Clear error after handling
+                error_occurred = 0;
+                error_value = 0;
+            }
+
+            // Restore previous error state and flags
+            in_try_block = saved_in_try_block;
+            error_printed = saved_error_printed;
+            if (!error_occurred) {
+                error_occurred = saved_error_occurred;
+                error_value = saved_error_value;
+            }
+            return;
+        }
+
+        case AST_DEFAULT: {
+            // Default case in switch - this is handled by the switch statement itself
+            // If we reach here directly, it's an error
+            fprintf(stderr, "Error: Default case outside of switch statement\n");
+            return;
+        }
+
+        case AST_CASE: {
+            // Case statement - this is handled by the switch statement itself
+            // If we reach here directly, it's an error
+            fprintf(stderr, "Error: Case statement outside of switch statement\n");
+            return;
+        }
+
+        case AST_CATCH: {
+            // Catch statement - this is handled by the try statement itself
+            // If we reach here directly, it's an error
+            fprintf(stderr, "Error: Catch statement outside of try statement\n");
             return;
         }
 
