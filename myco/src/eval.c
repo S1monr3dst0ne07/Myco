@@ -3414,7 +3414,7 @@ long long eval_expression(ASTNode* ast) {
             }
             return 0; // Object not found, property not found, or invalid arguments
         } else if (func_name && strcmp(func_name, "filter") == 0) {
-            // filter(array, condition_value) - filter array elements based on condition
+            // filter(array, condition) - filter array elements based on condition or lambda
             if (ast->child_count < 2 || ast->children[1].child_count < 2) {
                 fprintf(stderr, "Error: filter() function requires two arguments\n");
                 return 0;
@@ -3433,7 +3433,84 @@ long long eval_expression(ASTNode* ast) {
                 return 0;
             }
             
-            // Get condition value (for now, simple value-based filtering)
+            // Check if second argument is a lambda function
+            ASTNode* condition_node = &ast->children[1].children[1];
+            if (condition_node->type == AST_EXPR && condition_node->text) {
+                // Check if this is a lambda function call
+                ASTNode* lambda_func = get_lambda_value(condition_node->text);
+                if (lambda_func) {
+                    // Lambda-based filtering
+                    MycoArray* result = create_array(10, array->is_string_array);
+                    if (!result) {
+                        fprintf(stderr, "Error: Failed to create result array\n");
+                        return 0;
+                    }
+                    
+                    // Filter elements using lambda
+                    for (int i = 0; i < array->size; i++) {
+                        // Get the current array element
+                        long long elem_value = 0;
+                        const char* str_elem = NULL;
+                        
+                        if (array->is_string_array) {
+                            str_elem = (const char*)array->str_elements[i];
+                            // For string arrays, we'll use the string length as the numeric value
+                            elem_value = strlen(str_elem);
+                        } else {
+                            elem_value = array->elements[i];
+                        }
+                        
+                        // Set the lambda parameter as a variable in the current scope
+                        // Handle different lambda parameter types
+                        if (lambda_func->children[0].type == AST_EXPR && 
+                            lambda_func->children[0].text) {
+                            
+                            if (strcmp(lambda_func->children[0].text, "params") != 0) {
+                                // Single parameter lambda: x => expression
+                                char* param_name = lambda_func->children[0].text;
+                                set_var_value(param_name, elem_value);
+                                
+                                // Execute lambda body
+                                long long lambda_result = eval_expression(&lambda_func->children[1]);
+                                
+                                // If lambda returns true (non-zero), include element
+                                if (lambda_result != 0) {
+                                    if (array->is_string_array) {
+                                        array_push(result, (void*)str_elem);
+                                    } else {
+                                        // Get the original array element, not the local variable
+                                        long long original_elem = array->elements[i];
+                                        array_push(result, &original_elem);
+                                    }
+                                }
+                            } else if (lambda_func->children[0].child_count == 1) {
+                                // Single parameter lambda: (x) => expression
+                                char* param_name = lambda_func->children[0].children[0].text;
+                                set_var_value(param_name, elem_value);
+                                
+                                // Execute lambda body
+                                long long lambda_result = eval_expression(&lambda_func->children[1]);
+                                
+                                // If lambda returns true (non-zero), include element
+                                if (lambda_result != 0) {
+                                    if (array->is_string_array) {
+                                        array_push(result, (void*)str_elem);
+                                    } else {
+                                        array_push(result, &elem_value);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    
+                    // Store result and return the array name
+                    // Store result in the standard location
+                    set_array_value("__last_filter_result", result);
+                    return -2; // Indicate array result
+                }
+            }
+            
+            // Fallback to original numeric condition-based filtering
             long long condition = eval_expression(&ast->children[1].children[1]);
             if (error_occurred) return 0;
             
@@ -3468,7 +3545,7 @@ long long eval_expression(ASTNode* ast) {
             set_array_value("__last_filter_result", result);
             return -2; // Indicate array result
         } else if (func_name && strcmp(func_name, "map") == 0) {
-            // map(array, operation) - transform array elements
+            // map(array, operation) - transform array elements using operation or lambda
             if (ast->child_count < 2 || ast->children[1].child_count < 2) {
                 fprintf(stderr, "Error: map() function requires two arguments\n");
                 return 0;
@@ -3487,7 +3564,68 @@ long long eval_expression(ASTNode* ast) {
                 return 0;
             }
             
-            // Get operation type
+            // Check if second argument is a lambda function
+            ASTNode* operation_node = &ast->children[1].children[1];
+            if (operation_node->type == AST_EXPR && operation_node->text) {
+                // Check if this is a lambda function call
+                ASTNode* lambda_func = get_lambda_value(operation_node->text);
+                if (lambda_func) {
+                    // Lambda-based mapping
+                    MycoArray* result = create_array(10, 0); // numeric array for lambda results
+                    if (!result) {
+                        fprintf(stderr, "Error: Failed to create result array\n");
+                        return 0;
+                    }
+                    
+                    // Transform elements using lambda
+                    for (int i = 0; i < array->size; i++) {
+                        // Get the current array element
+                        long long elem_value = 0;
+                        
+                        if (array->is_string_array) {
+                            const char* str_elem = (const char*)array->str_elements[i];
+                            // For string arrays, we'll use the string length as the numeric value
+                            elem_value = strlen(str_elem);
+                        } else {
+                            elem_value = array->elements[i];
+                        }
+                        
+                        // Set the lambda parameter as a variable in the current scope
+                        // Handle different lambda parameter types
+                        if (lambda_func->children[0].type == AST_EXPR && 
+                            lambda_func->children[0].text) {
+                            
+                            if (strcmp(lambda_func->children[0].text, "params") != 0) {
+                                // Single parameter lambda: x => expression
+                                char* param_name = lambda_func->children[0].text;
+                                set_var_value(param_name, elem_value);
+                                
+                                // Execute lambda body
+                                long long lambda_result = eval_expression(&lambda_func->children[1]);
+                                
+                                // Store the lambda result
+                                array_push(result, &lambda_result);
+                            } else if (lambda_func->children[0].child_count == 1) {
+                                // Single parameter lambda: (x) => expression
+                                char* param_name = lambda_func->children[0].children[0].text;
+                                set_var_value(param_name, elem_value);
+                                
+                                // Execute lambda body
+                                long long lambda_result = eval_expression(&lambda_func->children[1]);
+                                
+                                // Store the lambda result
+                                array_push(result, &lambda_result);
+                            }
+                        }
+                    }
+                    
+                    // Store result
+                    set_array_value("__last_map_result", result);
+                    return -2; // Indicate array result
+                }
+            }
+            
+            // Fallback to original numeric operation-based mapping
             long long operation = eval_expression(&ast->children[1].children[1]);
             if (error_occurred) return 0;
             
@@ -3533,7 +3671,7 @@ long long eval_expression(ASTNode* ast) {
             set_array_value("__last_map_result", result);
             return -2; // Indicate array result
         } else if (func_name && strcmp(func_name, "reduce") == 0) {
-            // reduce(array, operation, initial) - reduce array to single value
+            // reduce(array, operation, initial) - reduce array to single value using operation or lambda
             if (ast->child_count < 2 || ast->children[1].child_count < 3) {
                 fprintf(stderr, "Error: reduce() function requires three arguments\n");
                 return 0;
@@ -3552,7 +3690,57 @@ long long eval_expression(ASTNode* ast) {
                 return 0;
             }
             
-            // Get operation type
+            // Check if second argument is a lambda function
+            ASTNode* operation_node = &ast->children[1].children[1];
+            if (operation_node->type == AST_EXPR && operation_node->text) {
+                // Check if this is a lambda function call
+                ASTNode* lambda_func = get_lambda_value(operation_node->text);
+                if (lambda_func) {
+                    // Lambda-based reduction
+                    long long accumulator = eval_expression(&ast->children[1].children[2]);
+                    if (error_occurred) return 0;
+                    
+                    // Reduce elements using lambda
+                    for (int i = 0; i < array->size; i++) {
+                        // Get the current array element
+                        long long elem_value = 0;
+                        
+                        if (array->is_string_array) {
+                            const char* str_elem = (const char*)array->str_elements[i];
+                            // For string arrays, we'll use the string length as the numeric value
+                            elem_value = strlen(str_elem);
+                        } else {
+                            elem_value = array->elements[i];
+                        }
+                        
+                        // Set the lambda parameters as variables in the current scope
+                        // For multiple parameter lambdas, we need to extract the parameter names
+                        if (lambda_func->children[0].type == AST_EXPR && 
+                            lambda_func->children[0].text && 
+                            strcmp(lambda_func->children[0].text, "params") == 0 &&
+                            lambda_func->children[0].child_count >= 2) {
+                            // Multiple parameters lambda: (acc, x) => expression
+                            char* acc_param = lambda_func->children[0].children[0].text;
+                            char* elem_param = lambda_func->children[0].children[1].text;
+                            
+                            if (acc_param && elem_param) {
+                                set_var_value(acc_param, accumulator);
+                                set_var_value(elem_param, elem_value);
+                                
+                                // Execute lambda body
+                                long long lambda_result = eval_expression(&lambda_func->children[1]);
+                                
+                                // Update accumulator with lambda result
+                                accumulator = lambda_result;
+                            }
+                        }
+                    }
+                    
+                    return accumulator;
+                }
+            }
+            
+            // Fallback to original numeric operation-based reduction
             long long operation = eval_expression(&ast->children[1].children[1]);
             if (error_occurred) return 0;
             
