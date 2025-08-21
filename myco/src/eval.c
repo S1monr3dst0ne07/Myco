@@ -3259,6 +3259,181 @@ long long eval_expression(ASTNode* ast) {
                 }
             }
             return 0; // Object not found, property not found, or invalid arguments
+        } else if (func_name && strcmp(func_name, "filter") == 0) {
+            // filter(array, condition_value) - filter array elements based on condition
+            if (ast->child_count < 2 || ast->children[1].child_count < 2) {
+                fprintf(stderr, "Error: filter() function requires two arguments\n");
+                return 0;
+            }
+            
+            // Get array argument
+            ASTNode* array_node = &ast->children[1].children[0];
+            const char* array_name = NULL;
+            if (array_node->type == AST_EXPR && array_node->text) {
+                array_name = array_node->text;
+            }
+            
+            MycoArray* array = get_array_value(array_name);
+            if (!array) {
+                fprintf(stderr, "Error: First argument to filter() must be an array\n");
+                return 0;
+            }
+            
+            // Get condition value (for now, simple value-based filtering)
+            long long condition = eval_expression(&ast->children[1].children[1]);
+            if (error_occurred) return 0;
+            
+            // Create result array
+            MycoArray* result = create_array(10, array->is_string_array);
+            if (!result) {
+                fprintf(stderr, "Error: Failed to create result array\n");
+                return 0;
+            }
+            
+            // Filter elements
+            for (int i = 0; i < array->size; i++) {
+                if (array->is_string_array) {
+                    // For string arrays, filter by string length or non-empty strings
+                    const char* str_elem = (const char*)array->str_elements[i];
+                    if (str_elem && ((condition == 0 && strlen(str_elem) > 0) || 
+                                   (condition == 1 && strlen(str_elem) > 5))) {
+                        array_push(result, (void*)str_elem);
+                    }
+                } else {
+                    // For number arrays, filter by comparison with condition
+                    long long elem = array->elements[i];
+                    if ((condition == 0 && elem > 0) || 
+                        (condition == 1 && elem % 2 == 0) || 
+                        (condition == 2 && elem > 10)) {
+                        array_push(result, &elem);
+                    }
+                }
+            }
+            
+            // Store result
+            set_array_value("__last_filter_result", result);
+            return -2; // Indicate array result
+        } else if (func_name && strcmp(func_name, "map") == 0) {
+            // map(array, operation) - transform array elements
+            if (ast->child_count < 2 || ast->children[1].child_count < 2) {
+                fprintf(stderr, "Error: map() function requires two arguments\n");
+                return 0;
+            }
+            
+            // Get array argument
+            ASTNode* array_node = &ast->children[1].children[0];
+            const char* array_name = NULL;
+            if (array_node->type == AST_EXPR && array_node->text) {
+                array_name = array_node->text;
+            }
+            
+            MycoArray* array = get_array_value(array_name);
+            if (!array) {
+                fprintf(stderr, "Error: First argument to map() must be an array\n");
+                return 0;
+            }
+            
+            // Get operation type
+            long long operation = eval_expression(&ast->children[1].children[1]);
+            if (error_occurred) return 0;
+            
+            // Create result array (always numeric for mathematical operations)
+            MycoArray* result = create_array(10, 0); // numeric array
+            if (!result) {
+                fprintf(stderr, "Error: Failed to create result array\n");
+                return 0;
+            }
+            
+            // Transform elements
+            for (int i = 0; i < array->size; i++) {
+                long long new_value = 0;
+                if (array->is_string_array) {
+                    // For string arrays, map to string length or character count
+                    const char* str_elem = (const char*)array->str_elements[i];
+                    if (str_elem) {
+                        if (operation == 0) {
+                            new_value = strlen(str_elem); // length
+                        } else if (operation == 1) {
+                            new_value = str_elem[0]; // first character ASCII
+                        } else {
+                            new_value = strlen(str_elem) > 3 ? 1 : 0; // long strings -> 1
+                        }
+                    }
+                } else {
+                    // For number arrays, apply mathematical operations
+                    long long elem = array->elements[i];
+                    if (operation == 0) {
+                        new_value = elem * 2; // double
+                    } else if (operation == 1) {
+                        new_value = elem * elem; // square
+                    } else if (operation == 2) {
+                        new_value = elem + 10; // add 10
+                    } else {
+                        new_value = elem;
+                    }
+                }
+                array_push(result, &new_value);
+            }
+            
+            // Store result
+            set_array_value("__last_map_result", result);
+            return -2; // Indicate array result
+        } else if (func_name && strcmp(func_name, "reduce") == 0) {
+            // reduce(array, operation, initial) - reduce array to single value
+            if (ast->child_count < 2 || ast->children[1].child_count < 3) {
+                fprintf(stderr, "Error: reduce() function requires three arguments\n");
+                return 0;
+            }
+            
+            // Get array argument
+            ASTNode* array_node = &ast->children[1].children[0];
+            const char* array_name = NULL;
+            if (array_node->type == AST_EXPR && array_node->text) {
+                array_name = array_node->text;
+            }
+            
+            MycoArray* array = get_array_value(array_name);
+            if (!array) {
+                fprintf(stderr, "Error: First argument to reduce() must be an array\n");
+                return 0;
+            }
+            
+            // Get operation type
+            long long operation = eval_expression(&ast->children[1].children[1]);
+            if (error_occurred) return 0;
+            
+            // Get initial value
+            long long accumulator = eval_expression(&ast->children[1].children[2]);
+            if (error_occurred) return 0;
+            
+            // Reduce elements
+            for (int i = 0; i < array->size; i++) {
+                if (array->is_string_array) {
+                    // For string arrays, reduce by length sum or count
+                    const char* str_elem = (const char*)array->str_elements[i];
+                    if (str_elem) {
+                        if (operation == 0) {
+                            accumulator += strlen(str_elem); // sum of lengths
+                        } else if (operation == 1) {
+                            accumulator += 1; // count
+                        }
+                    }
+                } else {
+                    // For number arrays, apply mathematical reduction
+                    long long elem = array->elements[i];
+                    if (operation == 0) {
+                        accumulator += elem; // sum
+                    } else if (operation == 1) {
+                        accumulator *= elem; // product
+                    } else if (operation == 2) {
+                        accumulator = (accumulator > elem) ? accumulator : elem; // max
+                    } else if (operation == 3) {
+                        accumulator = (accumulator < elem) ? accumulator : elem; // min
+                    }
+                }
+            }
+            
+            return accumulator;
         } else if (func_name && strcmp(func_name, "to_string") == 0) {
             // to_string(value) - convert any value to string
             if (ast->child_count < 2 || ast->children[1].child_count < 1) {

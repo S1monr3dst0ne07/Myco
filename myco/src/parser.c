@@ -1825,16 +1825,34 @@ static ASTNode* parse_statement(Token* tokens, int* current, int token_count) {
                 break;
             }
             
-            // Check if this is an object property assignment (obj.prop = expression)
-            if (*current + 3 < token_count && 
-                tokens[*current + 1].type == TOKEN_DOT && 
-                tokens[*current + 2].type == TOKEN_IDENTIFIER && 
-                tokens[*current + 3].type == TOKEN_ASSIGN) {
+            // Check if this is a chained property assignment (obj.prop1.prop2... = expression)
+            // Scan ahead to detect the pattern: identifier (.identifier)* = 
+            int lookahead = *current;
+            int chain_depth = 0;
+            
+            // Must start with identifier
+            if (tokens[lookahead].type == TOKEN_IDENTIFIER) {
+                lookahead++;
+                chain_depth++;
                 
-                // This is an object property assignment: obj.prop = value
-                char* obj_name = tracked_strdup(tokens[*current].text, __FILE__, __LINE__, "parser");
-                char* prop_name = tracked_strdup(tokens[*current + 2].text, __FILE__, __LINE__, "parser");
-                (*current) += 4; // Skip obj.prop= (4 tokens: obj, ., prop, =)
+                // Count chained properties: .identifier .identifier ...
+                while (lookahead < token_count &&
+                       tokens[lookahead].type == TOKEN_DOT && 
+                       lookahead + 1 < token_count &&
+                       tokens[lookahead + 1].type == TOKEN_IDENTIFIER) {
+                    lookahead += 2; // Skip .identifier
+                    chain_depth++;
+                }
+                
+                // Check if this chain ends with assignment
+                if (lookahead < token_count && tokens[lookahead].type == TOKEN_ASSIGN && chain_depth >= 2) {
+                    // Handle different chain depths
+                    if (chain_depth == 2) {
+                        // Simple assignment: obj.prop = value
+                        char* obj_name = tracked_strdup(tokens[*current].text, __FILE__, __LINE__, "parser");
+                        char* prop_name = tracked_strdup(tokens[*current + 2].text, __FILE__, __LINE__, "parser");
+                        (*current) += 3; // Skip obj.prop=
+                        
                 // Parse the value expression
                 ASTNode* value_expr = parse_expression(tokens, current);
                 if (!value_expr) {
@@ -1845,23 +1863,17 @@ static ASTNode* parse_statement(Token* tokens, int* current, int token_count) {
                 }
                 
                 // Check for semicolon
-                if (tokens[*current].type != TOKEN_SEMICOLON) {
-                    fprintf(stderr, "Error: Expected ';' after object property assignment at line %d\n", tokens[*current].line);
-                    free(obj_name);
-                    free(prop_name);
-                    parser_free_ast(value_expr);
-                    parser_free_ast(node);
-                    return NULL;
-                }
+                        if (tokens[*current].type == TOKEN_SEMICOLON) {
                 (*current)++; // Skip ';'
+                        }
                 
                 // Create object assignment node
                 node->type = AST_OBJECT_ASSIGN;
-                node->text = tracked_strdup("object_assign", __FILE__, __LINE__, "parser");
+                        node->text = tracked_strdup("object_assign", __FILE__, __LINE__, "parser");
                 node->children = (ASTNode*)tracked_malloc(3 * sizeof(ASTNode), __FILE__, __LINE__, "parse_statement_object_assign");
                 node->child_count = 3;
                 node->next = NULL;
-                node->line = tokens[*current - 3].line; // Line of the object name
+                        node->line = tokens[*current - 3].line;
                 
                 // Set object name, property name, and value
                 node->children[0].type = AST_EXPR;
@@ -1882,6 +1894,137 @@ static ASTNode* parse_statement(Token* tokens, int* current, int token_count) {
                 deep_copy_ast_node(&node->children[2], value_expr);
                 parser_free_ast(value_expr);
                 break;
+                    }
+                    else if (chain_depth == 3) {
+                        // 3-level assignment: obj.prop1.prop2 = value
+                        char* obj_name = tracked_strdup(tokens[*current].text, __FILE__, __LINE__, "parser");
+                        char* prop1_name = tracked_strdup(tokens[*current + 2].text, __FILE__, __LINE__, "parser");
+                        char* prop2_name = tracked_strdup(tokens[*current + 4].text, __FILE__, __LINE__, "parser");
+                        (*current) += 5; // Skip obj.prop1.prop2=
+                        
+                        // Parse the value expression
+                        ASTNode* value_expr = parse_expression(tokens, current);
+                        if (!value_expr) {
+                            free(obj_name);
+                            free(prop1_name);
+                            free(prop2_name);
+                            parser_free_ast(node);
+                            return NULL;
+                        }
+                        
+                        // Check for semicolon
+                        if (tokens[*current].type == TOKEN_SEMICOLON) {
+                            (*current)++; // Skip ';'
+                        }
+                        
+                        // Create 3-level nested assignment node
+                        node->type = AST_OBJECT_ASSIGN;
+                        node->text = tracked_strdup("nested_assign_3", __FILE__, __LINE__, "parser");
+                        node->children = (ASTNode*)tracked_malloc(4 * sizeof(ASTNode), __FILE__, __LINE__, "parse_statement_3level_assign");
+                        node->child_count = 4;
+                        node->next = NULL;
+                        node->line = tokens[*current - 5].line;
+                        
+                        // Set all property names and value
+                        node->children[0].type = AST_EXPR;
+                        node->children[0].text = obj_name;
+                        node->children[0].children = NULL;
+                        node->children[0].child_count = 0;
+                        node->children[0].next = NULL;
+                        node->children[0].line = node->line;
+                        
+                        node->children[1].type = AST_EXPR;
+                        node->children[1].text = prop1_name;
+                        node->children[1].children = NULL;
+                        node->children[1].child_count = 0;
+                        node->children[1].next = NULL;
+                        node->children[1].line = node->line;
+                        
+                        node->children[2].type = AST_EXPR;
+                        node->children[2].text = prop2_name;
+                        node->children[2].children = NULL;
+                        node->children[2].child_count = 0;
+                        node->children[2].next = NULL;
+                        node->children[2].line = node->line;
+                        
+                        // Copy the value expression
+                        deep_copy_ast_node(&node->children[3], value_expr);
+                        parser_free_ast(value_expr);
+                        break;
+                    }
+                    else if (chain_depth == 4) {
+                        // 4-level assignment: obj.prop1.prop2.prop3 = value
+                        char* obj_name = tracked_strdup(tokens[*current].text, __FILE__, __LINE__, "parser");
+                        char* prop1_name = tracked_strdup(tokens[*current + 2].text, __FILE__, __LINE__, "parser");
+                        char* prop2_name = tracked_strdup(tokens[*current + 4].text, __FILE__, __LINE__, "parser");
+                        char* prop3_name = tracked_strdup(tokens[*current + 6].text, __FILE__, __LINE__, "parser");
+                        (*current) += 7; // Skip obj.prop1.prop2.prop3=
+                        
+                        // Parse the value expression
+                        ASTNode* value_expr = parse_expression(tokens, current);
+                        if (!value_expr) {
+                            free(obj_name);
+                            free(prop1_name);
+                            free(prop2_name);
+                            free(prop3_name);
+                            parser_free_ast(node);
+                            return NULL;
+                        }
+                        
+                        // Check for semicolon
+                        if (tokens[*current].type == TOKEN_SEMICOLON) {
+                            (*current)++; // Skip ';'
+                        }
+                        
+                        // Create 4-level nested assignment node
+                        node->type = AST_OBJECT_ASSIGN;
+                        node->text = tracked_strdup("nested_assign_4", __FILE__, __LINE__, "parser");
+                        node->children = (ASTNode*)tracked_malloc(5 * sizeof(ASTNode), __FILE__, __LINE__, "parse_statement_4level_assign");
+                        node->child_count = 5;
+                        node->next = NULL;
+                        node->line = tokens[*current - 7].line;
+                        
+                        // Set all property names and value
+                        node->children[0].type = AST_EXPR;
+                        node->children[0].text = obj_name;
+                        node->children[0].children = NULL;
+                        node->children[0].child_count = 0;
+                        node->children[0].next = NULL;
+                        node->children[0].line = node->line;
+                        
+                        node->children[1].type = AST_EXPR;
+                        node->children[1].text = prop1_name;
+                        node->children[1].children = NULL;
+                        node->children[1].child_count = 0;
+                        node->children[1].next = NULL;
+                        node->children[1].line = node->line;
+                        
+                        node->children[2].type = AST_EXPR;
+                        node->children[2].text = prop2_name;
+                        node->children[2].children = NULL;
+                        node->children[2].child_count = 0;
+                        node->children[2].next = NULL;
+                        node->children[2].line = node->line;
+                        
+                        node->children[3].type = AST_EXPR;
+                        node->children[3].text = prop3_name;
+                        node->children[3].children = NULL;
+                        node->children[3].child_count = 0;
+                        node->children[3].next = NULL;
+                        node->children[3].line = node->line;
+                        
+                        // Copy the value expression
+                        deep_copy_ast_node(&node->children[4], value_expr);
+                        parser_free_ast(value_expr);
+                        break;
+                    }
+                    else {
+                        // Chain too deep
+                        fprintf(stderr, "Error: Property assignment chains longer than 4 levels not yet supported at line %d\n", tokens[*current].line);
+                        parser_free_ast(node);
+                        return NULL;
+                    }
+                }
             }
             
             // Check if this is a regular assignment statement (identifier = expression)
