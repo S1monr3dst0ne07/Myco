@@ -278,13 +278,15 @@ typedef struct {
         VAR_TYPE_STRING,
         VAR_TYPE_ARRAY,
         VAR_TYPE_OBJECT,
-        VAR_TYPE_SET
+        VAR_TYPE_SET,
+        VAR_TYPE_LAMBDA
     } type;
     long long number_value;
     char* string_value;
     MycoArray* array_value;
     MycoObject* object_value;
     MycoSet* set_value;
+    ASTNode* lambda_value;
 } VarEntry;
 
 static VarEntry* var_env = NULL;
@@ -842,6 +844,149 @@ static void set_str_value(const char* name, const char* value) {
             str_env[str_env_size].value = NULL;
         }
     }
+}
+
+// Helper function to set a lambda function variable in the environment
+void set_lambda_value(const char* name, ASTNode* lambda_ast) {
+    if (!name || !lambda_ast) return;
+    
+    // Check if variable already exists
+    for (int i = var_env_size - 1; i >= 0; i--) {
+        if (strcmp(var_env[i].name, name) == 0) {
+            // Update existing variable
+            if (var_env[i].type == VAR_TYPE_ARRAY && var_env[i].array_value) {
+                destroy_array(var_env[i].array_value);
+                var_env[i].array_value = NULL;
+            }
+            if (var_env[i].type == VAR_TYPE_OBJECT && var_env[i].object_value) {
+                destroy_object(var_env[i].object_value);
+                var_env[i].object_value = NULL;
+            }
+            if (var_env[i].type == VAR_TYPE_LAMBDA && var_env[i].lambda_value) {
+                // Note: We don't free lambda_ast as it's owned by the parser
+                var_env[i].lambda_value = NULL;
+            }
+            var_env[i].type = VAR_TYPE_LAMBDA;
+            var_env[i].lambda_value = lambda_ast;
+            var_env[i].number_value = 0;
+            var_env[i].string_value = NULL;
+            var_env[i].array_value = NULL;
+            var_env[i].object_value = NULL;
+            var_env[i].set_value = NULL;
+            return;
+        }
+    }
+    
+    // Expand capacity if needed
+    if (var_env_size >= var_env_capacity) {
+        int new_capacity = var_env_capacity ? var_env_capacity * 2 : 8;
+        VarEntry* new_env = (VarEntry*)realloc(var_env, new_capacity * sizeof(VarEntry));
+        if (!new_env) {
+            // Handle realloc failure
+            return;
+        }
+        var_env = new_env;
+        var_env_capacity = new_capacity;
+    }
+    
+    // Add new variable
+            var_env[var_env_size].name = tracked_strdup(name, __FILE__, __LINE__, "eval");
+        if (var_env[var_env_size].name) {
+            var_env[var_env_size].type = VAR_TYPE_LAMBDA;
+            var_env[var_env_size].lambda_value = lambda_ast;
+            var_env[var_env_size].number_value = 0;
+            var_env[var_env_size].string_value = NULL;
+            var_env[var_env_size].array_value = NULL;
+            var_env[var_env_size].object_value = NULL;
+            var_env[var_env_size].set_value = NULL;
+            var_env_size++;
+        }
+}
+
+// Helper function to get a lambda function from the environment
+ASTNode* get_lambda_value(const char* name) {
+    if (!name) return NULL;
+    
+    for (int i = var_env_size - 1; i >= 0; i--) {
+        if (strcmp(var_env[i].name, name) == 0 && var_env[i].type == VAR_TYPE_LAMBDA) {
+            return var_env[i].lambda_value;
+        }
+    }
+    return NULL;
+}
+
+// Helper function to execute a lambda function
+long long execute_lambda(ASTNode* lambda_ast, ASTNode* args_node) {
+    if (!lambda_ast || lambda_ast->type != AST_LAMBDA || lambda_ast->child_count < 2) {
+        return 0;
+    }
+    
+    // Get parameters and body
+    ASTNode* params = &lambda_ast->children[0];
+    ASTNode* body = &lambda_ast->children[1];
+    
+
+    
+    // Handle single parameter lambda
+    if (params->type == AST_EXPR && params->text && strcmp(params->text, "params") != 0 && 
+        args_node && args_node->child_count > 0) {
+        // Single parameter lambda: x => expression
+        char* param_name = params->text;
+        if (param_name) {
+            // Evaluate the argument
+            long long arg_value = eval_expression(&args_node->children[0]);
+            
+            // Store parameter in current scope
+            set_var_value(param_name, arg_value);
+            
+            // Execute lambda body
+            long long result = eval_expression(body);
+            
+            return result;
+        }
+    }
+    // Handle no-parameter lambda
+    else if (params->type == AST_EXPR && params->text && strcmp(params->text, "params") == 0 && 
+             params->child_count == 0 && (!args_node || args_node->child_count == 0)) {
+        // No-parameter lambda: () => expression
+        // Execute lambda body directly
+        long long result = eval_expression(body);
+        
+        return result;
+    }
+    // Handle multiple parameter lambda
+    if (params->type == AST_EXPR && params->text && strcmp(params->text, "params") == 0 && 
+        params->child_count > 0 && args_node && args_node->child_count > 0) {
+        // Multiple parameters lambda: (x, y) => expression
+        
+        // Check if we have enough arguments
+        if (args_node->child_count < params->child_count) {
+            fprintf(stderr, "Error: Lambda expects %d parameters but got %d arguments\n", 
+                    params->child_count, args_node->child_count);
+            return 0;
+        }
+        
+        // Bind each parameter to its argument
+        for (int i = 0; i < params->child_count; i++) {
+            if (i < args_node->child_count) {
+                char* param_name = params->children[i].text;
+                if (param_name) {
+                    // Evaluate the argument
+                    long long arg_value = eval_expression(&args_node->children[i]);
+                    
+                    // Store parameter in current scope
+                    set_var_value(param_name, arg_value);
+                }
+            }
+        }
+        
+        // Execute lambda body
+        long long result = eval_expression(body);
+        
+        return result;
+    }
+    
+    return 0;
 }
 
 // Cleanup function for string environment
@@ -2191,6 +2336,15 @@ long long eval_expression(ASTNode* ast) {
             if (user_func) {
                 // Call user-defined function
                 return eval_user_function_call(user_func, ast);
+            }
+        }
+        
+        // Check for lambda functions
+        if (func_name) {
+            ASTNode* lambda_func = get_lambda_value(func_name);
+            if (lambda_func) {
+                // Call lambda function
+                return execute_lambda(lambda_func, &ast->children[1]);
             }
         }
         
@@ -3932,6 +4086,21 @@ void eval_evaluate(ASTNode* ast) {
             return;
         }
 
+        case AST_LAMBDA: {
+            // Lambda functions are stored as variables and evaluated when called
+            // Store the lambda AST for later execution
+            if (ast->child_count >= 2) {
+                // For now, we'll store them with a special name
+                // In the next phase, we'll implement proper variable binding
+                char* lambda_id = tracked_strdup("lambda", __FILE__, __LINE__, "eval_lambda");
+                set_lambda_value(lambda_id, ast);
+                
+                // Clean up temporary ID
+                tracked_free(lambda_id, __FILE__, __LINE__, "eval_lambda_cleanup");
+            }
+            return;
+        }
+
         case AST_WHILE: {
             if (ast->child_count < 2) {
                 fprintf(stderr, "Error: Invalid while loop structure\n");
@@ -4540,6 +4709,13 @@ void eval_evaluate(ASTNode* ast) {
                 }
                 
                 set_object_value(var_name, obj);
+                return;
+            }
+            
+            // Check if the value is a lambda function
+            if (ast->children[1].type == AST_LAMBDA) {
+                // Store the lambda function in the variable environment
+                set_lambda_value(var_name, &ast->children[1]);
                 return;
             }
             

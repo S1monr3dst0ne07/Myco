@@ -1616,12 +1616,155 @@ static ASTNode* parse_statement(Token* tokens, int* current, int token_count) {
             }
             (*current)++; // Skip '='
 
-            // Parse initial value
-            ASTNode* init_value = parse_expression(tokens, current);
+            // Parse initial value - check if it's a lambda expression
+            ASTNode* init_value = NULL;
+            
+            // Check if this is a lambda expression: x => expression or (x, y) => expression
+            if (tokens[*current].type == TOKEN_IDENTIFIER || tokens[*current].type == TOKEN_LPAREN) {
+                // Look ahead to see if this is followed by =>
+                int lookahead = *current;
+                int param_count = 0;
+                
+                if (tokens[lookahead].type == TOKEN_IDENTIFIER) {
+                    // Single parameter: x => expression
+                    param_count = 1;
+                    lookahead++;
+                } else if (tokens[lookahead].type == TOKEN_LPAREN) {
+                    // Multiple parameters: (x, y) => expression
+                    lookahead++; // Skip '('
+                    while (tokens[lookahead].type != TOKEN_RPAREN && lookahead < token_count) {
+                        if (tokens[lookahead].type == TOKEN_IDENTIFIER) {
+                            param_count++;
+                            lookahead++;
+                            if (tokens[lookahead].type == TOKEN_COMMA) {
+                                lookahead++; // Skip comma
+                            }
+                        } else {
+                            break;
+                        }
+                    }
+                    if (tokens[lookahead].type == TOKEN_RPAREN) {
+                        lookahead++; // Skip ')'
+                    }
+                }
+                
+                // Check if next token is =>
+                if (tokens[lookahead].type == TOKEN_LAMBDA) {
+                    // This is a lambda expression!
+                    ASTNode* lambda_node = (ASTNode*)tracked_malloc(sizeof(ASTNode), __FILE__, __LINE__, "parse_statement_lambda");
+                    if (!lambda_node) {
+                        fprintf(stderr, "Error: Memory allocation failed\n");
+                        parser_free_ast(node);
+                        parser_free_ast(var_name);
+                        return NULL;
+                    }
+                    
+                    lambda_node->type = AST_LAMBDA;
+                    lambda_node->text = tracked_strdup("lambda", __FILE__, __LINE__, "parser");
+                    lambda_node->children = (ASTNode*)tracked_malloc(2 * sizeof(ASTNode), __FILE__, __LINE__, "parse_statement_lambda_params");
+                    lambda_node->child_count = 2;
+                    lambda_node->next = NULL;
+                    lambda_node->line = tokens[*current].line;
+                    
+                    // Parse parameters
+                    if (param_count == 1 && tokens[*current].type == TOKEN_IDENTIFIER) {
+                        // Single parameter: x
+                        // First child: parameter
+                        lambda_node->children[0].type = AST_EXPR;
+                        lambda_node->children[0].text = tracked_strdup(tokens[*current].text, __FILE__, __LINE__, "parser");
+                        lambda_node->children[0].children = NULL;
+                        lambda_node->children[0].child_count = 0;
+                        lambda_node->children[0].next = NULL;
+                        lambda_node->children[0].line = tokens[*current].line;
+                        (*current)++; // Skip parameter
+                    } else if (tokens[*current].type == TOKEN_LPAREN) {
+                        // Multiple parameters: (x, y)
+                        (*current)++; // Skip '('
+                        
+                                            // First child: parameter list
+                    ASTNode* param_list = (ASTNode*)tracked_malloc(sizeof(ASTNode), __FILE__, __LINE__, "parse_statement_lambda_param_list");
+                    param_list->type = AST_EXPR;
+                    param_list->text = tracked_strdup("params", __FILE__, __LINE__, "parser");
+                    param_list->children = (ASTNode*)tracked_malloc(param_count * sizeof(ASTNode), __FILE__, __LINE__, "parse_statement_lambda_param_array");
+                    param_list->child_count = param_count;
+                    param_list->next = NULL;
+                    param_list->line = tokens[*current].line;
+                    
+
+                        
+                        for (int i = 0; i < param_count; i++) {
+                            if (tokens[*current].type != TOKEN_IDENTIFIER) {
+                                fprintf(stderr, "Error: Expected parameter name at line %d\n", tokens[*current].line);
+                                parser_free_ast(lambda_node);
+                                parser_free_ast(param_list);
+                                parser_free_ast(node);
+                                parser_free_ast(var_name);
+                                return NULL;
+                            }
+                            
+                            param_list->children[i].type = AST_EXPR;
+                            param_list->children[i].text = tracked_strdup(tokens[*current].text, __FILE__, __LINE__, "parser");
+                            param_list->children[i].children = NULL;
+                            param_list->children[i].child_count = 0;
+                            param_list->children[i].next = NULL;
+                            param_list->children[i].line = tokens[*current].line;
+                            (*current)++; // Skip parameter
+                            
+                            if (i < param_count - 1 && tokens[*current].type == TOKEN_COMMA) {
+                                (*current)++; // Skip comma
+                            }
+                        }
+                        
+                        if (tokens[*current].type != TOKEN_RPAREN) {
+                            fprintf(stderr, "Error: Expected ')' after parameters at line %d\n", tokens[*current].line);
+                            parser_free_ast(lambda_node);
+                            parser_free_ast(param_list);
+                            parser_free_ast(node);
+                            parser_free_ast(var_name);
+                            return NULL;
+                        }
+                        (*current)++; // Skip ')'
+                        
+                        lambda_node->children[0] = *param_list;
+                        tracked_free(param_list, __FILE__, __LINE__, "parse_statement_lambda_param_list_move");
+                    }
+                    
+                    // Skip the => token
+                    if (tokens[*current].type != TOKEN_LAMBDA) {
+                        fprintf(stderr, "Error: Expected '=>' after parameters at line %d\n", tokens[*current].line);
+                        parser_free_ast(lambda_node);
+                        parser_free_ast(node);
+                        parser_free_ast(var_name);
+                        return NULL;
+                    }
+                    (*current)++; // Skip '=>'
+                    
+                    // Parse lambda body (expression)
+                    ASTNode* body = parse_expression(tokens, current);
+                    if (!body) {
+                        parser_free_ast(lambda_node);
+                        parser_free_ast(node);
+                        parser_free_ast(var_name);
+                        return NULL;
+                    }
+                    
+                    // Second child: body
+                    lambda_node->children[1] = *body;
+                    tracked_free(body, __FILE__, __LINE__, "parse_statement_lambda_body_move");
+                    
+                    init_value = lambda_node;
+                } else {
+                    // Not a lambda, parse as regular expression
+                    init_value = parse_expression(tokens, current);
+                }
+            } else {
+                // Not a lambda, parse as regular expression
+                init_value = parse_expression(tokens, current);
+            }
+            
             if (!init_value) {
                 parser_free_ast(node);
                 parser_free_ast(var_name);
-                    parser_free_ast(node);
                 return NULL;
             }
 

@@ -340,6 +340,10 @@ Token* lexer_tokenize(const char* source) {
                     tokens[token_count].type = TOKEN_OPERATOR;
                     tokens[token_count].text = tracked_strdup("==", __FILE__, __LINE__, "lexer_operator");
                     p++;
+                } else if (*(p + 1) == '>') {
+                    tokens[token_count].type = TOKEN_LAMBDA;
+                    tokens[token_count].text = tracked_strdup("=>", __FILE__, __LINE__, "lexer_lambda");
+                    p++;
                 } else {
                     tokens[token_count].type = TOKEN_ASSIGN;
                     tokens[token_count].text = tracked_strdup("=", __FILE__, __LINE__, "lexer_operator");
