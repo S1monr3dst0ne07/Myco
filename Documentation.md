@@ -21,9 +21,9 @@
 
 Myco is a modern, lightweight programming language designed for simplicity and expressiveness. It features dynamic typing, object-oriented capabilities, and a clean syntax inspired by Lua and Python.
 
-**Version**: 1.1.6  
+**Version**: 1.1.9  
 **License**: MIT  
-**Repository**: https://github.com/TrendyBananaYT/myco
+**Repository**: https://github.com/IvyMycelia/myco
 
 ## Installation
 
@@ -732,7 +732,7 @@ displayRectangle(8, 4);
 
 ## Language Features Summary
 
-**Current Version**: 1.1.6
+**Current Version**: 1.1.9
 
 **Completed Features**:
 - Variables and basic data types (numbers, strings, booleans)
@@ -742,10 +742,14 @@ displayRectangle(8, 4);
 - **Sets with unique element collections**
 - Control flow (if/else, loops)
 - Function definitions and calls
-- **19 built-in functions** (arrays, strings, objects, sets)
+- **19+ built-in functions** (arrays, strings, objects, sets)
 - String concatenation and manipulation
 - Nested object support with deep object creation
 - Dynamic property access and bracket notation assignment
+- **Advanced array operations**: filter, map, reduce
+- **Comprehensive error handling**: try/catch blocks
+- **Memory management**: tracked allocations preventing leaks
+- **Professional testing**: 100% unit test success rate
 
 **Upcoming Features** (v2.0.0 roadmap):
 - **Set literal syntax**: `{1, 2, 3}`
