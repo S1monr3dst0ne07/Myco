@@ -4974,14 +4974,14 @@ void eval_evaluate(ASTNode* ast) {
                 }
             } else if (value == -2) {
                 // This is an array function result - get from predictable variable
-                // Check most recent functions first
-                MycoArray* array_result = get_array_value("__last_filter_result");
+                // Check most recent functions first (map is usually called after filter)
+                MycoArray* array_result = get_array_value("__last_map_result");
                 if (array_result) {
                     set_array_value(var_name, array_result);
                     return;
                 }
                 
-                array_result = get_array_value("__last_map_result");
+                array_result = get_array_value("__last_filter_result");
                 if (array_result) {
                     set_array_value(var_name, array_result);
                     return;
