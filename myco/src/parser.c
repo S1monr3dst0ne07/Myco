@@ -894,7 +894,7 @@ static ASTNode* parse_statement(Token* tokens, int* current, int token_count) {
         return node;
     }
 
-    // First check if we're in a switch statement context
+    // Handle default statements (restore original standalone handling)
     if (tokens[*current].type == TOKEN_DEFAULT) {
         (*current)++; // Skip 'default'
         if (tokens[*current].type != TOKEN_COLON) {

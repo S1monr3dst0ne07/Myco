@@ -4747,23 +4747,24 @@ void eval_evaluate(ASTNode* ast) {
             eval_evaluate(&ast->children[0]);
 
             // Check if an error occurred during try block execution
-            if (error_occurred && ast->child_count >= 2) {
-                // Look for catch block
-                for (int i = 1; i < ast->child_count; i++) {
-                    ASTNode* catch_node = &ast->children[i];
-                    if (catch_node->type == AST_CATCH && catch_node->child_count >= 2) {
-                        // Set error variable if catch has a variable name
-                        if (catch_node->children[0].text) {
-                            set_var_value(catch_node->children[0].text, error_value);
-                        }
-                        
-                        // Execute catch block
-                        in_catch_block = 1;
-                        eval_evaluate(&catch_node->children[1]);
-                        in_catch_block = 0;
-                        break;
-                    }
+            if (error_occurred && ast->child_count >= 3) {
+                // Parser structure: [try_body, error_var, catch_body]
+                // Child 1 is the error variable (AST_EXPR)
+                // Child 2 is the catch body (AST_BLOCK)
+                
+                ASTNode* error_var = &ast->children[1];
+                ASTNode* catch_body = &ast->children[2];
+                
+                // Set error variable if it has a name
+                if (error_var->text) {
+                    const char* error_desc = get_error_description(error_value);
+                    set_str_value(error_var->text, error_desc);
                 }
+                
+                // Execute catch block
+                in_catch_block = 1;
+                eval_evaluate(catch_body);
+                in_catch_block = 0;
                 // Clear error after handling
                 error_occurred = 0;
                 error_value = 0;
@@ -4780,9 +4781,9 @@ void eval_evaluate(ASTNode* ast) {
         }
 
         case AST_DEFAULT: {
-            // Default case in switch - this is handled by the switch statement itself
-            // If we reach here directly, it's an error
-            fprintf(stderr, "Error: Default case outside of switch statement\n");
+            // Default case - if we reach here directly, it means it's outside a switch
+            // In many languages, this would be an error, but for robustness we'll just ignore it
+            // The switch statement handler takes care of executing default cases properly
             return;
         }
 
