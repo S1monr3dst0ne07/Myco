@@ -4975,7 +4975,19 @@ void eval_evaluate(ASTNode* ast) {
             } else if (value == -2) {
                 // This is an array function result - get from predictable variable
                 // Check most recent functions first
-                MycoArray* array_result = get_array_value("__last_values_result");
+                MycoArray* array_result = get_array_value("__last_filter_result");
+                if (array_result) {
+                    set_array_value(var_name, array_result);
+                    return;
+                }
+                
+                array_result = get_array_value("__last_map_result");
+                if (array_result) {
+                    set_array_value(var_name, array_result);
+                    return;
+                }
+                
+                array_result = get_array_value("__last_values_result");
                 if (array_result) {
                     set_array_value(var_name, array_result);
                 } else {
@@ -4991,6 +5003,16 @@ void eval_evaluate(ASTNode* ast) {
                             if (array_result) {
                                 set_array_value(var_name, array_result);
                             } else {
+                                // Check if this is an array variable assignment (let x = existing_array)
+                                // Look for the variable name in the expression
+                                if (ast->children[1].type == AST_EXPR && ast->children[1].text) {
+                                    MycoArray* existing_array = get_array_value(ast->children[1].text);
+                                    if (existing_array) {
+                                        // This is an array variable assignment - copy the array
+                                        set_array_value(var_name, existing_array);
+                                        return;
+                                    }
+                                }
                                 // Fallback: create empty array
                                 MycoArray* empty_array = create_array(1, 0);
                                 set_array_value(var_name, empty_array);
