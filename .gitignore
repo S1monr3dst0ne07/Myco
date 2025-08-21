@@ -1,12 +1,12 @@
 # Build artifacts
 output.c
-*.exe           # Windows executables
-*.out           # Unix/Linux executables
-*.o             # Object files
-*.obj           # Windows object files
-*.so            # Shared libraries (Unix)
-*.dll           # Windows DLLs
-*.dylib         # macOS dynamic libraries
+*.exe
+*.out
+*.o
+*.obj
+*.so
+*.dll
+*.dylib
 
 
 # macOS system files
