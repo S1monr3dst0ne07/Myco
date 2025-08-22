@@ -177,8 +177,11 @@ int main(int argc, char* argv[]) {
             fprintf(stderr, "Error: Code generation failed\n");
         }
     } else {
+        // Initialize implicit function system
+        init_implicit_functions();
+        
         // Evaluate the AST
-            eval_evaluate(ast);
+        eval_evaluate(ast);
     }
     
     // Cleanup
@@ -190,6 +193,9 @@ int main(int argc, char* argv[]) {
     cleanup_all_environments();
     memory_tracker_cleanup();
     #endif
+    
+    // Cleanup implicit function system
+    cleanup_implicit_functions();
     
     // Cleanup loop execution state
     extern void cleanup_loop_execution_state(void);

@@ -45,6 +45,17 @@ static ASTNode* parse_statement(Token* tokens, int* current, int token_count);
 static ASTNode* parse_block(Token* tokens, int* current, int token_count);
 static void deep_copy_ast_node(ASTNode* dest, ASTNode* src);
 
+// Helper function to initialize AST node fields
+static void init_ast_node(ASTNode* node) {
+    if (node) {
+        node->implicit_function = NULL;
+        node->children = NULL;
+        node->child_count = 0;
+        node->next = NULL;
+        node->for_type = AST_FOR_RANGE;
+    }
+}
+
 /*******************************************************************************
  * OPERATOR PRECEDENCE
  ******************************************************************************/
@@ -103,6 +114,9 @@ static ASTNode* parse_primary(Token* tokens, int* current) {
         return NULL;
     }
 
+    // Initialize common fields
+    init_ast_node(node);
+    
     // Set line number from current token
     node->line = tokens[*current].line;
 
@@ -790,6 +804,7 @@ static ASTNode* parse_expression(Token* tokens, int* current) {
 
         operator_node->type = AST_EXPR;
         operator_node->text = tracked_strdup(op, __FILE__, __LINE__, "parser");
+        operator_node->implicit_function = NULL;  // Will be set during evaluation
         operator_node->children = (ASTNode*)tracked_malloc(2 * sizeof(ASTNode), __FILE__, __LINE__, "parse_expression_operator");
         operator_node->child_count = 2;
         operator_node->next = NULL;
@@ -834,6 +849,7 @@ static ASTNode* parse_expression(Token* tokens, int* current) {
 
             next_operator->type = AST_EXPR;
             next_operator->text = tracked_strdup(next_op, __FILE__, __LINE__, "parser");
+            next_operator->implicit_function = NULL;  // Will be set during evaluation
             next_operator->children = (ASTNode*)tracked_malloc(2 * sizeof(ASTNode), __FILE__, __LINE__, "parse_expression_next_operator");
             next_operator->child_count = 2;
             next_operator->next = NULL;
@@ -868,10 +884,7 @@ static ASTNode* parse_block(Token* tokens, int* current, int token_count) {
     }
     block->type = AST_BLOCK;
     block->text = tracked_strdup("block", __FILE__, __LINE__, "parser");
-    block->children = NULL;
-    block->child_count = 0;
-    block->next = NULL;
-    block->for_type = AST_FOR_RANGE;  // Initialize for_type field
+    init_ast_node(block);
 
     while (tokens[*current].type != TOKEN_END && 
            tokens[*current].type != TOKEN_ELSE && 
@@ -996,8 +1009,8 @@ static ASTNode* parse_statement(Token* tokens, int* current, int token_count) {
         return NULL;
     }
 
-    // Initialize for_type field
-    node->for_type = AST_FOR_RANGE;
+    // Initialize common fields
+    init_ast_node(node);
 
 
     
@@ -2276,9 +2289,7 @@ ASTNode* parser_parse(Token* tokens) {
     }
     root->type = AST_BLOCK;
     root->text = tracked_strdup("block", __FILE__, __LINE__, "parser");
-    root->children = NULL;
-    root->child_count = 0;
-    root->next = NULL;
+    init_ast_node(root);
 
     while (tokens[current].type != TOKEN_EOF) {
         ASTNode* node = NULL;
@@ -2307,9 +2318,7 @@ ASTNode* parser_parse(Token* tokens) {
                 free(node);
                 return NULL;
             }
-            node->children = NULL;
-            node->child_count = 0;
-            node->next = NULL;
+            init_ast_node(node);
             current++; // Skip function name
 
             // Parse parameters
@@ -2345,9 +2354,7 @@ ASTNode* parser_parse(Token* tokens) {
                     free(param);
                     return NULL;
                 }
-                param->children = NULL;
-                param->child_count = 0;
-                param->next = NULL;
+                init_ast_node(param);
                 current++; // Skip parameter name
 
                 // Parse type annotation

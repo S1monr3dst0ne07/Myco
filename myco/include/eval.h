@@ -3,6 +3,25 @@
 
 #include "parser.h"
 
+// Implicit function system for operator overloading
+typedef struct {
+    char* operator;           // The operator symbol (e.g., "+", "==", "<")
+    char* function_name;      // The function to call (e.g., "add", "equals", "less_than")
+    int precedence;           // Operator precedence level
+    int associativity;        // LEFT_ASSOC or RIGHT_ASSOC
+    int supports_types[4];    // Array of supported type combinations
+} OperatorMapping;
+
+// Type combinations for implicit functions
+#define TYPE_COMBINATION_NUMERIC 0    // number + number
+#define TYPE_COMBINATION_STRING  1    // string + string
+#define TYPE_COMBINATION_ARRAY   2    // array + array
+#define TYPE_COMBINATION_OBJECT  3    // object + object
+
+// Associativity constants
+#define LEFT_ASSOC  0
+#define RIGHT_ASSOC 1
+
 // Array data structure
 typedef struct {
     long long* elements;     // Dynamic array of integers
@@ -79,5 +98,12 @@ void eval_set_base_dir(const char* dir);
 void eval_clear_module_asts();
 void eval_clear_function_asts();
 void cleanup_all_environments(void);
+
+// Implicit function system prototypes
+void init_implicit_functions(void);
+char* get_implicit_function(const char* operator, int left_type, int right_type);
+long long call_implicit_function(const char* function_name, ASTNode* children, int child_count);
+int get_type_combination(int left_type, int right_type);
+void cleanup_implicit_functions(void);
 
 #endif // EVAL_H 

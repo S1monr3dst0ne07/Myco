@@ -23,6 +23,7 @@ typedef enum {
 typedef struct ASTNode {
     ASTNodeType type;
     char* text;  // For identifiers, numbers, strings, etc.
+    char* implicit_function;  // NEW: stores function name for implicit calls
     struct ASTNode* children;  // Array of child nodes
     int child_count;
     struct ASTNode* next;  // For linked list of statements

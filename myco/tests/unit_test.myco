@@ -255,6 +255,88 @@ else:
     print("FAILED: String length");
 end
 
+print("\nIMPLICIT FUNCTION TESTS");
+print("==========================");
+
+# Test implicit function system for operators
+let implicit_a = 25;
+let implicit_b = 5;
+
+# Test arithmetic implicit functions
+let implicit_sum = implicit_a + implicit_b;  # Should call add()
+tests_total = tests_total + 1;
+if implicit_sum == 30:
+    tests_passed = tests_passed + 1;
+    print("PASSED: Implicit add function (25 + 5 = 30)");
+else:
+    print("FAILED: Implicit add function, got:", implicit_sum);
+end
+
+let implicit_diff = implicit_a - implicit_b;  # Should call subtract()
+tests_total = tests_total + 1;
+if implicit_diff == 20:
+    tests_passed = tests_passed + 1;
+    print("PASSED: Implicit subtract function (25 - 5 = 20)");
+else:
+    print("FAILED: Implicit subtract function, got:", implicit_diff);
+end
+
+let implicit_prod = implicit_a * implicit_b;  # Should call multiply()
+tests_total = tests_total + 1;
+if implicit_prod == 125:
+    tests_passed = tests_passed + 1;
+    print("PASSED: Implicit multiply function (25 * 5 = 125)");
+else:
+    print("FAILED: Implicit multiply function, got:", implicit_prod);
+end
+
+let implicit_quot = implicit_a / implicit_b;  # Should call divide()
+tests_total = tests_total + 1;
+if implicit_quot == 5:
+    tests_passed = tests_passed + 1;
+    print("PASSED: Implicit divide function (25 / 5 = 5)");
+else:
+    print("FAILED: Implicit divide function, got:", implicit_quot);
+end
+
+# Test comparison implicit functions
+let implicit_eq = implicit_a == implicit_b;  # Should call equals()
+tests_total = tests_total + 1;
+if implicit_eq == 0:
+    tests_passed = tests_passed + 1;
+    print("PASSED: Implicit equals function (25 == 5 = false)");
+else:
+    print("FAILED: Implicit equals function, got:", implicit_eq);
+end
+
+let implicit_gt = implicit_a > implicit_b;  # Should call greater_than()
+tests_total = tests_total + 1;
+if implicit_gt == 1:
+    tests_passed = tests_passed + 1;
+    print("PASSED: Implicit greater_than function (25 > 5 = true)");
+else:
+    print("FAILED: Implicit greater_than function, got:", implicit_gt);
+end
+
+# Test logical implicit functions
+let implicit_and = (implicit_a > 20) and (implicit_b < 10);  # Should call logical_and()
+tests_total = tests_total + 1;
+if implicit_and == 1:
+    tests_passed = tests_passed + 1;
+    print("PASSED: Implicit logical_and function (true and true = true)");
+else:
+    print("FAILED: Implicit logical_and function, got:", implicit_and);
+end
+
+let implicit_or = (implicit_a < 10) or (implicit_b > 3);  # Should call logical_or()
+tests_total = tests_total + 1;
+if implicit_or == 1:
+    tests_passed = tests_passed + 1;
+    print("PASSED: Implicit logical_or function (false or true = true)");
+else:
+    print("FAILED: Implicit logical_or function, got:", implicit_or);
+end
+
 print("\nFINAL RESULTS");
 print("=================");
 print("Tests Passed:", tests_passed);

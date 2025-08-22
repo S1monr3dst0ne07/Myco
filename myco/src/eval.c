@@ -59,6 +59,305 @@
 // Array data structure is now defined in eval.h
 
 /*******************************************************************************
+ * IMPLICIT FUNCTION SYSTEM
+ ******************************************************************************/
+
+// Forward declaration for eval_expression
+long long eval_expression(ASTNode* ast);
+
+/**
+ * @brief Global operator mapping table for implicit functions
+ * 
+ * This table maps operators to their corresponding function names
+ * and defines precedence, associativity, and supported type combinations.
+ */
+static OperatorMapping* operator_map = NULL;
+static int operator_map_size = 0;
+static int operator_map_capacity = 0;
+
+/**
+ * @brief Initialize the implicit function system
+ * 
+ * Sets up the operator mapping table with all supported operators
+ * and their corresponding function names.
+ */
+void init_implicit_functions(void) {
+    if (operator_map) return; // Already initialized
+    
+    operator_map_capacity = 20;
+    operator_map = (OperatorMapping*)tracked_malloc(
+        operator_map_capacity * sizeof(OperatorMapping), 
+        __FILE__, __LINE__, "init_implicit_functions"
+    );
+    
+    if (!operator_map) {
+        fprintf(stderr, "Error: Failed to initialize implicit functions\n");
+        return;
+    }
+    
+    // Mathematical operators
+    operator_map[operator_map_size].operator = "+";
+    operator_map[operator_map_size].function_name = "add";
+    operator_map[operator_map_size].precedence = 4;
+    operator_map[operator_map_size].associativity = LEFT_ASSOC;
+    operator_map[operator_map_size].supports_types[TYPE_COMBINATION_NUMERIC] = 1;
+    operator_map[operator_map_size].supports_types[TYPE_COMBINATION_STRING] = 1;
+    operator_map[operator_map_size].supports_types[TYPE_COMBINATION_ARRAY] = 1;
+    operator_map[operator_map_size].supports_types[TYPE_COMBINATION_OBJECT] = 1;
+    operator_map_size++;
+    
+    operator_map[operator_map_size].operator = "-";
+    operator_map[operator_map_size].function_name = "subtract";
+    operator_map[operator_map_size].precedence = 4;
+    operator_map[operator_map_size].associativity = LEFT_ASSOC;
+    operator_map[operator_map_size].supports_types[TYPE_COMBINATION_NUMERIC] = 1;
+    operator_map[operator_map_size].supports_types[TYPE_COMBINATION_STRING] = 0;
+    operator_map[operator_map_size].supports_types[TYPE_COMBINATION_ARRAY] = 0;
+    operator_map[operator_map_size].supports_types[TYPE_COMBINATION_OBJECT] = 0;
+    operator_map_size++;
+    
+    operator_map[operator_map_size].operator = "*";
+    operator_map[operator_map_size].function_name = "multiply";
+    operator_map[operator_map_size].precedence = 5;
+    operator_map[operator_map_size].associativity = LEFT_ASSOC;
+    operator_map[operator_map_size].supports_types[TYPE_COMBINATION_NUMERIC] = 1;
+    operator_map[operator_map_size].supports_types[TYPE_COMBINATION_STRING] = 1; // For string repetition
+    operator_map[operator_map_size].supports_types[TYPE_COMBINATION_ARRAY] = 1; // For array repetition
+    operator_map[operator_map_size].supports_types[TYPE_COMBINATION_OBJECT] = 0;
+    operator_map_size++;
+    
+    operator_map[operator_map_size].operator = "/";
+    operator_map[operator_map_size].function_name = "divide";
+    operator_map[operator_map_size].precedence = 5;
+    operator_map[operator_map_size].associativity = LEFT_ASSOC;
+    operator_map[operator_map_size].supports_types[TYPE_COMBINATION_NUMERIC] = 1;
+    operator_map[operator_map_size].supports_types[TYPE_COMBINATION_STRING] = 0;
+    operator_map[operator_map_size].supports_types[TYPE_COMBINATION_ARRAY] = 0;
+    operator_map[operator_map_size].supports_types[TYPE_COMBINATION_OBJECT] = 0;
+    operator_map_size++;
+    
+    operator_map[operator_map_size].operator = "%";
+    operator_map[operator_map_size].function_name = "modulo";
+    operator_map[operator_map_size].precedence = 5;
+    operator_map[operator_map_size].associativity = LEFT_ASSOC;
+    operator_map[operator_map_size].supports_types[TYPE_COMBINATION_NUMERIC] = 1;
+    operator_map[operator_map_size].supports_types[TYPE_COMBINATION_STRING] = 0;
+    operator_map[operator_map_size].supports_types[TYPE_COMBINATION_ARRAY] = 0;
+    operator_map[operator_map_size].supports_types[TYPE_COMBINATION_OBJECT] = 0;
+    operator_map_size++;
+    
+    // Comparison operators
+    operator_map[operator_map_size].operator = "==";
+    operator_map[operator_map_size].function_name = "equals";
+    operator_map[operator_map_size].precedence = 2;
+    operator_map[operator_map_size].associativity = LEFT_ASSOC;
+    operator_map[operator_map_size].supports_types[TYPE_COMBINATION_NUMERIC] = 1;
+    operator_map[operator_map_size].supports_types[TYPE_COMBINATION_STRING] = 1;
+    operator_map[operator_map_size].supports_types[TYPE_COMBINATION_ARRAY] = 1;
+    operator_map[operator_map_size].supports_types[TYPE_COMBINATION_OBJECT] = 1;
+    operator_map_size++;
+    
+    operator_map[operator_map_size].operator = "!=";
+    operator_map[operator_map_size].function_name = "not_equals";
+    operator_map[operator_map_size].precedence = 2;
+    operator_map[operator_map_size].associativity = LEFT_ASSOC;
+    operator_map[operator_map_size].supports_types[TYPE_COMBINATION_NUMERIC] = 1;
+    operator_map[operator_map_size].supports_types[TYPE_COMBINATION_STRING] = 1;
+    operator_map[operator_map_size].supports_types[TYPE_COMBINATION_ARRAY] = 1;
+    operator_map[operator_map_size].supports_types[TYPE_COMBINATION_OBJECT] = 1;
+    operator_map_size++;
+    
+    operator_map[operator_map_size].operator = "<";
+    operator_map[operator_map_size].function_name = "less_than";
+    operator_map[operator_map_size].precedence = 3;
+    operator_map[operator_map_size].associativity = LEFT_ASSOC;
+    operator_map[operator_map_size].supports_types[TYPE_COMBINATION_NUMERIC] = 1;
+    operator_map[operator_map_size].supports_types[TYPE_COMBINATION_STRING] = 1;
+    operator_map[operator_map_size].supports_types[TYPE_COMBINATION_ARRAY] = 0;
+    operator_map[operator_map_size].supports_types[TYPE_COMBINATION_OBJECT] = 0;
+    operator_map_size++;
+    
+    operator_map[operator_map_size].operator = ">";
+    operator_map[operator_map_size].function_name = "greater_than";
+    operator_map[operator_map_size].precedence = 3;
+    operator_map[operator_map_size].associativity = LEFT_ASSOC;
+    operator_map[operator_map_size].supports_types[TYPE_COMBINATION_NUMERIC] = 1;
+    operator_map[operator_map_size].supports_types[TYPE_COMBINATION_STRING] = 1;
+    operator_map[operator_map_size].supports_types[TYPE_COMBINATION_ARRAY] = 0;
+    operator_map[operator_map_size].supports_types[TYPE_COMBINATION_OBJECT] = 0;
+    operator_map_size++;
+    
+    operator_map[operator_map_size].operator = "<=";
+    operator_map[operator_map_size].function_name = "less_equal";
+    operator_map[operator_map_size].precedence = 3;
+    operator_map[operator_map_size].associativity = LEFT_ASSOC;
+    operator_map[operator_map_size].supports_types[TYPE_COMBINATION_NUMERIC] = 1;
+    operator_map[operator_map_size].supports_types[TYPE_COMBINATION_STRING] = 1;
+    operator_map[operator_map_size].supports_types[TYPE_COMBINATION_ARRAY] = 0;
+    operator_map[operator_map_size].supports_types[TYPE_COMBINATION_OBJECT] = 0;
+    operator_map_size++;
+    
+    operator_map[operator_map_size].operator = ">=";
+    operator_map[operator_map_size].function_name = "greater_equal";
+    operator_map[operator_map_size].precedence = 3;
+    operator_map[operator_map_size].associativity = LEFT_ASSOC;
+    operator_map[operator_map_size].supports_types[TYPE_COMBINATION_NUMERIC] = 1;
+    operator_map[operator_map_size].supports_types[TYPE_COMBINATION_STRING] = 1;
+    operator_map[operator_map_size].supports_types[TYPE_COMBINATION_ARRAY] = 0;
+    operator_map[operator_map_size].supports_types[TYPE_COMBINATION_OBJECT] = 0;
+    operator_map_size++;
+    
+    // Logical operators
+    operator_map[operator_map_size].operator = "and";
+    operator_map[operator_map_size].function_name = "logical_and";
+    operator_map[operator_map_size].precedence = 1;
+    operator_map[operator_map_size].associativity = LEFT_ASSOC;
+    operator_map[operator_map_size].supports_types[TYPE_COMBINATION_NUMERIC] = 1;
+    operator_map[operator_map_size].supports_types[TYPE_COMBINATION_STRING] = 0;
+    operator_map[operator_map_size].supports_types[TYPE_COMBINATION_ARRAY] = 0;
+    operator_map[operator_map_size].supports_types[TYPE_COMBINATION_OBJECT] = 0;
+    operator_map_size++;
+    
+    operator_map[operator_map_size].operator = "or";
+    operator_map[operator_map_size].function_name = "logical_or";
+    operator_map[operator_map_size].precedence = 1;
+    operator_map[operator_map_size].associativity = LEFT_ASSOC;
+    operator_map[operator_map_size].supports_types[TYPE_COMBINATION_NUMERIC] = 1;
+    operator_map[operator_map_size].supports_types[TYPE_COMBINATION_STRING] = 0;
+    operator_map[operator_map_size].supports_types[TYPE_COMBINATION_ARRAY] = 0;
+    operator_map[operator_map_size].supports_types[TYPE_COMBINATION_OBJECT] = 0;
+    operator_map_size++;
+    
+    // Special operators
+    operator_map[operator_map_size].operator = "in";
+    operator_map[operator_map_size].function_name = "contains";
+    operator_map[operator_map_size].precedence = 3;
+    operator_map[operator_map_size].associativity = LEFT_ASSOC;
+    operator_map[operator_map_size].supports_types[TYPE_COMBINATION_NUMERIC] = 0;
+    operator_map[operator_map_size].supports_types[TYPE_COMBINATION_STRING] = 1;
+    operator_map[operator_map_size].supports_types[TYPE_COMBINATION_ARRAY] = 1;
+    operator_map[operator_map_size].supports_types[TYPE_COMBINATION_OBJECT] = 1;
+    operator_map_size++;
+    
+    printf("Implicit function system initialized with %d operators\n", operator_map_size);
+}
+
+/**
+ * @brief Get the appropriate implicit function for an operator and type combination
+ * @param operator The operator symbol
+ * @param left_type The type of the left operand
+ * @param right_type The type of the right operand
+ * @return Function name to call, or NULL if no suitable function found
+ */
+char* get_implicit_function(const char* operator, int left_type, int right_type) {
+    if (!operator_map) return NULL;
+    
+    int type_combo = get_type_combination(left_type, right_type);
+    
+    for (int i = 0; i < operator_map_size; i++) {
+        if (strcmp(operator_map[i].operator, operator) == 0) {
+            if (operator_map[i].supports_types[type_combo]) {
+                return operator_map[i].function_name;
+            }
+        }
+    }
+    
+    return NULL;
+}
+
+/**
+ * @brief Determine the type combination for two operands
+ * @param left_type The type of the left operand
+ * @param right_type The type of the right operand
+ * @return Type combination constant
+ */
+int get_type_combination(int left_type, int right_type) {
+    // For now, we'll use a simple mapping
+    // In the future, this could be more sophisticated
+    if (left_type == 0 && right_type == 0) {  // VAR_TYPE_NUMBER = 0
+        return TYPE_COMBINATION_NUMERIC;
+    } else if (left_type == 1 && right_type == 1) {  // VAR_TYPE_STRING = 1
+        return TYPE_COMBINATION_STRING;
+    } else if (left_type == 2 && right_type == 2) {  // VAR_TYPE_ARRAY = 2
+        return TYPE_COMBINATION_ARRAY;
+    } else if (left_type == 3 && right_type == 3) {  // VAR_TYPE_OBJECT = 3
+        return TYPE_COMBINATION_OBJECT;
+    }
+    
+    // Default to numeric for mixed types (will be handled by type coercion)
+    return TYPE_COMBINATION_NUMERIC;
+}
+
+/**
+ * @brief Call an implicit function with the given arguments
+ * @param function_name The name of the function to call
+ * @param children The AST node containing the arguments
+ * @param child_count The number of arguments
+ * @return The result of the function call
+ */
+long long call_implicit_function(const char* function_name, ASTNode* children, int child_count) {
+    if (!function_name || !children || child_count < 2) return 0;
+    
+    // Evaluate the left and right operands
+    long long left_value = eval_expression(&children[0]);
+    long long right_value = eval_expression(&children[1]);
+    
+    // For now, we'll implement basic numeric operations
+    // In the future, this will call the actual built-in functions
+    
+    if (strcmp(function_name, "add") == 0) {
+        return left_value + right_value;
+    } else if (strcmp(function_name, "subtract") == 0) {
+        return left_value - right_value;
+    } else if (strcmp(function_name, "multiply") == 0) {
+        return left_value * right_value;
+    } else if (strcmp(function_name, "divide") == 0) {
+        if (right_value == 0) {
+            fprintf(stderr, "Error: Division by zero\n");
+            return 0;
+        }
+        return left_value / right_value;
+    } else if (strcmp(function_name, "modulo") == 0) {
+        if (right_value == 0) {
+            fprintf(stderr, "Error: Modulo by zero\n");
+            return 0;
+        }
+        return left_value % right_value;
+    } else if (strcmp(function_name, "equals") == 0) {
+        return left_value == right_value ? 1 : 0;
+    } else if (strcmp(function_name, "not_equals") == 0) {
+        return left_value != right_value ? 1 : 0;
+    } else if (strcmp(function_name, "less_than") == 0) {
+        return left_value < right_value ? 1 : 0;
+    } else if (strcmp(function_name, "greater_than") == 0) {
+        return left_value > right_value ? 1 : 0;
+    } else if (strcmp(function_name, "less_equal") == 0) {
+        return left_value <= right_value ? 1 : 0;
+    } else if (strcmp(function_name, "greater_equal") == 0) {
+        return left_value >= right_value ? 1 : 0;
+    } else if (strcmp(function_name, "logical_and") == 0) {
+        return (left_value != 0 && right_value != 0) ? 1 : 0;
+    } else if (strcmp(function_name, "logical_or") == 0) {
+        return (left_value != 0 || right_value != 0) ? 1 : 0;
+    }
+    
+    fprintf(stderr, "Error: Unknown implicit function '%s'\n", function_name);
+    return 0;
+}
+
+/**
+ * @brief Clean up the implicit function system
+ */
+void cleanup_implicit_functions(void) {
+    if (operator_map) {
+        tracked_free(operator_map, __FILE__, __LINE__, "cleanup_implicit_functions");
+        operator_map = NULL;
+    }
+    operator_map_size = 0;
+    operator_map_capacity = 0;
+}
+
+/*******************************************************************************
  * LOOP EXECUTION STATE MANAGEMENT
  ******************************************************************************/
 
@@ -141,8 +440,8 @@ static struct ASTNode* find_function_in_module(struct ASTNode* mod, const char* 
 static struct ASTNode* resolve_module(const char* alias);
 
 // Core evaluation functions
-long long eval_expression(struct ASTNode* ast);
-void eval_evaluate(struct ASTNode* ast);
+long long eval_expression(ASTNode* ast);
+void eval_evaluate(ASTNode* ast);
 
 // Function execution
 static long long eval_user_function_call(struct ASTNode* fn, struct ASTNode* args_node);
@@ -4700,14 +4999,48 @@ void eval_evaluate(ASTNode* ast) {
                 return; // Number parsed successfully
             }
 
-            // Check if it's an operator
+            // Check if it's an operator that should trigger implicit function calls
             if (strcmp(ast->text, "+") == 0 || strcmp(ast->text, "-") == 0 ||
                 strcmp(ast->text, "*") == 0 || strcmp(ast->text, "/") == 0 ||
                 strcmp(ast->text, "%") == 0 || strcmp(ast->text, "==") == 0 ||
                 strcmp(ast->text, "!=") == 0 || strcmp(ast->text, "<") == 0 ||
                 strcmp(ast->text, ">") == 0 || strcmp(ast->text, "<=") == 0 ||
                 strcmp(ast->text, ">=") == 0 || strcmp(ast->text, "and") == 0 ||
-                strcmp(ast->text, "or") == 0) {
+                strcmp(ast->text, "or") == 0 || strcmp(ast->text, "in") == 0) {
+                
+                // This is an operator - check if we should call an implicit function
+                if (ast->child_count >= 2) {
+                    // Determine types of left and right operands
+                    int left_type = VAR_TYPE_NUMBER;  // Default to number
+                    int right_type = VAR_TYPE_NUMBER;
+                    
+                    // Check if left operand is a variable
+                    if (ast->children[0].type == AST_EXPR && ast->children[0].text) {
+                        if (var_exists(ast->children[0].text)) {
+                            // Get variable type (simplified for now)
+                            left_type = VAR_TYPE_NUMBER;  // Default assumption
+                        }
+                    }
+                    
+                    // Check if right operand is a variable
+                    if (ast->children[1].type == AST_EXPR && ast->children[1].text) {
+                        if (var_exists(ast->children[1].text)) {
+                            // Get variable type (simplified for now)
+                            right_type = VAR_TYPE_NUMBER;  // Default assumption
+                        }
+                    }
+                    
+                    // Get the appropriate implicit function
+                    char* function_name = get_implicit_function(ast->text, left_type, right_type);
+                    if (function_name) {
+                        // Call the implicit function
+                        long long result = call_implicit_function(function_name, ast->children, ast->child_count);
+                        // Store result in a predictable location for assignment
+                        set_var_value("__implicit_result", result);
+                        return;
+                    }
+                }
+                
                 return; // Operator nodes should not be evaluated directly
             }
 
