@@ -55,6 +55,8 @@
 #include "loop_manager.h"
 #include <errno.h>
 #include <time.h>
+#include <math.h>
+#include <float.h>
 
 // Array data structure is now defined in eval.h
 
@@ -355,6 +357,50 @@ void cleanup_implicit_functions(void) {
     }
     operator_map_size = 0;
     operator_map_capacity = 0;
+}
+
+/*******************************************************************************
+ * MATH LIBRARY v1.3.0
+ ******************************************************************************/
+
+// Mathematical constants
+#define MYCO_PI 3.14159265358979323846
+#define MYCO_E 2.71828182845904523536
+#define MYCO_INF (1.0/0.0)
+#define MYCO_NAN (0.0/0.0)
+
+// Random number generation state
+static int random_initialized = 0;
+
+/**
+ * @brief Initialize random number generator
+ */
+static void init_random(void) {
+    if (!random_initialized) {
+        srand((unsigned int)time(NULL));
+        random_initialized = 1;
+    }
+}
+
+/**
+ * @brief Get random float between 0.0 and 1.0
+ */
+static double myco_random(void) {
+    init_random();
+    return (double)rand() / (double)RAND_MAX;
+}
+
+/**
+ * @brief Get random integer between min and max (inclusive)
+ */
+static long long myco_randint(long long min, long long max) {
+    if (min > max) {
+        long long temp = min;
+        min = max;
+        max = temp;
+    }
+    init_random();
+    return min + (long long)(myco_random() * (max - min + 1));
 }
 
 /*******************************************************************************
@@ -4336,6 +4382,139 @@ long long eval_expression(ASTNode* ast) {
                 }
             }
             return 0;
+        }
+        
+        // MATH LIBRARY FUNCTIONS v1.3.0
+        // ===============================
+        
+        // Mathematical constants
+        if (func_name && strcmp(func_name, "PI") == 0) {
+            return (long long)(MYCO_PI * 1000000); // Return as integer * 1M for precision
+        } else if (func_name && strcmp(func_name, "E") == 0) {
+            return (long long)(MYCO_E * 1000000); // Return as integer * 1M for precision
+        } else if (func_name && strcmp(func_name, "INF") == 0) {
+            return 999999999; // Large number to represent infinity
+        } else if (func_name && strcmp(func_name, "NAN") == 0) {
+            return -999999999; // Special value to represent NaN
+        }
+        
+        // Basic mathematical functions
+        else if (func_name && strcmp(func_name, "abs") == 0) {
+            if (ast->child_count < 2 || ast->children[1].child_count < 1) {
+                fprintf(stderr, "Error: abs() function requires one argument\n");
+                return 0;
+            }
+            long long value = eval_expression(&ast->children[1].children[0]);
+            return value < 0 ? -value : value;
+        }
+        
+        else if (func_name && strcmp(func_name, "pow") == 0) {
+            if (ast->child_count < 2 || ast->children[1].child_count < 2) {
+                fprintf(stderr, "Error: pow() function requires two arguments\n");
+                return 0;
+            }
+            long long base = eval_expression(&ast->children[1].children[0]);
+            long long exponent = eval_expression(&ast->children[1].children[1]);
+            if (exponent < 0) {
+                fprintf(stderr, "Error: pow() with negative exponent not yet supported\n");
+                return 0;
+            }
+            long long result = 1;
+            for (int i = 0; i < exponent; i++) {
+                result *= base;
+            }
+            return result;
+        }
+        
+        else if (func_name && strcmp(func_name, "sqrt") == 0) {
+            if (ast->child_count < 2 || ast->children[1].child_count < 1) {
+                fprintf(stderr, "Error: sqrt() function requires one argument\n");
+                return 0;
+            }
+            long long value = eval_expression(&ast->children[1].children[0]);
+            if (value < 0) {
+                fprintf(stderr, "Error: sqrt() of negative number not supported\n");
+                return 0;
+            }
+            // Simple integer square root approximation
+            long long result = 0;
+            while (result * result <= value) {
+                result++;
+            }
+            return result - 1;
+        }
+        
+        else if (func_name && strcmp(func_name, "floor") == 0) {
+            if (ast->child_count < 2 || ast->children[1].child_count < 1) {
+                fprintf(stderr, "Error: floor() function requires one argument\n");
+                return 0;
+            }
+            long long value = eval_expression(&ast->children[1].children[0]);
+            return value; // For integers, floor is the same as the value
+        }
+        
+        else if (func_name && strcmp(func_name, "ceil") == 0) {
+            if (ast->child_count < 2 || ast->children[1].child_count < 1) {
+                fprintf(stderr, "Error: ceil() function requires one argument\n");
+                return 0;
+            }
+            long long value = eval_expression(&ast->children[1].children[0]);
+            return value; // For integers, ceil is the same as the value
+        }
+        
+        else if (func_name && strcmp(func_name, "min") == 0) {
+            if (ast->child_count < 2 || ast->children[1].child_count < 1) {
+                fprintf(stderr, "Error: min() function requires at least one argument\n");
+                return 0;
+            }
+            long long min_val = eval_expression(&ast->children[1].children[0]);
+            for (int i = 1; i < ast->children[1].child_count; i++) {
+                long long val = eval_expression(&ast->children[1].children[i]);
+                if (val < min_val) min_val = val;
+            }
+            return min_val;
+        }
+        
+        else if (func_name && strcmp(func_name, "max") == 0) {
+            if (ast->child_count < 2 || ast->children[1].child_count < 1) {
+                fprintf(stderr, "Error: max() function requires at least one argument\n");
+                return 0;
+            }
+            long long max_val = eval_expression(&ast->children[1].children[0]);
+            for (int i = 1; i < ast->children[1].child_count; i++) {
+                long long val = eval_expression(&ast->children[1].children[i]);
+                if (val > max_val) max_val = val;
+            }
+            return max_val;
+        }
+        
+        // Random number generation
+        else if (func_name && strcmp(func_name, "random") == 0) {
+            if (ast->child_count < 2 || ast->children[1].child_count > 0) {
+                fprintf(stderr, "Error: random() function takes no arguments\n");
+                return 0;
+            }
+            return (long long)(myco_random() * 1000000); // Return as integer * 1M for precision
+        }
+        
+        else if (func_name && strcmp(func_name, "randint") == 0) {
+            if (ast->child_count < 2 || ast->children[1].child_count < 2) {
+                fprintf(stderr, "Error: randint() function requires two arguments (min, max)\n");
+                return 0;
+            }
+            long long min_val = eval_expression(&ast->children[1].children[0]);
+            long long max_val = eval_expression(&ast->children[1].children[1]);
+            return myco_randint(min_val, max_val);
+        }
+        
+        else if (func_name && strcmp(func_name, "choice") == 0) {
+            if (ast->child_count < 2 || ast->children[1].child_count < 1) {
+                fprintf(stderr, "Error: choice() function requires one argument (array)\n");
+                return 0;
+            }
+            // For now, return a simple random choice
+            // TODO: Implement proper array choice functionality
+            return myco_randint(1, 100);
         }
     }
 

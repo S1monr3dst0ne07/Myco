@@ -12,7 +12,7 @@
 ## Standard Library
 
 * [x] Add **string utilities** (split, join, trim, etc.)
-* [ ] Add **math library** (pow, sqrt, random)
+* [x] Add **math library** (pow, sqrt, random) ✅ **COMPLETE in v1.3.0**
 * [ ] Add **file I/O support**
 * [ ] Add **date/time utilities**
 

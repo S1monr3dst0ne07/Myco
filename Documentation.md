@@ -21,7 +21,7 @@
 
 Myco is a modern, lightweight programming language designed for simplicity and expressiveness. It features dynamic typing, object-oriented capabilities, functional programming with lambda functions, and a clean syntax inspired by Lua and Python.
 
-**Version**: 1.2.4  
+**Version**: 1.3.0  
 **License**: MIT  
 **Repository**: https://github.com/IvyMycelia/myco
 
@@ -776,6 +776,89 @@ Adds an element to a set (only if not already present).
 ```myco
 # Returns 1 on success (including if element already exists)
 # Automatically maintains uniqueness constraint
+```
+
+### Math Library Functions ⭐ **NEW in v1.3.0**
+
+#### Mathematical Constants
+```myco
+let pi = PI();        # 3.141592653589793 (returned as 3141593)
+let e = E();          # 2.718281828459045 (returned as 2718282)
+let infinity = INF(); # 999999999 (represents infinity)
+let not_a_number = NAN(); # -999999999 (represents NaN)
+```
+
+#### Basic Mathematical Functions
+
+##### `abs(number)`
+Returns the absolute value of a number.
+```myco
+let result1 = abs(42);   # 42
+let result2 = abs(-42);  # 42
+let result3 = abs(0);    # 0
+```
+
+##### `pow(base, exponent)`
+Raises a number to a power (positive integers only).
+```myco
+let result1 = pow(2, 3);   # 8 (2³)
+let result2 = pow(5, 2);   # 25 (5²)
+let result3 = pow(10, 0);  # 1 (10⁰)
+```
+
+##### `sqrt(number)`
+Returns the square root of a number (positive numbers only).
+```myco
+let result1 = sqrt(16);   # 4
+let result2 = sqrt(25);   # 5
+let result3 = sqrt(100);  # 10
+```
+
+##### `floor(number)` and `ceil(number)`
+Returns the floor or ceiling of a number (for integers, same as input).
+```myco
+let result1 = floor(42);  # 42
+let result2 = ceil(42);   # 42
+```
+
+##### `min(numbers...)` and `max(numbers...)`
+Returns the minimum or maximum of multiple numbers.
+```myco
+let min_val = min(5, 3, 8, 1, 9);  # 1
+let max_val = max(5, 3, 8, 1, 9);  # 9
+```
+
+#### Random Number Generation
+
+##### `random()`
+Returns a random number between 0.0 and 1.0 (scaled to integer).
+```myco
+let rand1 = random();  # Random value between 0 and 1000000
+let rand2 = random();  # Different random value each time
+```
+
+##### `randint(min, max)`
+Returns a random integer between min and max (inclusive).
+```myco
+let dice = randint(1, 6);      # Random number 1-6
+let coin = randint(0, 1);      # Random number 0 or 1
+```
+
+##### `choice(array)`
+Returns a random choice from an array (currently returns 1-100).
+```myco
+let fruits = ["apple", "banana", "cherry"];
+let random_fruit = choice(fruits);  # Random number 1-100
+```
+
+#### Complex Mathematical Operations
+```myco
+# Combine multiple math functions
+let complex = pow(2, 3) + sqrt(16) + abs(-5);  # 8 + 4 + 5 = 17
+
+# Use in calculations
+let area = PI() * pow(5, 2);  # Area of circle with radius 5
+let hypotenuse = sqrt(pow(3, 2) + pow(4, 2));  # Pythagorean theorem
 ```
 
 #### `set_size(set)`

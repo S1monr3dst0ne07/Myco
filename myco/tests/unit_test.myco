@@ -414,6 +414,130 @@ else:
     print("FAILED: True implicit function - recursive implicit types, got:", implicit_func_result5);
 end
 
+print("\nMATH LIBRARY TESTS v1.3.0");
+print("=============================");
+
+# Test mathematical constants
+let pi_test = PI();
+tests_total = tests_total + 1;
+if pi_test > 3141590 and pi_test < 3141600:
+    tests_passed = tests_passed + 1;
+    print("PASSED: PI constant (~3141593)");
+else:
+    print("FAILED: PI constant, got:", pi_test);
+end
+
+let e_test = E();
+tests_total = tests_total + 1;
+if e_test > 2718280 and e_test < 2718290:
+    tests_passed = tests_passed + 1;
+    print("PASSED: E constant (~2718282)");
+else:
+    print("FAILED: E constant, got:", e_test);
+end
+
+let inf_test = INF();
+tests_total = tests_total + 1;
+if inf_test == 999999999:
+    tests_passed = tests_passed + 1;
+    print("PASSED: INF constant (999999999)");
+else:
+    print("FAILED: INF constant, got:", inf_test);
+end
+
+let nan_test = NAN();
+tests_total = tests_total + 1;
+if nan_test == -999999999:
+    tests_passed = tests_passed + 1;
+    print("PASSED: NAN constant (-999999999)");
+else:
+    print("FAILED: NAN constant, got:", nan_test);
+end
+
+# Test basic mathematical functions
+let abs_test1 = abs(42);
+tests_total = tests_total + 1;
+if abs_test1 == 42:
+    tests_passed = tests_passed + 1;
+    print("PASSED: abs(42) = 42");
+else:
+    print("FAILED: abs(42), got:", abs_test1);
+end
+
+let abs_test2 = abs(-42);
+tests_total = tests_total + 1;
+if abs_test2 == 42:
+    tests_passed = tests_passed + 1;
+    print("PASSED: abs(-42) = 42");
+else:
+    print("FAILED: abs(-42), got:", abs_test2);
+end
+
+let pow_test = pow(2, 3);
+tests_total = tests_total + 1;
+if pow_test == 8:
+    tests_passed = tests_passed + 1;
+    print("PASSED: pow(2, 3) = 8");
+else:
+    print("FAILED: pow(2, 3), got:", pow_test);
+end
+
+let sqrt_test = sqrt(16);
+tests_total = tests_total + 1;
+if sqrt_test == 4:
+    tests_passed = tests_passed + 1;
+    print("PASSED: sqrt(16) = 4");
+else:
+    print("FAILED: sqrt(16), got:", sqrt_test);
+end
+
+let min_test = min(5, 3, 8, 1, 9);
+tests_total = tests_total + 1;
+if min_test == 1:
+    tests_passed = tests_passed + 1;
+    print("PASSED: min(5, 3, 8, 1, 9) = 1");
+else:
+    print("FAILED: min(5, 3, 8, 1, 9), got:", min_test);
+end
+
+let max_test = max(5, 3, 8, 1, 9);
+tests_total = tests_total + 1;
+if max_test == 9:
+    tests_passed = tests_passed + 1;
+    print("PASSED: max(5, 3, 8, 1, 9) = 9");
+else:
+    print("FAILED: max(5, 3, 8, 1, 9), got:", max_test);
+end
+
+# Test random number generation
+let random_test = random();
+tests_total = tests_total + 1;
+if random_test >= 0:
+    tests_passed = tests_passed + 1;
+    print("PASSED: random() returns positive value:", random_test);
+else:
+    print("FAILED: random() returned negative value:", random_test);
+end
+
+let randint_test = randint(1, 10);
+tests_total = tests_total + 1;
+if randint_test >= 1 and randint_test <= 10:
+    tests_passed = tests_passed + 1;
+    print("PASSED: randint(1, 10) returns value in range:", randint_test);
+else:
+    print("FAILED: randint(1, 10) returned value outside range:", randint_test);
+end
+
+# Test complex mathematical operations
+let complex_math = pow(2, 3) + sqrt(16) + abs(-5);
+tests_total = tests_total + 1;
+if complex_math == 17:
+    tests_passed = tests_passed + 1;
+    print("PASSED: Complex math (pow(2,3) + sqrt(16) + abs(-5)) = 17");
+else:
+    print("FAILED: Complex math, got:", complex_math);
+end
+
 print("\nFINAL RESULTS");
 print("=================");
 print("Tests Passed:", tests_passed);
