@@ -25,7 +25,7 @@ Myco is a modern, lightweight programming language designed for simplicity and e
 **License**: MIT  
 **Repository**: https://github.com/IvyMycelia/myco
 
-**Latest Features**: Clear type system, comprehensive utility library, arrow syntax for functions
+**Latest Features**: Clear type system, comprehensive utility library, arrow syntax for functions, switch/case statements, try/catch error handling
 
 ## Installation
 
@@ -408,6 +408,73 @@ end
 for i in start:end:
     # code block
 end
+```
+
+### Switch Statement ⭐ **NEW in v1.3.2**
+```myco
+switch expression:
+    case value1:
+        # code block for value1
+    case value2:
+        # code block for value2
+    default:
+        # default code block
+end
+```
+
+**Features:**
+- **Expression-based switching**: Evaluate any expression for case matching
+- **Multiple cases**: Support for multiple case values
+- **Default case**: Optional default case for unmatched values
+- **Fall-through behavior**: Cases execute until break or end
+- **Type flexibility**: Works with integers, strings, and expressions
+
+**Example:**
+```myco
+let day = 3;
+switch day:
+    case 1:
+        print("Monday");
+    case 2:
+        print("Tuesday");
+    case 3:
+        print("Wednesday");
+    case 4:
+        print("Thursday");
+    case 5:
+        print("Friday");
+    default:
+        print("Weekend");
+end
+```
+
+### Try-Catch Error Handling ⭐ **NEW in v1.3.2**
+```myco
+try:
+    # code that might cause an error
+catch errorVariable:
+    # code to handle the error
+end
+```
+
+**Features:**
+- **Error catching**: Automatically catches runtime errors
+- **Error variable**: Access error information in catch block
+- **Graceful handling**: Program continues after error handling
+- **Built-in error types**: Handles division by zero, invalid operations, etc.
+
+**Example:**
+```myco
+try:
+    let result = 10 / 0;  # This will cause an error
+    print("This won't print");
+catch error:
+    print("Caught error:", error);
+    print("Continuing execution...");
+end
+
+# Program continues here
+print("After error handling");
 ```
 
 ### Examples

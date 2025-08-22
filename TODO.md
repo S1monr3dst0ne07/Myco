@@ -7,6 +7,8 @@
 * [x] Add **object types / classes** support ✅ **COMPLETE**
 * [x] Add **modules / imports** system ✅ **COMPLETE**
 * [x] Improve **error handling** and stack traces ✅ **COMPLETE**
+* [x] Add **switch/case statements** ✅ **COMPLETE in v1.3.3**
+* [x] Add **try/catch error handling** ✅ **COMPLETE in v1.3.3**
 * [x] Add **implicit functions** ✅ **COMPLETE in v1.2.4**
 
 ## Standard Library

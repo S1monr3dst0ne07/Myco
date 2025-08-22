@@ -5,7 +5,7 @@
 
 Discord: https://discord.gg/CR8xcKb3zM
 
-**Current Version**: v1.3.2 - Utility Library & Clear Type System
+**Current Version**: v1.3.3 - Control Flow & Error Handling
 
 ---
 
@@ -21,12 +21,13 @@ Discord: https://discord.gg/CR8xcKb3zM
 - 🔮 **Dynamic typing** with `let`
 - 🍂 **Functions, control flow, and loops**
 - 🌲 **List and map support** ✅ **Complete**
-- 🧪 **Try-catch error handling**
+- 🧪 **Try-catch error handling** ✅ **v1.3.3**
 - 🧙 **Mystical and themed syntax highlighting** with the Myco VS Code Extension
 - 🧮 **Math library** with 15+ mathematical functions ✅ **v1.3.0**
 - ➡️ **Arrow syntax** for function return types ✅ **v1.3.1**
 - 🎯 **Utility library** with 20+ functions ✅ **v1.3.2**
 - 🔍 **Clear type system** (no more cryptic codes) ✅ **v1.3.2**
+- 🔀 **Switch/case statements** ✅ **v1.3.3**
 - 🎯 **Lambda functions** with functional programming support
 - 🔄 **Implicit functions** with optional type annotations
 
@@ -59,3 +60,24 @@ let has_name = has(user, "name"); # Returns 1 (true)
 for item in [1, 2, 3]:
     print("Found a mushroom with ID:", item);
 end
+
+# Switch statement example
+let day = 3;
+switch day:
+    case 1:
+        print("Monday");
+    case 2:
+        print("Tuesday");
+    case 3:
+        print("Wednesday");
+    default:
+        print("Weekend");
+end
+
+# Try-catch error handling
+try:
+    let result = 10 / 0;
+catch error:
+    print("Caught error:", error);
+end
+```

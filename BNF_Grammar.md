@@ -158,6 +158,30 @@
 <else_clause> ::= "else" ":" <block>
 ```
 
+### Switch Statements ⭐ **NEW in v1.3.2**
+```bnf
+<switch_statement> ::= "switch" <expression> ":" <switch_cases> "end"
+
+<switch_cases> ::= <case_statement>* <default_statement>?
+
+<case_statement> ::= "case" <expression> ":" <case_body>
+
+<case_body> ::= <statement>*
+
+<default_statement> ::= "default" ":" <default_body>
+
+<default_body> ::= <statement>*
+```
+
+### Try-Catch Statements ⭐ **NEW in v1.3.2**
+```bnf
+<try_catch_statement> ::= "try" ":" <try_body> "catch" <identifier> ":" <catch_body> "end"
+
+<try_body> ::= <statement>*
+
+<catch_body> ::= <statement>*
+```
+
 ### For Loops
 ```bnf
 <for_statement> ::= "for" <identifier> "in" <expression> ":" <block>
@@ -250,12 +274,14 @@
 ### ✅ **Implemented Features**
 - **Basic Syntax**: Variables, expressions, statements
 - **Functions**: Declaration, parameters, return types (optional)
-- **Control Flow**: If-else, loops (for, while)
+- **Control Flow**: If-else, loops (for, while), switch/case, try/catch
 - **Data Structures**: Arrays, objects with methods
 - **Math Library**: 15+ mathematical functions and constants
 - **Utility Library**: 20+ utility functions for debugging and data manipulation
 - **Type System**: Clear type names ("Integer", "String", "Array", "Object")
 - **Arrow Syntax**: Modern function return type annotations (`->`)
+- **Switch Statements**: Expression-based case matching with default support
+- **Error Handling**: Try-catch blocks with automatic error catching
 
 ### 🔄 **Implicit Functions (v1.2.4)**
 - Optional parameter type annotations
@@ -294,7 +320,7 @@
 - **Float Support**: Floating-point number literals and operations
 - **File I/O**: File reading/writing operations
 - **System Integration**: Environment variables, command execution
-- **Enhanced Error Handling**: Try-catch blocks, custom exceptions
+- **Enhanced Error Handling**: Custom exception types, advanced error handling
 
 ---
 
