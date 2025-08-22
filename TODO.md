@@ -7,7 +7,7 @@
 * [x] Add **object types / classes** support
 * [x] Add **modules / imports** system
 * [x] Improve **error handling** and stack traces
-* [ ] Add **implicit functions**
+* [x] Add **implicit functions** ✅ **COMPLETE in v1.2.4**
 
 ## Standard Library
 
