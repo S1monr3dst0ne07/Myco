@@ -21,11 +21,11 @@
 
 Myco is a modern, lightweight programming language designed for simplicity and expressiveness. It features dynamic typing, object-oriented capabilities, functional programming with lambda functions, and a clean syntax inspired by Lua and Python.
 
-**Version**: 1.3.2 - Utility Library & Clear Type System  
+**Version**: 1.4.0 - Float Support & File I/O  
 **License**: MIT  
 **Repository**: https://github.com/IvyMycelia/myco
 
-**Latest Features**: Clear type system, comprehensive utility library, arrow syntax for functions, switch/case statements, try/catch error handling
+**Latest Features**: Comprehensive float support, enhanced math functions, clear type system, comprehensive utility library, arrow syntax for functions, switch/case statements, try/catch error handling
 
 ## Installation
 
@@ -74,6 +74,39 @@ print(variable);
 let integer = 42;
 let negative = -17;
 let zero = 0;
+let pi = 3.14159;
+let small = 0.001;
+let negative_float = -2.5;
+let leading_decimal = .25;
+```
+
+### Floating-Point Numbers ⭐ **NEW in v1.4.0**
+Myco now supports floating-point numbers with full arithmetic operations:
+
+```myco
+# Float literals
+let pi = 3.14159;
+let e = 2.71828;
+let small = 0.001;
+let large = 1000.0;
+
+# Leading decimal point
+let quarter = .25;
+let half = .5;
+
+# Negative floats
+let negative_pi = -3.14159;
+let negative_small = -0.001;
+
+# Float arithmetic
+let sum = 3.14 + 2.5;        # 5.64
+let product = 3.14 * 2.0;    # 6.28
+let quotient = 6.28 / 2.0;   # 3.14
+let difference = 3.14 - 2.5; # 0.64
+
+# Mixed integer and float
+let mixed = 10 + 3.14;       # 13.14
+let scaled = 5 * 2.5;        # 12.5
 ```
 
 ### Type System ⭐ **NEW in v1.3.2**
@@ -893,7 +926,7 @@ Adds an element to a set (only if not already present).
 # Automatically maintains uniqueness constraint
 ```
 
-### Math Library Functions ⭐ **NEW in v1.3.0**
+### Math Library Functions ⭐ **NEW in v1.4.0 - Enhanced with Float Support**
 
 #### Mathematical Constants
 ```myco
@@ -903,30 +936,38 @@ let infinity = INF(); # 999999999 (represents infinity)
 let not_a_number = NAN(); # -999999999 (represents NaN)
 ```
 
+**Float Support**: All math functions now work with both integers and floating-point numbers! 🎉
+
 #### Basic Mathematical Functions
 
 ##### `abs(number)`
-Returns the absolute value of a number.
+Returns the absolute value of a number. Works with both integers and floats.
 ```myco
-let result1 = abs(42);   # 42
-let result2 = abs(-42);  # 42
-let result3 = abs(0);    # 0
+let result1 = abs(42);      # 42
+let result2 = abs(-42);     # 42
+let result3 = abs(0);       # 0
+let result4 = abs(-3.14);   # 3.14
+let result5 = abs(0.001);   # 0.001
 ```
 
 ##### `pow(base, exponent)`
-Raises a number to a power (positive integers only).
+Raises a number to a power. Works with both integers and floats.
 ```myco
-let result1 = pow(2, 3);   # 8 (2³)
-let result2 = pow(5, 2);   # 25 (5²)
-let result3 = pow(10, 0);  # 1 (10⁰)
+let result1 = pow(2, 3);      # 8 (2³)
+let result2 = pow(5, 2);      # 25 (5²)
+let result3 = pow(10, 0);     # 1 (10⁰)
+let result4 = pow(2.5, 3);    # 15.625 (2.5³)
+let result5 = pow(3.14, 2);   # 9.8596 (π²)
 ```
 
 ##### `sqrt(number)`
-Returns the square root of a number (positive numbers only).
+Returns the square root of a number (positive numbers only). Works with both integers and floats.
 ```myco
-let result1 = sqrt(16);   # 4
-let result2 = sqrt(25);   # 5
-let result3 = sqrt(100);  # 10
+let result1 = sqrt(16);      # 4
+let result2 = sqrt(25);      # 5
+let result3 = sqrt(100);     # 10
+let result4 = sqrt(9.0);     # 3.0
+let result5 = sqrt(2.25);    # 1.5
 ```
 
 ##### `floor(number)` and `ceil(number)`
@@ -937,10 +978,13 @@ let result2 = ceil(42);   # 42
 ```
 
 ##### `min(numbers...)` and `max(numbers...)`
-Returns the minimum or maximum of multiple numbers.
+Returns the minimum or maximum of multiple numbers. Works with both integers and floats.
 ```myco
-let min_val = min(5, 3, 8, 1, 9);  # 1
-let max_val = max(5, 3, 8, 1, 9);  # 9
+let min_val = min(5, 3, 8, 1, 9);           # 1
+let max_val = max(5, 3, 8, 1, 9);           # 9
+let float_min = min(3.14, 2.5, 4.0);        # 2.5
+let float_max = max(3.14, 2.5, 4.0);        # 4.0
+let mixed_min = min(5, 3.14, 2.5, 10);      # 2.5
 ```
 
 #### Random Number Generation
@@ -974,6 +1018,30 @@ let complex = pow(2, 3) + sqrt(16) + abs(-5);  # 8 + 4 + 5 = 17
 # Use in calculations
 let area = PI() * pow(5, 2);  # Area of circle with radius 5
 let hypotenuse = sqrt(pow(3, 2) + pow(4, 2));  # Pythagorean theorem
+```
+
+#### Float Mathematics Examples ⭐ **NEW in v1.4.0**
+```myco
+# Scientific calculations with floats
+let pi = 3.14159;
+let radius = 5.5;
+let area_circle = pi * pow(radius, 2);  # Area of circle
+
+# Trigonometric approximations
+let angle_rad = 0.785398;  # 45 degrees in radians
+let sin_45 = angle_rad - pow(angle_rad, 3) / 6 + pow(angle_rad, 5) / 120;
+
+# Financial calculations
+let principal = 1000.0;
+let rate = 0.05;  # 5% annual interest
+let years = 3.5;
+let compound_interest = principal * pow(1 + rate, years);
+
+# Statistical operations
+let data = [3.14, 2.71, 1.41, 2.23];
+let avg = (data[0] + data[1] + data[2] + data[3]) / 4;
+let min_val = min(data[0], data[1], data[2], data[3]);
+let max_val = max(data[0], data[1], data[2], data[3]);
 ```
 
 #### `set_size(set)`

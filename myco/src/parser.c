@@ -122,6 +122,7 @@ static ASTNode* parse_primary(Token* tokens, int* current) {
 
     switch (tokens[*current].type) {
         case TOKEN_NUMBER:
+        case TOKEN_FLOAT:
             node->type = AST_EXPR;
             node->text = tracked_strdup(tokens[*current].text, __FILE__, __LINE__, "parser");
             node->children = NULL;
@@ -340,9 +341,9 @@ static ASTNode* parse_primary(Token* tokens, int* current) {
             if (strcmp(tokens[*current].text, "-") == 0) {
                 (*current)++; // Skip '-'
                 
-                // Parse the number after the minus
-                if (tokens[*current].type != TOKEN_NUMBER) {
-                    fprintf(stderr, "Error: Expected number after '-' at line %d\n", tokens[*current].line);
+                // Parse the number or float after the minus
+                if (tokens[*current].type != TOKEN_NUMBER && tokens[*current].type != TOKEN_FLOAT) {
+                    fprintf(stderr, "Error: Expected number or float after '-' at line %d\n", tokens[*current].line);
                     tracked_free(node, __FILE__, __LINE__, "parse_primary_unary_minus");
                     return NULL;
                 }

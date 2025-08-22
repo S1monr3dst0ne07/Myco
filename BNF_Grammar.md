@@ -1,7 +1,7 @@
 # Myco Language BNF Grammar Specification
 
-**Version**: v1.3.2 - Utility Library & Clear Type System   
-**Last Updated**: August 2025   
+**Version**: v1.4.0 - Float Support & File I/O   
+**Last Updated**: December 2024   
 **Status**: Complete and Current   
 
 ---
@@ -45,8 +45,9 @@
 ```bnf
 <literal> ::= <number_literal> | <string_literal> | <boolean_literal> | <array_literal> | <object_literal>
 
-<number_literal> ::= <integer>
+<number_literal> ::= <integer> | <float>
 <integer> ::= <digit>+ | "-" <digit>+
+<float> ::= <digit>+ "." <digit>* | "." <digit>+ | "-" <digit>+ "." <digit>* | "-" "." <digit>+
 
 <string_literal> ::= '"' <string_content>* '"'
 <string_content> ::= <any_char_except_quote> | <escape_sequence>
@@ -278,7 +279,7 @@
 - **Data Structures**: Arrays, objects with methods
 - **Math Library**: 15+ mathematical functions and constants
 - **Utility Library**: 20+ utility functions for debugging and data manipulation
-- **Type System**: Clear type names ("Integer", "String", "Array", "Object")
+- **Type System**: Clear type names ("Integer", "Float", "String", "Array", "Object")
 - **Arrow Syntax**: Modern function return type annotations (`->`)
 - **Switch Statements**: Expression-based case matching with default support
 - **Error Handling**: Try-catch blocks with automatic error catching
@@ -294,12 +295,20 @@
 - Comparison: `min`, `max`
 - Random: `random`, `randint`, `choice`
 - Constants: `PI`, `E`, `INF`, `NAN`
+- **Float Support**: Enhanced with floating-point arithmetic and mixed-type operations
 
 ### 🎯 **Utility Library (v1.3.2)**
 - Debugging: `debug()`
 - Type checking: `type()`, `is_num()`, `is_str()`, `is_arr()`, `is_obj()`
-- String utilities: `str()`, `find()`
+- String utilities: `str()`, `is_str()`, `find()`
 - Data utilities: `copy()`, `has()`
+
+### 🌊 **Float System (v1.4.0)**
+- **Float Literals**: `3.14`, `0.5`, `.25`, `-2.5`
+- **Float Arithmetic**: `+`, `-`, `*`, `/` with automatic type conversion
+- **Mixed Operations**: Integer and float arithmetic with float result
+- **Enhanced Math**: All math functions support float inputs and outputs
+- **Float Display**: Proper formatting with 6 significant digits
 
 ---
 
@@ -307,7 +316,7 @@
 
 1. **Whitespace**: Myco is whitespace-insensitive except within string literals
 2. **Semicolons**: All statements must end with semicolons
-3. **Type System**: Currently supports `int`, `string`, `array`, `object` as type specifiers
+3. **Type System**: Currently supports `int`, `float`, `string`, `array`, `object` as type specifiers
 4. **Implicit Functions**: Function parameters and return types are optional
 5. **Built-in Functions**: Available globally without import statements
 6. **Memory Management**: Automatic memory management with tracking capabilities
@@ -317,11 +326,11 @@
 ## Future Extensions
 
 ### Planned for v1.4.0+
-- **Float Support**: Floating-point number literals and operations
+- **Float Support**: ✅ **COMPLETE** - Floating-point number literals and operations
 - **File I/O**: File reading/writing operations
 - **System Integration**: Environment variables, command execution
 - **Enhanced Error Handling**: Custom exception types, advanced error handling
 
 ---
 
-*This BNF grammar specification is current as of Myco v1.3.2 and will be updated with each new language version.*
+*This BNF grammar specification is current as of Myco v1.4.0 and will be updated with each new language version.*

@@ -620,6 +620,7 @@ typedef struct {
     char* name;
     enum {
         VAR_TYPE_NUMBER,
+        VAR_TYPE_FLOAT,
         VAR_TYPE_STRING,
         VAR_TYPE_ARRAY,
         VAR_TYPE_OBJECT,
@@ -627,6 +628,7 @@ typedef struct {
         VAR_TYPE_LAMBDA
     } type;
     long long number_value;
+    double float_value;
     char* string_value;
     MycoArray* array_value;
     MycoObject* object_value;
@@ -649,6 +651,9 @@ static int str_env_capacity = 0;
 
 // Global variable to store the last string concatenation result
 static char* last_concat_result = NULL;
+
+// Global variable to track if the last expression result was a float
+static int last_result_is_float = 0;
 
 // Global object reference for chained property access
 static MycoObject* __chained_object_ref = NULL;
@@ -986,6 +991,9 @@ static long long get_var_value(const char* name) {
         if (var_env[i].name && strcmp(var_env[i].name, name) == 0) {
             if (var_env[i].type == VAR_TYPE_NUMBER) {
                 return var_env[i].number_value;
+            } else if (var_env[i].type == VAR_TYPE_FLOAT) {
+                // Return scaled float for compatibility with integer system
+                return (long long)(var_env[i].float_value * 1000000);
             } else if (var_env[i].type == VAR_TYPE_ARRAY) {
                 // Return special value to indicate this is an array variable
                 return -2; // Special value to indicate array variable
@@ -998,6 +1006,71 @@ static long long get_var_value(const char* name) {
         }
     }
     return 0;
+}
+
+// Helper function to get a float variable's value from the environment
+static double get_float_value(const char* name) {
+    // Search from the end (most recent variables first) to prioritize function parameters
+    for (int i = var_env_size - 1; i >= 0; i--) {
+        if (var_env[i].name && strcmp(var_env[i].name, name) == 0) {
+            if (var_env[i].type == VAR_TYPE_FLOAT) {
+                return var_env[i].float_value;
+            } else if (var_env[i].type == VAR_TYPE_NUMBER) {
+                return (double)var_env[i].number_value;
+            }
+            return 0.0;
+        }
+    }
+    return 0.0;
+}
+
+// Helper function to set a float variable's value in the environment
+void set_float_value(const char* name, double value) {
+    // Check if variable already exists
+    for (int i = var_env_size - 1; i >= 0; i--) {
+        if (strcmp(var_env[i].name, name) == 0) {
+            // Update existing variable
+            if (var_env[i].type == VAR_TYPE_ARRAY && var_env[i].array_value) {
+                destroy_array(var_env[i].array_value);
+                var_env[i].array_value = NULL;
+            }
+            if (var_env[i].type == VAR_TYPE_OBJECT && var_env[i].object_value) {
+                destroy_object(var_env[i].object_value);
+                var_env[i].object_value = NULL;
+            }
+            var_env[i].type = VAR_TYPE_FLOAT;
+            var_env[i].float_value = value;
+            var_env[i].number_value = 0;
+            var_env[i].string_value = NULL;
+            var_env[i].array_value = NULL;
+            var_env[i].object_value = NULL;
+            return;
+        }
+    }
+    
+    // Expand capacity if needed
+    if (var_env_size >= var_env_capacity) {
+        int new_capacity = var_env_capacity ? var_env_capacity * 2 : 8;
+        VarEntry* new_env = (VarEntry*)realloc(var_env, new_capacity * sizeof(VarEntry));
+        if (!new_env) {
+            // Handle realloc failure
+            return;
+        }
+        var_env = new_env;
+        var_env_capacity = new_capacity;
+    }
+    
+    // Add new variable
+    var_env[var_env_size].name = tracked_strdup(name, __FILE__, __LINE__, "eval");
+    if (var_env[var_env_size].name) {
+        var_env[var_env_size].type = VAR_TYPE_FLOAT;
+        var_env[var_env_size].float_value = value;
+        var_env[var_env_size].number_value = 0;
+        var_env[var_env_size].string_value = NULL;
+        var_env[var_env_size].array_value = NULL;
+        var_env[var_env_size].object_value = NULL;
+        var_env_size++;
+    }
 }
 
 // Helper function to set a variable's value in the environment
@@ -2308,12 +2381,23 @@ long long eval_expression(ASTNode* ast) {
         return 1; // Return 1 to indicate this is a string
     }
 
-    // Handle numeric literals
+    // Handle numeric literals (integers and floats)
     if (ast->text && ast->child_count == 0) {
         char* endptr;
+        
+                // Check if this is a float (contains decimal point)
+        if (strchr(ast->text, '.') != NULL) {
+            double float_val = strtod(ast->text, &endptr);
+            if (*endptr == '\0') {
+                // Return scaled float for compatibility with integer return system
+                return (long long)(float_val * 1000000);
+            }
+        } else {
+            // Handle integer
         long long num = strtoll(ast->text, &endptr, 10);
         if (*endptr == '\0') {
             return num; // Return the numeric value
+            }
         }
     }
 
@@ -2435,14 +2519,212 @@ long long eval_expression(ASTNode* ast) {
                         result = left + right;
                     }
                 } else {
-                    // Regular numeric addition
-                    result = left + right;
+                    // Check if either operand is a float for addition
+                    int left_is_float = 0, right_is_float = 0;
+                    double left_float = 0.0, right_float = 0.0;
+                    
+                    // Check left operand
+                    if (ast->children[0].text && strchr(ast->children[0].text, '.') != NULL) {
+                        left_is_float = 1;
+                        left_float = strtod(ast->children[0].text, NULL);
+                    } else if (ast->children[0].text) {
+                        // Check if it's a float variable
+                        for (int i = var_env_size - 1; i >= 0; i--) {
+                            if (var_env[i].name && strcmp(var_env[i].name, ast->children[0].text) == 0 && var_env[i].type == VAR_TYPE_FLOAT) {
+                                left_is_float = 1;
+                                left_float = var_env[i].float_value;
+                                break;
+                            }
+                        }
+                        if (!left_is_float) left_float = (double)left;
+                    } else {
+                        left_float = (double)left;
+                    }
+                    
+                    // Check right operand
+                    if (ast->children[1].text && strchr(ast->children[1].text, '.') != NULL) {
+                        right_is_float = 1;
+                        right_float = strtod(ast->children[1].text, NULL);
+                    } else if (ast->children[1].text) {
+                        // Check if it's a float variable
+                        for (int i = var_env_size - 1; i >= 0; i--) {
+                            if (var_env[i].name && strcmp(var_env[i].name, ast->children[1].text) == 0 && var_env[i].type == VAR_TYPE_FLOAT) {
+                                right_is_float = 1;
+                                right_float = var_env[i].float_value;
+                                break;
+                            }
+                        }
+                        if (!right_is_float) right_float = (double)right;
+                    } else {
+                        right_float = (double)right;
+                    }
+                    
+                    if (left_is_float || right_is_float) {
+                        // Float arithmetic
+                        double float_result = left_float + right_float;
+                        result = (long long)(float_result * 1000000);
+                        last_result_is_float = 1;
+                    } else {
+                        // Regular numeric addition
+                        result = left + right;
+                        last_result_is_float = 0;
+                    }
                 }
-            } else if (strcmp(ast->text, "-") == 0) result = left - right;
-            else if (strcmp(ast->text, "*") == 0) result = left * right;
+            } else if (strcmp(ast->text, "-") == 0) {
+                // Check if either operand is a float
+                int left_is_float = 0, right_is_float = 0;
+                double left_float = 0.0, right_float = 0.0;
+                
+                // Check left operand
+                if (ast->children[0].text && strchr(ast->children[0].text, '.') != NULL) {
+                    left_is_float = 1;
+                    left_float = strtod(ast->children[0].text, NULL);
+                } else if (ast->children[0].text) {
+                    // Check if it's a float variable
+                    for (int i = var_env_size - 1; i >= 0; i--) {
+                        if (var_env[i].name && strcmp(var_env[i].name, ast->children[0].text) == 0 && var_env[i].type == VAR_TYPE_FLOAT) {
+                            left_is_float = 1;
+                            left_float = var_env[i].float_value;
+                            break;
+                        }
+                    }
+                    if (!left_is_float) left_float = (double)left;
+                } else {
+                    left_float = (double)left;
+                }
+                
+                // Check right operand
+                if (ast->children[1].text && strchr(ast->children[1].text, '.') != NULL) {
+                    right_is_float = 1;
+                    right_float = strtod(ast->children[1].text, NULL);
+                } else if (ast->children[1].text) {
+                    // Check if it's a float variable
+                    for (int i = var_env_size - 1; i >= 0; i--) {
+                        if (var_env[i].name && strcmp(var_env[i].name, ast->children[1].text) == 0 && var_env[i].type == VAR_TYPE_FLOAT) {
+                            right_is_float = 1;
+                            right_float = var_env[i].float_value;
+                            break;
+                        }
+                    }
+                    if (!right_is_float) right_float = (double)right;
+                } else {
+                    right_float = (double)right;
+                }
+                
+                if (left_is_float || right_is_float) {
+                    // Float arithmetic
+                    double float_result = left_float - right_float;
+                    result = (long long)(float_result * 1000000);
+                    last_result_is_float = 1;
+                } else {
+                    // Integer arithmetic
+                    result = left - right;
+                    last_result_is_float = 0;
+                }
+            }
+            else if (strcmp(ast->text, "*") == 0) {
+                // Check if either operand is a float (same logic as subtraction)
+                int left_is_float = 0, right_is_float = 0;
+                double left_float = 0.0, right_float = 0.0;
+                
+                // Check left operand
+                if (ast->children[0].text && strchr(ast->children[0].text, '.') != NULL) {
+                    left_is_float = 1;
+                    left_float = strtod(ast->children[0].text, NULL);
+                } else if (ast->children[0].text) {
+                    for (int i = var_env_size - 1; i >= 0; i--) {
+                        if (var_env[i].name && strcmp(var_env[i].name, ast->children[0].text) == 0 && var_env[i].type == VAR_TYPE_FLOAT) {
+                            left_is_float = 1;
+                            left_float = var_env[i].float_value;
+                            break;
+                        }
+                    }
+                    if (!left_is_float) left_float = (double)left;
+                } else {
+                    left_float = (double)left;
+                }
+                
+                // Check right operand
+                if (ast->children[1].text && strchr(ast->children[1].text, '.') != NULL) {
+                    right_is_float = 1;
+                    right_float = strtod(ast->children[1].text, NULL);
+                } else if (ast->children[1].text) {
+                    for (int i = var_env_size - 1; i >= 0; i--) {
+                        if (var_env[i].name && strcmp(var_env[i].name, ast->children[1].text) == 0 && var_env[i].type == VAR_TYPE_FLOAT) {
+                            right_is_float = 1;
+                            right_float = var_env[i].float_value;
+                            break;
+                        }
+                    }
+                    if (!right_is_float) right_float = (double)right;
+                } else {
+                    right_float = (double)right;
+                }
+                
+                if (left_is_float || right_is_float) {
+                    // Float arithmetic
+                    double float_result = left_float * right_float;
+                    result = (long long)(float_result * 1000000);
+                    last_result_is_float = 1;
+                } else {
+                    // Integer arithmetic
+                    result = left * right;
+                    last_result_is_float = 0;
+                }
+            }
             else if (strcmp(ast->text, "/") == 0) {
                 if (right == 0) { set_error(ERROR_DIVISION_BY_ZERO); return 0; }
-                result = left / right;
+                
+                // Check if either operand is a float (same logic as above)
+                int left_is_float = 0, right_is_float = 0;
+                double left_float = 0.0, right_float = 0.0;
+                
+                // Check left operand
+                if (ast->children[0].text && strchr(ast->children[0].text, '.') != NULL) {
+                    left_is_float = 1;
+                    left_float = strtod(ast->children[0].text, NULL);
+                } else if (ast->children[0].text) {
+                    for (int i = var_env_size - 1; i >= 0; i--) {
+                        if (var_env[i].name && strcmp(var_env[i].name, ast->children[0].text) == 0 && var_env[i].type == VAR_TYPE_FLOAT) {
+                            left_is_float = 1;
+                            left_float = var_env[i].float_value;
+                            break;
+                        }
+                    }
+                    if (!left_is_float) left_float = (double)left;
+                } else {
+                    left_float = (double)left;
+                }
+                
+                // Check right operand
+                if (ast->children[1].text && strchr(ast->children[1].text, '.') != NULL) {
+                    right_is_float = 1;
+                    right_float = strtod(ast->children[1].text, NULL);
+                } else if (ast->children[1].text) {
+                    for (int i = var_env_size - 1; i >= 0; i--) {
+                        if (var_env[i].name && strcmp(var_env[i].name, ast->children[1].text) == 0 && var_env[i].type == VAR_TYPE_FLOAT) {
+                            right_is_float = 1;
+                            right_float = var_env[i].float_value;
+                            break;
+                        }
+                    }
+                    if (!right_is_float) right_float = (double)right;
+                } else {
+                    right_float = (double)right;
+                }
+                
+                if (right_float == 0.0) { set_error(ERROR_DIVISION_BY_ZERO); return 0; }
+                
+                if (left_is_float || right_is_float) {
+                    // Float arithmetic
+                    double float_result = left_float / right_float;
+                    result = (long long)(float_result * 1000000);
+                    last_result_is_float = 1;
+                } else {
+                    // Integer arithmetic
+                    result = left / right;
+                    last_result_is_float = 0;
+                }
             }
             else if (strcmp(ast->text, "%") == 0) {
                 if (right == 0) { set_error(ERROR_MODULO_BY_ZERO); return 0; }
@@ -4404,7 +4686,29 @@ long long eval_expression(ASTNode* ast) {
                 fprintf(stderr, "Error: abs() function requires one argument\n");
                 return 0;
             }
-            long long value = eval_expression(&ast->children[1].children[0]);
+            
+            // Check if the argument is a float literal
+            ASTNode* arg = &ast->children[1].children[0];
+            if (arg->text && strchr(arg->text, '.') != NULL) {
+                // Float literal
+                double float_val = strtod(arg->text, NULL);
+                double result = fabs(float_val);
+                last_result_is_float = 1;
+                return (long long)(result * 1000000);
+            } else if (arg->text) {
+                // Check if it's a float variable
+                for (int i = var_env_size - 1; i >= 0; i--) {
+                    if (var_env[i].name && strcmp(var_env[i].name, arg->text) == 0 && var_env[i].type == VAR_TYPE_FLOAT) {
+                        double result = fabs(var_env[i].float_value);
+                        last_result_is_float = 1;
+                        return (long long)(result * 1000000);
+                    }
+                }
+            }
+            
+            // Handle as integer
+            long long value = eval_expression(arg);
+            last_result_is_float = 0;
             return value < 0 ? -value : value;
         }
         
@@ -4413,17 +4717,76 @@ long long eval_expression(ASTNode* ast) {
                 fprintf(stderr, "Error: pow() function requires two arguments\n");
                 return 0;
             }
-            long long base = eval_expression(&ast->children[1].children[0]);
-            long long exponent = eval_expression(&ast->children[1].children[1]);
-            if (exponent < 0) {
-                fprintf(stderr, "Error: pow() with negative exponent not yet supported\n");
-                return 0;
+            
+            // Check if either argument is a float
+            ASTNode* base_arg = &ast->children[1].children[0];
+            ASTNode* exp_arg = &ast->children[1].children[1];
+            
+            double base_val = 0.0, exp_val = 0.0;
+            int base_is_float = 0, exp_is_float = 0;
+            
+            // Check base argument
+            if (base_arg->text && strchr(base_arg->text, '.') != NULL) {
+                base_is_float = 1;
+                base_val = strtod(base_arg->text, NULL);
+            } else if (base_arg->text) {
+                for (int i = var_env_size - 1; i >= 0; i--) {
+                    if (var_env[i].name && strcmp(var_env[i].name, base_arg->text) == 0 && var_env[i].type == VAR_TYPE_FLOAT) {
+                        base_is_float = 1;
+                        base_val = var_env[i].float_value;
+                        break;
+                    }
+                }
+                if (!base_is_float) {
+                    long long base_int = eval_expression(base_arg);
+                    base_val = (double)base_int;
+                }
+            } else {
+                long long base_int = eval_expression(base_arg);
+                base_val = (double)base_int;
             }
-            long long result = 1;
-            for (int i = 0; i < exponent; i++) {
-                result *= base;
+            
+            // Check exponent argument
+            if (exp_arg->text && strchr(exp_arg->text, '.') != NULL) {
+                exp_is_float = 1;
+                exp_val = strtod(exp_arg->text, NULL);
+            } else if (exp_arg->text) {
+                for (int i = var_env_size - 1; i >= 0; i--) {
+                    if (var_env[i].name && strcmp(var_env[i].name, exp_arg->text) == 0 && var_env[i].type == VAR_TYPE_FLOAT) {
+                        exp_is_float = 1;
+                        exp_val = var_env[i].float_value;
+                        break;
+                    }
+                }
+                if (!exp_is_float) {
+                    long long exp_int = eval_expression(exp_arg);
+                    exp_val = (double)exp_int;
+                }
+            } else {
+                long long exp_int = eval_expression(exp_arg);
+                exp_val = (double)exp_int;
             }
+            
+            if (base_is_float || exp_is_float) {
+                // Use floating-point pow function
+                double result = pow(base_val, exp_val);
+                last_result_is_float = 1;
+                return (long long)(result * 1000000);
+            } else {
+                // Integer-only operation (original logic)
+                long long base = (long long)base_val;
+                long long exponent = (long long)exp_val;
+                if (exponent < 0) {
+                    fprintf(stderr, "Error: pow() with negative exponent not yet supported for integers\n");
+                    return 0;
+                }
+                long long result = 1;
+                for (int i = 0; i < exponent; i++) {
+                    result *= base;
+                }
+                last_result_is_float = 0;
                 return result;
+            }
         }
         
         else if (func_name && strcmp(func_name, "sqrt") == 0) {
@@ -4431,7 +4794,36 @@ long long eval_expression(ASTNode* ast) {
                 fprintf(stderr, "Error: sqrt() function requires one argument\n");
                 return 0;
             }
-            long long value = eval_expression(&ast->children[1].children[0]);
+            
+            // Check if the argument is a float literal or variable
+            ASTNode* arg = &ast->children[1].children[0];
+            if (arg->text && strchr(arg->text, '.') != NULL) {
+                // Float literal
+                double float_val = strtod(arg->text, NULL);
+                if (float_val < 0) {
+                    fprintf(stderr, "Error: sqrt() of negative number not supported\n");
+                    return 0;
+                }
+                double result = sqrt(float_val);
+                last_result_is_float = 1;
+                return (long long)(result * 1000000);
+            } else if (arg->text) {
+                // Check if it's a float variable
+                for (int i = var_env_size - 1; i >= 0; i--) {
+                    if (var_env[i].name && strcmp(var_env[i].name, arg->text) == 0 && var_env[i].type == VAR_TYPE_FLOAT) {
+                        if (var_env[i].float_value < 0) {
+                            fprintf(stderr, "Error: sqrt() of negative number not supported\n");
+                            return 0;
+                        }
+                        double result = sqrt(var_env[i].float_value);
+                        last_result_is_float = 1;
+                        return (long long)(result * 1000000);
+                    }
+                }
+            }
+            
+            // Handle as integer
+            long long value = eval_expression(arg);
             if (value < 0) {
                 fprintf(stderr, "Error: sqrt() of negative number not supported\n");
                 return 0;
@@ -4441,6 +4833,7 @@ long long eval_expression(ASTNode* ast) {
             while (result * result <= value) {
                 result++;
             }
+            last_result_is_float = 0;
             return result - 1;
         }
         
@@ -4467,12 +4860,68 @@ long long eval_expression(ASTNode* ast) {
                 fprintf(stderr, "Error: min() function requires at least one argument\n");
                 return 0;
             }
-            long long min_val = eval_expression(&ast->children[1].children[0]);
-            for (int i = 1; i < ast->children[1].child_count; i++) {
-                long long val = eval_expression(&ast->children[1].children[i]);
-                if (val < min_val) min_val = val;
+            
+            // Check if any argument is a float
+            int any_float = 0;
+            for (int i = 0; i < ast->children[1].child_count; i++) {
+                ASTNode* arg = &ast->children[1].children[i];
+                if (arg->text && strchr(arg->text, '.') != NULL) {
+                    any_float = 1;
+                    break;
+                } else if (arg->text) {
+                    for (int j = var_env_size - 1; j >= 0; j--) {
+                        if (var_env[j].name && strcmp(var_env[j].name, arg->text) == 0 && var_env[j].type == VAR_TYPE_FLOAT) {
+                            any_float = 1;
+                            break;
+                        }
+                    }
+                    if (any_float) break;
+                }
             }
-            return min_val;
+            
+            if (any_float) {
+                // Float comparison
+                double min_val = DBL_MAX;
+                for (int i = 0; i < ast->children[1].child_count; i++) {
+                    ASTNode* arg = &ast->children[1].children[i];
+                    double val = 0.0;
+                    
+                    if (arg->text && strchr(arg->text, '.') != NULL) {
+                        val = strtod(arg->text, NULL);
+                    } else if (arg->text) {
+                        int found_float = 0;
+                        for (int j = var_env_size - 1; j >= 0; j--) {
+                            if (var_env[j].name && strcmp(var_env[j].name, arg->text) == 0 && var_env[j].type == VAR_TYPE_FLOAT) {
+                                val = var_env[j].float_value;
+                                found_float = 1;
+                                break;
+                            }
+                        }
+                        if (!found_float) {
+                            long long int_val = eval_expression(arg);
+                            val = (double)int_val;
+                        }
+            } else {
+                        long long int_val = eval_expression(arg);
+                        val = (double)int_val;
+                    }
+                    
+                    if (i == 0 || val < min_val) {
+                        min_val = val;
+                    }
+                }
+                last_result_is_float = 1;
+                return (long long)(min_val * 1000000);
+            } else {
+                // Integer comparison
+                long long min_val = eval_expression(&ast->children[1].children[0]);
+                for (int i = 1; i < ast->children[1].child_count; i++) {
+                    long long val = eval_expression(&ast->children[1].children[i]);
+                    if (val < min_val) min_val = val;
+                }
+                last_result_is_float = 0;
+                return min_val;
+            }
         }
         
         else if (func_name && strcmp(func_name, "max") == 0) {
@@ -4480,12 +4929,68 @@ long long eval_expression(ASTNode* ast) {
                 fprintf(stderr, "Error: max() function requires at least one argument\n");
                 return 0;
             }
-            long long max_val = eval_expression(&ast->children[1].children[0]);
-            for (int i = 1; i < ast->children[1].child_count; i++) {
-                long long val = eval_expression(&ast->children[1].children[i]);
-                if (val > max_val) max_val = val;
+            
+            // Check if any argument is a float
+            int any_float = 0;
+            for (int i = 0; i < ast->children[1].child_count; i++) {
+                ASTNode* arg = &ast->children[1].children[i];
+                if (arg->text && strchr(arg->text, '.') != NULL) {
+                    any_float = 1;
+                    break;
+                } else if (arg->text) {
+                    for (int j = var_env_size - 1; j >= 0; j--) {
+                        if (var_env[j].name && strcmp(var_env[j].name, arg->text) == 0 && var_env[j].type == VAR_TYPE_FLOAT) {
+                            any_float = 1;
+                            break;
+                        }
+                    }
+                    if (any_float) break;
+                }
             }
-            return max_val;
+            
+            if (any_float) {
+                // Float comparison
+                double max_val = -DBL_MAX;
+                for (int i = 0; i < ast->children[1].child_count; i++) {
+                    ASTNode* arg = &ast->children[1].children[i];
+                    double val = 0.0;
+                    
+                    if (arg->text && strchr(arg->text, '.') != NULL) {
+                        val = strtod(arg->text, NULL);
+                    } else if (arg->text) {
+                        int found_float = 0;
+                        for (int j = var_env_size - 1; j >= 0; j--) {
+                            if (var_env[j].name && strcmp(var_env[j].name, arg->text) == 0 && var_env[j].type == VAR_TYPE_FLOAT) {
+                                val = var_env[j].float_value;
+                                found_float = 1;
+                                break;
+                            }
+                        }
+                        if (!found_float) {
+                            long long int_val = eval_expression(arg);
+                            val = (double)int_val;
+                        }
+                    } else {
+                        long long int_val = eval_expression(arg);
+                        val = (double)int_val;
+                    }
+                    
+                    if (i == 0 || val > max_val) {
+                        max_val = val;
+                    }
+                }
+                last_result_is_float = 1;
+                return (long long)(max_val * 1000000);
+            } else {
+                // Integer comparison
+                long long max_val = eval_expression(&ast->children[1].children[0]);
+                for (int i = 1; i < ast->children[1].child_count; i++) {
+                    long long val = eval_expression(&ast->children[1].children[i]);
+                    if (val > max_val) max_val = val;
+                }
+                last_result_is_float = 0;
+                return max_val;
+            }
         }
         
         // Random number generation
@@ -5320,7 +5825,36 @@ void eval_evaluate(ASTNode* ast) {
                                 printf("(null)");
                             }
                         } else if (value != -999) {
-                        printf("%lld", (long long)value);
+                            // Check if this value might be a scaled float
+                            if (arg->text && strchr(arg->text, '.') != NULL) {
+                                // This is a float literal, unscale and display as float
+                                double float_val = (double)value / 1000000.0;
+                                printf("%.6g", float_val);
+                            } else if (last_result_is_float) {
+                                // This is the result of a float arithmetic operation
+                                double float_val = (double)value / 1000000.0;
+                                printf("%.6g", float_val);
+                                last_result_is_float = 0; // Reset flag after use
+                            } else {
+                                // Check if this is a variable containing a float
+                                const char* var_name = arg->text;
+                                int is_float_var = 0;
+                                if (var_name) {
+                                    // Check if this variable is stored as a float
+                                    for (int i = var_env_size - 1; i >= 0; i--) {
+                                        if (var_env[i].name && strcmp(var_env[i].name, var_name) == 0) {
+                                            if (var_env[i].type == VAR_TYPE_FLOAT) {
+                                                printf("%.6g", var_env[i].float_value);
+                                                is_float_var = 1;
+                                                break;
+                                            }
+                                        }
+                                    }
+                                }
+                                if (!is_float_var) {
+                                    printf("%lld", (long long)value);
+                                }
+                            }
                         }
                     }
                 } else if (arg->type == AST_DOT) {
@@ -5752,6 +6286,17 @@ void eval_evaluate(ASTNode* ast) {
             
             // Handle regular numeric assignment
             int64_t value = eval_expression(&ast->children[1]);
+            
+            // Check if this is a float literal assignment
+            if (ast->children[1].type == AST_EXPR && ast->children[1].text && strchr(ast->children[1].text, '.') != NULL) {
+                // This is a float literal assignment - store as float
+                char* endptr;
+                double float_val = strtod(ast->children[1].text, &endptr);
+                if (*endptr == '\0') {
+                    set_float_value(var_name, float_val);
+                    return;
+                }
+            }
             
             // Check if this is actually a string literal assignment
             if (ast->children[1].type == AST_EXPR && ast->children[1].text && is_string_literal(ast->children[1].text)) {

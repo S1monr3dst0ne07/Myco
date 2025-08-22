@@ -162,15 +162,36 @@ Token* lexer_tokenize(const char* source) {
             continue;
         }
 
-        // Single dot for member access
+        // Dot: member access or float literal starting with decimal point
         if (*p == '.' && *(p + 1) != '/' && *(p + 1) != '.') {
-            GROW_TOKENS_IF_NEEDED();
-            tokens[token_count].type = TOKEN_DOT;
-            tokens[token_count].text = tracked_strdup(".", __FILE__, __LINE__, "lexer_dot");
-            tokens[token_count].line = line;
-            token_count++;
-            p++;
-            continue;
+            // Check if this is a float literal starting with decimal point
+            if (isdigit(*(p + 1))) {
+                GROW_TOKENS_IF_NEEDED();
+                const char* start = p;
+                p++; // Skip decimal point
+                // Parse fractional part
+                while (isdigit(*p)) p++;
+                
+                int len = p - start;
+                char* text = (char*)malloc(len + 1);
+                strncpy(text, start, len);
+                text[len] = '\0';
+                
+                tokens[token_count].type = TOKEN_FLOAT;
+                tokens[token_count].text = text;
+                tokens[token_count].line = line;
+                token_count++;
+                continue;
+            } else {
+                // Regular dot for member access
+                GROW_TOKENS_IF_NEEDED();
+                tokens[token_count].type = TOKEN_DOT;
+                tokens[token_count].text = tracked_strdup(".", __FILE__, __LINE__, "lexer_dot");
+                tokens[token_count].line = line;
+                token_count++;
+                p++;
+                continue;
+            }
         }
 
         // Multi-character operators (must come before identifier detection)
@@ -230,16 +251,29 @@ Token* lexer_tokenize(const char* source) {
             continue;
         }
 
-        // Numbers
+        // Numbers (integers and floats)
         if (isdigit(*p)) {
             GROW_TOKENS_IF_NEEDED();
             const char* start = p;
+            int has_decimal = 0;
+            
+            // Parse integer part
             while (isdigit(*p)) p++;
+            
+            // Check for decimal point
+            if (*p == '.') {
+                has_decimal = 1;
+                p++; // Skip decimal point
+                // Parse fractional part
+                while (isdigit(*p)) p++;
+            }
+            
             int len = p - start;
             char* text = (char*)malloc(len + 1);
             strncpy(text, start, len);
             text[len] = '\0';
-            tokens[token_count].type = TOKEN_NUMBER;
+            
+            tokens[token_count].type = has_decimal ? TOKEN_FLOAT : TOKEN_NUMBER;
             tokens[token_count].text = text;
             tokens[token_count].line = line;
             token_count++;

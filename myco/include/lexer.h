@@ -4,6 +4,7 @@
 typedef enum {
     TOKEN_EOF,
     TOKEN_NUMBER,
+    TOKEN_FLOAT,
     TOKEN_STRING,
     TOKEN_IDENTIFIER,
     TOKEN_OPERATOR,
