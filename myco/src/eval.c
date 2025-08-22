@@ -2232,7 +2232,7 @@ static long long eval_user_function_call(ASTNode* fn, ASTNode* args_node) {
             if (has_type) {
                 // Parameter has explicit type - use it
                 var_env[var_env_size].type = VAR_TYPE_NUMBER;  // For now, default to number
-                var_env[var_env_size].number_value = argvals[i];
+            var_env[var_env_size].number_value = argvals[i];
             } else {
                 // Implicit parameter - infer type from argument
                 var_env[var_env_size].type = VAR_TYPE_NUMBER;  // Default to number for now
@@ -3583,12 +3583,12 @@ long long eval_expression(ASTNode* ast) {
                             temp_str[len - 2] = '\0';
                             int result = set_has(set, (void*)temp_str) ? 1 : 0;
                             free(temp_str);
-                return result;
+                            return result;
                         }
                     }
                 }
                 return 0;
-            } else {
+                        } else {
                 // For numeric sets
                 return set_has(set, (void*)&element_value) ? 1 : 0;
             }
@@ -3596,8 +3596,8 @@ long long eval_expression(ASTNode* ast) {
             // set_add(set, element) - add element to set
             if (ast->child_count < 2 || ast->children[1].child_count < 2) {
                 fprintf(stderr, "Error: set_add() function requires two arguments\n");
-                return 0;
-            }
+                            return 0;
+                        }
             
             // Get set argument
             ASTNode* set_node = &ast->children[1].children[0];
@@ -4423,7 +4423,7 @@ long long eval_expression(ASTNode* ast) {
             for (int i = 0; i < exponent; i++) {
                 result *= base;
             }
-            return result;
+                return result;
         }
         
         else if (func_name && strcmp(func_name, "sqrt") == 0) {
@@ -4540,7 +4540,7 @@ long long eval_expression(ASTNode* ast) {
                     const char* str_val = get_str_value(arg_node->text);
                     if (str_val) {
                         printf("string = \"%s\" (length: %zu)", str_val, strlen(str_val));
-                    } else {
+            } else {
                         printf("string = \"\" (empty)");
                     }
                 }
@@ -4822,7 +4822,7 @@ long long eval_expression(ASTNode* ast) {
             return 0; // Key doesn't exist
         }
     }
-
+    
     // Handle dot expressions (method calls) first
     if (ast->type == AST_DOT) {
         if (ast->child_count >= 2) {

@@ -116,7 +116,7 @@ static ASTNode* parse_primary(Token* tokens, int* current) {
 
     // Initialize common fields
     init_ast_node(node);
-    
+
     // Set line number from current token
     node->line = tokens[*current].line;
 
@@ -1335,7 +1335,6 @@ static ASTNode* parse_statement(Token* tokens, int* current, int token_count) {
         }
 
         case TOKEN_SWITCH: {
-            fprintf(stderr, "DEBUG: Parsing switch statement\n");
             node->type = AST_SWITCH;
             node->text = tracked_strdup("switch", __FILE__, __LINE__, "parser");
             node->children = NULL;
@@ -1366,22 +1365,16 @@ static ASTNode* parse_statement(Token* tokens, int* current, int token_count) {
             cases->child_count = 0;
             cases->next = NULL;
 
-            fprintf(stderr, "DEBUG: Starting to parse cases\n");
             while (tokens[*current].type == TOKEN_CASE || tokens[*current].type == TOKEN_DEFAULT) {
-                fprintf(stderr, "DEBUG: Loop condition check - token type: %d\n", tokens[*current].type);
                 
                 // Check if we've hit the end token
                 if (tokens[*current].type == TOKEN_END) {
-                    fprintf(stderr, "DEBUG: Hit END token, breaking out of case parsing loop\n");
                     break;
                 }
                 
                 if (tokens[*current].type == TOKEN_CASE) {
-                    fprintf(stderr, "DEBUG: Parsing case statement\n");
                     (*current)++; // Skip 'case'
-                    fprintf(stderr, "DEBUG: About to parse case expression\n");
                     ASTNode* case_expr = parse_expression(tokens, current);
-                    fprintf(stderr, "DEBUG: Case expression parsed\n");
                     if (!case_expr) {
                         parser_free_ast(node);
                         parser_free_ast(switch_expr);
@@ -1389,7 +1382,6 @@ static ASTNode* parse_statement(Token* tokens, int* current, int token_count) {
                         return NULL;
                     }
 
-                    fprintf(stderr, "DEBUG: Checking for colon after case expression\n");
                     if (tokens[*current].type != TOKEN_COLON) {
                         fprintf(stderr, "Error: Expected ':' after case expression at line %d\n", tokens[*current].line);
                         parser_free_ast(node);
@@ -1398,34 +1390,28 @@ static ASTNode* parse_statement(Token* tokens, int* current, int token_count) {
                         parser_free_ast(case_expr);
                         return NULL;
                     }
-                    fprintf(stderr, "DEBUG: Found colon, skipping it\n");
                     (*current)++; // Skip ':'
 
-                    fprintf(stderr, "DEBUG: Creating case body node\n");
                     // Parse case body - special parsing for switch cases
                     ASTNode* case_body = (ASTNode*)tracked_malloc(sizeof(ASTNode), __FILE__, __LINE__, "parse_statement_switch_case_body");
                     if (!case_body) {
-                        fprintf(stderr, "DEBUG: Failed to allocate case body\n");
                         parser_free_ast(node);
                         parser_free_ast(switch_expr);
                         parser_free_ast(cases);
                         parser_free_ast(case_expr);
                         return NULL;
                     }
-                    fprintf(stderr, "DEBUG: Case body allocated successfully\n");
                     case_body->type = AST_BLOCK;
                     case_body->text = tracked_strdup("case_body", __FILE__, __LINE__, "parser");
                     case_body->children = NULL;
                     case_body->child_count = 0;
                     case_body->next = NULL;
 
-                    fprintf(stderr, "DEBUG: Starting case body parsing loop\n");
                     // Parse case body statements until next case/default/end
                     while (tokens[*current].type != TOKEN_CASE && 
                            tokens[*current].type != TOKEN_DEFAULT &&
                            tokens[*current].type != TOKEN_END) {
                         
-                        fprintf(stderr, "DEBUG: Current token type: %d\n", tokens[*current].type);
                         
                         // Skip any semicolons at the start
                         while (tokens[*current].type == TOKEN_SEMICOLON) {
@@ -1434,15 +1420,11 @@ static ASTNode* parse_statement(Token* tokens, int* current, int token_count) {
 
                         // If we hit end, break
                         if (tokens[*current].type == TOKEN_END) {
-                            fprintf(stderr, "DEBUG: Hit END token, breaking\n");
                             break;
                         }
 
-                        fprintf(stderr, "DEBUG: About to parse statement, token type: %d\n", tokens[*current].type);
                         ASTNode* stmt = parse_statement(tokens, current, token_count);
-                        fprintf(stderr, "DEBUG: Statement parsed\n");
                         if (!stmt) {
-                            fprintf(stderr, "DEBUG: Failed to parse statement\n");
                             parser_free_ast(case_body);
                             parser_free_ast(node);
                             parser_free_ast(switch_expr);
@@ -1451,21 +1433,13 @@ static ASTNode* parse_statement(Token* tokens, int* current, int token_count) {
                             return NULL;
                         }
                         
-                        fprintf(stderr, "DEBUG: Adding statement to case body\n");
                         // Add statement to case body
                         case_body->children = (ASTNode*)tracked_realloc(case_body->children, (case_body->child_count + 1) * sizeof(ASTNode), __FILE__, __LINE__, "parse_statement_switch_case_body");
-                        fprintf(stderr, "DEBUG: Realloc successful\n");
                         case_body->children[case_body->child_count] = *stmt;
-                        fprintf(stderr, "DEBUG: Statement copied to case body\n");
                         case_body->child_count++;
-                        fprintf(stderr, "DEBUG: Case body child count: %d\n", case_body->child_count);
                         
-                        fprintf(stderr, "DEBUG: Cleaning up source statement\n");
-                        // Clean up the source statement
-                        if (stmt->text) tracked_free(stmt->text, __FILE__, __LINE__, "parse_statement_switch_case_body");
-                        if (stmt->children) tracked_free(stmt->children, __FILE__, __LINE__, "parse_statement_switch_case_body");
+                        // Clean up only the statement node itself, not its contents (they're now owned by case_body)
                         tracked_free(stmt, __FILE__, __LINE__, "parse_statement_switch_case_body");
-                        fprintf(stderr, "DEBUG: Source statement cleaned up\n");
 
                         // Skip semicolon if present
                         if (tokens[*current].type == TOKEN_SEMICOLON) {
@@ -1473,64 +1447,38 @@ static ASTNode* parse_statement(Token* tokens, int* current, int token_count) {
                         }
                     }
 
-                    fprintf(stderr, "DEBUG: Creating case node\n");
                     ASTNode* case_node = (ASTNode*)tracked_malloc(sizeof(ASTNode), __FILE__, __LINE__, "parse_statement_switch_case");
                     if (!case_node) {
-                        fprintf(stderr, "DEBUG: Failed to allocate case node\n");
                         return NULL;
                     }
-                    fprintf(stderr, "DEBUG: Case node allocated successfully\n");
                     case_node->type = AST_CASE;
-                    fprintf(stderr, "DEBUG: Setting case node text\n");
                     case_node->text = tracked_strdup("case", __FILE__, __LINE__, "parser");
-                    fprintf(stderr, "DEBUG: Case node text set\n");
-                    fprintf(stderr, "DEBUG: Allocating case node children\n");
                     case_node->children = (ASTNode*)tracked_malloc(2 * sizeof(ASTNode), __FILE__, __LINE__, "parse_statement_switch_case");
                     if (!case_node->children) {
-                        fprintf(stderr, "DEBUG: Failed to allocate case node children\n");
                         return NULL;
                     }
-                    fprintf(stderr, "DEBUG: Case node children allocated\n");
-                    fprintf(stderr, "DEBUG: Assigning case expression to children[0]\n");
                     case_node->children[0] = *case_expr;
-                    fprintf(stderr, "DEBUG: Case expression assigned\n");
                     
-                    fprintf(stderr, "DEBUG: Starting deep copy of case body\n");
                     // Deep copy the case body
                     case_node->children[1].type = case_body->type;
-                    fprintf(stderr, "DEBUG: Case body type copied\n");
                     case_node->children[1].text = tracked_strdup(case_body->text, __FILE__, __LINE__, "parse_statement_switch_case");
-                    fprintf(stderr, "DEBUG: Case body text copied\n");
                     case_node->children[1].children = NULL;
                     case_node->children[1].child_count = 0;
                     case_node->children[1].next = NULL;
                     
-                    fprintf(stderr, "DEBUG: About to deep copy case body children\n");
                     // Deep copy case body children
                     if (case_body->children && case_body->child_count > 0) {
-                        fprintf(stderr, "DEBUG: Allocating space for %d children\n", case_body->child_count);
                         case_node->children[1].children = (ASTNode*)tracked_malloc(case_body->child_count * sizeof(ASTNode), __FILE__, __LINE__, "parse_statement_switch_case");
                         if (!case_node->children[1].children) {
-                            fprintf(stderr, "DEBUG: Failed to allocate case body children\n");
                             return NULL;
                         }
-                        fprintf(stderr, "DEBUG: Case body children space allocated\n");
                         case_node->children[1].child_count = case_body->child_count;
                         
                         for (int j = 0; j < case_body->child_count; j++) {
-                            fprintf(stderr, "DEBUG: Manually copying child %d\n", j);
-                            // Manual deep copy of each child node
-                            case_node->children[1].children[j].type = case_body->children[j].type;
-                            case_node->children[1].children[j].text = case_body->children[j].text ? tracked_strdup(case_body->children[j].text, __FILE__, __LINE__, "parse_statement_switch_case") : NULL;
-                            case_node->children[1].children[j].children = NULL;
-                            case_node->children[1].children[j].child_count = 0;
-                            case_node->children[1].children[j].next = NULL;
-                            case_node->children[1].children[j].line = case_body->children[j].line;
-                            fprintf(stderr, "DEBUG: Child %d copied manually\n", j);
+                            // Use deep_copy_ast_node for proper recursive copying
+                            deep_copy_ast_node(&case_node->children[1].children[j], &case_body->children[j]);
                         }
-                        fprintf(stderr, "DEBUG: All case body children copied\n");
                     } else {
-                        fprintf(stderr, "DEBUG: No case body children to copy\n");
                     }
                     
                     case_node->child_count = 2;
@@ -1554,9 +1502,7 @@ static ASTNode* parse_statement(Token* tokens, int* current, int token_count) {
                     }
                     tracked_free(case_body, __FILE__, __LINE__, "parse_statement_switch_case");
                 } else if (tokens[*current].type == TOKEN_DEFAULT) {
-                    fprintf(stderr, "DEBUG: Parsing default case\n");
                     (*current)++; // Skip 'default'
-                    fprintf(stderr, "DEBUG: After skipping 'default', token type: %d\n", tokens[*current].type);
                     if (tokens[*current].type != TOKEN_COLON) {
                         fprintf(stderr, "Error: Expected ':' after default at line %d\n", tokens[*current].line);
                         parser_free_ast(node);
@@ -1564,10 +1510,8 @@ static ASTNode* parse_statement(Token* tokens, int* current, int token_count) {
                         parser_free_ast(cases);
                         return NULL;
                     }
-                    fprintf(stderr, "DEBUG: Found colon after default, skipping it\n");
                     (*current)++; // Skip ':'
 
-                    fprintf(stderr, "DEBUG: About to allocate default body\n");
                     // Parse default body - special parsing for switch default
                     ASTNode* default_body = (ASTNode*)tracked_malloc(sizeof(ASTNode), __FILE__, __LINE__, "parse_statement_switch_default_body");
                     if (!default_body) {
@@ -1582,10 +1526,8 @@ static ASTNode* parse_statement(Token* tokens, int* current, int token_count) {
                     default_body->child_count = 0;
                     default_body->next = NULL;
 
-                    fprintf(stderr, "DEBUG: Starting default body parsing loop\n");
                     // Parse default body statements until end
                     while (tokens[*current].type != TOKEN_END) {
-                        fprintf(stderr, "DEBUG: Default body loop - token type: %d\n", tokens[*current].type);
                         
                         // Skip any semicolons at the start
                         while (tokens[*current].type == TOKEN_SEMICOLON) {
@@ -1594,7 +1536,6 @@ static ASTNode* parse_statement(Token* tokens, int* current, int token_count) {
 
                         // If we hit end, break
                         if (tokens[*current].type == TOKEN_END) {
-                            fprintf(stderr, "DEBUG: Hit END token in default body, breaking\n");
                             break;
                         }
 
@@ -1612,9 +1553,7 @@ static ASTNode* parse_statement(Token* tokens, int* current, int token_count) {
                         default_body->children[default_body->child_count] = *stmt;
                         default_body->child_count++;
                         
-                        // Clean up the source statement
-                        if (stmt->text) tracked_free(stmt->text, __FILE__, __LINE__, "parse_statement_switch_default_body");
-                        if (stmt->children) tracked_free(stmt->children, __FILE__, __LINE__, "parse_statement_switch_default_body");
+                        // Clean up only the statement node itself, not its contents (they're now owned by default_body)
                         tracked_free(stmt, __FILE__, __LINE__, "parse_statement_switch_default_body");
 
                         // Skip semicolon if present
@@ -1627,8 +1566,27 @@ static ASTNode* parse_statement(Token* tokens, int* current, int token_count) {
                     default_node->type = AST_DEFAULT;
                     default_node->text = tracked_strdup("default", __FILE__, __LINE__, "parser");
                     default_node->children = (ASTNode*)tracked_malloc(sizeof(ASTNode), __FILE__, __LINE__, "parse_statement_switch_default");
-                    // Deep copy the default body
-                    deep_copy_ast_node(&default_node->children[0], default_body);
+                    // Manual deep copy of the default body
+                    default_node->children[0].type = default_body->type;
+                    default_node->children[0].text = default_body->text ? tracked_strdup(default_body->text, __FILE__, __LINE__, "parse_statement_switch_default") : NULL;
+                    default_node->children[0].children = NULL;
+                    default_node->children[0].child_count = 0;
+                    default_node->children[0].next = NULL;
+                    default_node->children[0].line = default_body->line;
+                    
+                    // Deep copy default body children
+                    if (default_body->children && default_body->child_count > 0) {
+                        default_node->children[0].children = (ASTNode*)tracked_malloc(default_body->child_count * sizeof(ASTNode), __FILE__, __LINE__, "parse_statement_switch_default");
+                        if (!default_node->children[0].children) {
+                            return NULL;
+                        }
+                        default_node->children[0].child_count = default_body->child_count;
+                        
+                        for (int j = 0; j < default_body->child_count; j++) {
+                            // Use deep_copy_ast_node for proper recursive copying
+                            deep_copy_ast_node(&default_node->children[0].children[j], &default_body->children[j]);
+                        }
+                    }
                     default_node->child_count = 1;
                     default_node->next = NULL;
 
@@ -1638,7 +1596,6 @@ static ASTNode* parse_statement(Token* tokens, int* current, int token_count) {
                 }
             }
 
-            fprintf(stderr, "DEBUG: All cases parsed, constructing final switch node\n");
             // Add switch expression and cases as children
             node->children = (ASTNode*)tracked_malloc(2 * sizeof(ASTNode), __FILE__, __LINE__, "parse_statement_switch");
             node->children[0] = *switch_expr;
@@ -1872,8 +1829,8 @@ static ASTNode* parse_statement(Token* tokens, int* current, int token_count) {
                     ASTNode* lambda_node = (ASTNode*)tracked_malloc(sizeof(ASTNode), __FILE__, __LINE__, "parse_statement_lambda");
                     if (!lambda_node) {
                         fprintf(stderr, "Error: Memory allocation failed\n");
-                        parser_free_ast(node);
-                        parser_free_ast(var_name);
+                parser_free_ast(node);
+                parser_free_ast(var_name);
                         return NULL;
                     }
                     
@@ -1915,7 +1872,7 @@ static ASTNode* parse_statement(Token* tokens, int* current, int token_count) {
                                 fprintf(stderr, "Error: Expected parameter name at line %d\n", tokens[*current].line);
                                 parser_free_ast(lambda_node);
                                 parser_free_ast(param_list);
-                                parser_free_ast(node);
+                    parser_free_ast(node);
                                 parser_free_ast(var_name);
                                 return NULL;
                             }
@@ -2632,10 +2589,10 @@ ASTNode* parser_parse(Token* tokens) {
                     ASTNode* implicit_return = (ASTNode*)tracked_malloc(sizeof(ASTNode), __FILE__, __LINE__, "parser_parse_func_implicit_return");
                     if (!implicit_return) {
                         fprintf(stderr, "Error: Memory allocation failed\n");
-                        parser_free_ast(root);
-                        parser_free_ast(node);
-                        return NULL;
-                    }
+                    parser_free_ast(root);
+                    parser_free_ast(node);
+                    return NULL;
+                }
                     implicit_return->type = AST_EXPR;
                     implicit_return->text = tracked_strdup("implicit", __FILE__, __LINE__, "parser");
                     init_ast_node(implicit_return);
@@ -2654,38 +2611,38 @@ ASTNode* parser_parse(Token* tokens) {
                     current++; // Skip ':' or '->'
                 } else {
                     // This is a return type
-                    ASTNode* return_type = (ASTNode*)tracked_malloc(sizeof(ASTNode), __FILE__, __LINE__, "parser_parse_func_return_type");
-                    if (!return_type) {
-                        fprintf(stderr, "Error: Memory allocation failed\n");
-                        parser_free_ast(root);
-                        parser_free_ast(node);
-                        return NULL;
-                    }
-                    return_type->type = AST_EXPR;
+                ASTNode* return_type = (ASTNode*)tracked_malloc(sizeof(ASTNode), __FILE__, __LINE__, "parser_parse_func_return_type");
+                if (!return_type) {
+                    fprintf(stderr, "Error: Memory allocation failed\n");
+                    parser_free_ast(root);
+                    parser_free_ast(node);
+                    return NULL;
+                }
+                return_type->type = AST_EXPR;
                     return_type->text = tracked_strdup(tokens[current].text, __FILE__, __LINE__, "parser");
-                    if (!return_type->text) {
-                        fprintf(stderr, "Error: Memory allocation failed for return type\n");
-                        parser_free_ast(root);
-                        parser_free_ast(node);
-                        free(return_type);
-                        return NULL;
-                    }
+                if (!return_type->text) {
+                    fprintf(stderr, "Error: Memory allocation failed for return type\n");
+                    parser_free_ast(root);
+                    parser_free_ast(node);
+                    free(return_type);
+                    return NULL;
+                }
                     init_ast_node(return_type);
-                    current++; // Skip return type
+                current++; // Skip return type
 
-                    // Add return type as child of function
-                    node->children = (ASTNode*)tracked_realloc(node->children, (node->child_count + 1) * sizeof(ASTNode), __FILE__, __LINE__, "parser_parse_return_type");
-                    node->children[node->child_count] = *return_type;
-                    node->child_count++;
-                    
+                // Add return type as child of function
+                node->children = (ASTNode*)tracked_realloc(node->children, (node->child_count + 1) * sizeof(ASTNode), __FILE__, __LINE__, "parser_parse_return_type");
+                node->children[node->child_count] = *return_type;
+                node->child_count++;
+
                     // After return type, we need a colon for the function body
-                    if (tokens[current].type != TOKEN_COLON) {
+            if (tokens[current].type != TOKEN_COLON) {
                         fprintf(stderr, "Error: Expected ':' after return type at line %d\n", tokens[current].line);
-                        parser_free_ast(root);
-                        parser_free_ast(node);
-                        return NULL;
-                    }
-                    current++; // Skip ':'
+                parser_free_ast(root);
+                parser_free_ast(node);
+                return NULL;
+            }
+            current++; // Skip ':'
                 }
             } else {
                 // No colon or arrow found - this is an error
