@@ -1386,7 +1386,8 @@ static ASTNode* parse_statement(Token* tokens, int* current, int token_count) {
                     }
                     (*current)++; // Skip ':'
 
-                    ASTNode* case_body = parse_block(tokens, current, token_count);
+                    // Parse case body - special parsing for switch cases
+                    ASTNode* case_body = (ASTNode*)tracked_malloc(sizeof(ASTNode), __FILE__, __LINE__, "parse_statement_switch_case_body");
                     if (!case_body) {
                         parser_free_ast(node);
                         parser_free_ast(switch_expr);
@@ -1394,19 +1395,100 @@ static ASTNode* parse_statement(Token* tokens, int* current, int token_count) {
                         parser_free_ast(case_expr);
                         return NULL;
                     }
+                    case_body->type = AST_BLOCK;
+                    case_body->text = tracked_strdup("case_body", __FILE__, __LINE__, "parser");
+                    case_body->children = NULL;
+                    case_body->child_count = 0;
+                    case_body->next = NULL;
+
+                    // Parse case body statements until next case/default/end
+                    while (tokens[*current].type != TOKEN_CASE && 
+                           tokens[*current].type != TOKEN_DEFAULT &&
+                           tokens[*current].type != TOKEN_END) {
+                        
+                        // Skip any semicolons at the start
+                        while (tokens[*current].type == TOKEN_SEMICOLON) {
+                            (*current)++;
+                        }
+
+                        // If we hit end, break
+                        if (tokens[*current].type == TOKEN_END) {
+                            break;
+                        }
+
+                        ASTNode* stmt = parse_statement(tokens, current, token_count);
+                        if (!stmt) {
+                            parser_free_ast(case_body);
+                            parser_free_ast(node);
+                            parser_free_ast(switch_expr);
+                            parser_free_ast(cases);
+                            parser_free_ast(case_expr);
+                            return NULL;
+                        }
+                        
+                        // Add statement to case body
+                        case_body->children = (ASTNode*)tracked_realloc(case_body->children, (case_body->child_count + 1) * sizeof(ASTNode), __FILE__, __LINE__, "parse_statement_switch_case_body");
+                        case_body->children[case_body->child_count] = *stmt;
+                        case_body->child_count++;
+                        
+                        // Clean up the source statement
+                        if (stmt->text) tracked_free(stmt->text, __FILE__, __LINE__, "parse_statement_switch_case_body");
+                        if (stmt->children) tracked_free(stmt->children, __FILE__, __LINE__, "parse_statement_switch_case_body");
+                        tracked_free(stmt, __FILE__, __LINE__, "parse_statement_switch_case_body");
+
+                        // Skip semicolon if present
+                        if (tokens[*current].type == TOKEN_SEMICOLON) {
+                            (*current)++;
+                        }
+                    }
 
                     ASTNode* case_node = (ASTNode*)tracked_malloc(sizeof(ASTNode), __FILE__, __LINE__, "parse_statement_switch_case");
                     case_node->type = AST_CASE;
                     case_node->text = tracked_strdup("case", __FILE__, __LINE__, "parser");
                     case_node->children = (ASTNode*)tracked_malloc(2 * sizeof(ASTNode), __FILE__, __LINE__, "parse_statement_switch_case");
                     case_node->children[0] = *case_expr;
-                    case_node->children[1] = *case_body;
+                    
+                    // Deep copy the case body
+                    case_node->children[1].type = case_body->type;
+                    case_node->children[1].text = tracked_strdup(case_body->text, __FILE__, __LINE__, "parse_statement_switch_case");
+                    case_node->children[1].children = NULL;
+                    case_node->children[1].child_count = 0;
+                    case_node->children[1].next = NULL;
+                    
+                    // Copy case body children
+                    if (case_body->children && case_body->child_count > 0) {
+                        case_node->children[1].children = (ASTNode*)tracked_malloc(case_body->child_count * sizeof(ASTNode), __FILE__, __LINE__, "parse_statement_switch_case");
+                        case_node->children[1].child_count = case_body->child_count;
+                        
+                        for (int j = 0; j < case_body->child_count; j++) {
+                            case_node->children[1].children[j] = case_body->children[j];
+                            // Deep copy the text
+                            if (case_body->children[j].text) {
+                                case_node->children[1].children[j].text = tracked_strdup(case_body->children[j].text, __FILE__, __LINE__, "parse_statement_switch_case");
+                            }
+                        }
+                    }
+                    
                     case_node->child_count = 2;
                     case_node->next = NULL;
 
                     cases->children = (ASTNode*)tracked_realloc(cases->children, (cases->child_count + 1) * sizeof(ASTNode), __FILE__, __LINE__, "parse_switch_case");
                     cases->children[cases->child_count] = *case_node;
                     cases->child_count++;
+                    
+                    // Free the case body after copying
+                    if (case_body->children) {
+                        for (int j = 0; j < case_body->child_count; j++) {
+                            if (case_body->children[j].text) {
+                                tracked_free(case_body->children[j].text, __FILE__, __LINE__, "parse_statement_switch_case");
+                            }
+                        }
+                        tracked_free(case_body->children, __FILE__, __LINE__, "parse_statement_switch_case");
+                    }
+                    if (case_body->text) {
+                        tracked_free(case_body->text, __FILE__, __LINE__, "parse_statement_switch_case");
+                    }
+                    tracked_free(case_body, __FILE__, __LINE__, "parse_statement_switch_case");
                 } else if (tokens[*current].type == TOKEN_DEFAULT) {
                     (*current)++; // Skip 'default'
                     if (tokens[*current].type != TOKEN_COLON) {
@@ -1418,12 +1500,56 @@ static ASTNode* parse_statement(Token* tokens, int* current, int token_count) {
                     }
                     (*current)++; // Skip ':'
 
-                    ASTNode* default_body = parse_block(tokens, current, token_count);
+                    // Parse default body - special parsing for switch default
+                    ASTNode* default_body = (ASTNode*)tracked_malloc(sizeof(ASTNode), __FILE__, __LINE__, "parse_statement_switch_default_body");
                     if (!default_body) {
                         parser_free_ast(node);
                         parser_free_ast(switch_expr);
                         parser_free_ast(cases);
                         return NULL;
+                    }
+                    default_body->type = AST_BLOCK;
+                    default_body->text = tracked_strdup("default_body", __FILE__, __LINE__, "parser");
+                    default_body->children = NULL;
+                    default_body->child_count = 0;
+                    default_body->next = NULL;
+
+                    // Parse default body statements until end
+                    while (tokens[*current].type != TOKEN_END) {
+                        
+                        // Skip any semicolons at the start
+                        while (tokens[*current].type == TOKEN_SEMICOLON) {
+                            (*current)++;
+                        }
+
+                        // If we hit end, break
+                        if (tokens[*current].type == TOKEN_END) {
+                            break;
+                        }
+
+                        ASTNode* stmt = parse_statement(tokens, current, token_count);
+                        if (!stmt) {
+                            parser_free_ast(default_body);
+                            parser_free_ast(node);
+                            parser_free_ast(switch_expr);
+                            parser_free_ast(cases);
+                            return NULL;
+                        }
+                        
+                        // Add statement to default body
+                        default_body->children = (ASTNode*)tracked_realloc(default_body->children, (default_body->child_count + 1) * sizeof(ASTNode), __FILE__, __LINE__, "parse_statement_switch_default_body");
+                        default_body->children[default_body->child_count] = *stmt;
+                        default_body->child_count++;
+                        
+                        // Clean up the source statement
+                        if (stmt->text) tracked_free(stmt->text, __FILE__, __LINE__, "parse_statement_switch_default_body");
+                        if (stmt->children) tracked_free(stmt->children, __FILE__, __LINE__, "parse_statement_switch_default_body");
+                        tracked_free(stmt, __FILE__, __LINE__, "parse_statement_switch_default_body");
+
+                        // Skip semicolon if present
+                        if (tokens[*current].type == TOKEN_SEMICOLON) {
+                            (*current)++;
+                        }
                     }
 
                     ASTNode* default_node = (ASTNode*)tracked_malloc(sizeof(ASTNode), __FILE__, __LINE__, "parse_statement_switch_default");
@@ -1445,6 +1571,12 @@ static ASTNode* parse_statement(Token* tokens, int* current, int token_count) {
             node->children[0] = *switch_expr;
             node->children[1] = *cases;
             node->child_count = 2;
+            
+            // Consume the 'end' token
+            if (tokens[*current].type == TOKEN_END) {
+                (*current)++;
+            }
+            
             break;
         }
 

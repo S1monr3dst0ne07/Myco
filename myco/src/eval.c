@@ -6224,8 +6224,10 @@ void eval_evaluate(ASTNode* ast) {
                         case_matched = 1;
                         execute_remaining = 1; // Enable fall-through
                         
-                        // Execute case body
-                        eval_evaluate(&case_node->children[1]);
+                        // Execute case body - check if it's valid
+                        if (case_node->children[1].type == AST_BLOCK && case_node->children[1].children) {
+                            eval_evaluate(&case_node->children[1]);
+                        }
                         
                         // Check for break (in a real implementation, we'd need break handling)
                         // For now, we'll execute only the matching case
@@ -6233,8 +6235,10 @@ void eval_evaluate(ASTNode* ast) {
                     }
                 } else if (case_node->type == AST_DEFAULT && case_node->child_count >= 1) {
                     if (!case_matched || execute_remaining) {
-                        // Execute default case
-                        eval_evaluate(&case_node->children[0]);
+                        // Execute default case - check if it's valid
+                        if (case_node->children[0].type == AST_BLOCK && case_node->children[0].children) {
+                            eval_evaluate(&case_node->children[0]);
+                        }
                         break;
                     }
                 }
