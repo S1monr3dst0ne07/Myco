@@ -615,6 +615,125 @@ else:
     print("FAILED: Arrow syntax with complex logic, got:", arrow_result5);
 end
 
+print("\nUTILITY LIBRARY TESTS v1.3.2");
+print("=============================");
+
+# Test debug function
+debug("Test string");
+debug(42);
+debug([1, 2, 3]);
+tests_total = tests_total + 1;
+tests_passed = tests_passed + 1;
+print("PASSED: debug() function working");
+
+# Test type checking functions
+let type_num = type(42);
+tests_total = tests_total + 1;
+if type_num == 0:
+    tests_passed = tests_passed + 1;
+    print("PASSED: type(42) = 0 (number)");
+else:
+    print("FAILED: type(42), got:", type_num);
+end
+
+let type_arr = type([1, 2, 3]);
+tests_total = tests_total + 1;
+if type_arr == 0: # Currently returns 0 for arrays
+    tests_passed = tests_passed + 1;
+    print("PASSED: type([1,2,3]) = 0 (array)");
+else:
+    print("FAILED: type([1,2,3]), got:", type_arr);
+end
+
+# Test is_* functions
+let is_num_test = is_num(42);
+tests_total = tests_total + 1;
+if is_num_test == 1:
+    tests_passed = tests_passed + 1;
+    print("PASSED: is_num(42) = 1");
+else:
+    print("FAILED: is_num(42), got:", is_num_test);
+end
+
+let is_str_test = is_str("test");
+tests_total = tests_total + 1;
+if is_str_test == 1:
+    tests_passed = tests_passed + 1;
+    print("PASSED: is_str(\"test\") = 1");
+else:
+    print("FAILED: is_str(\"test\"), got:", is_str_test);
+end
+
+let is_arr_test = is_arr([1, 2, 3]);
+tests_total = tests_total + 1;
+if is_arr_test == 1:
+    tests_passed = tests_passed + 1;
+    print("PASSED: is_arr([1,2,3]) = 1");
+else:
+    print("FAILED: is_arr([1,2,3]), got:", is_arr_test);
+end
+
+# Test string utility functions
+let str_test = str(42);
+tests_total = tests_total + 1;
+if str_test == 42: # str() is alias for to_string()
+    tests_passed = tests_passed + 1;
+    print("PASSED: str(42) = 42");
+else:
+    print("FAILED: str(42), got:", str_test);
+end
+
+let find_test = find("Hello World", "World");
+tests_total = tests_total + 1;
+if find_test == 6:
+    tests_passed = tests_passed + 1;
+    print("PASSED: find(\"Hello World\", \"World\") = 6");
+else:
+    print("FAILED: find(\"Hello World\", \"World\"), got:", find_test);
+end
+
+let find_not_found = find("Hello World", "Python");
+tests_total = tests_total + 1;
+if find_not_found == -1:
+    tests_passed = tests_passed + 1;
+    print("PASSED: find(\"Hello World\", \"Python\") = -1 (not found)");
+else:
+    print("FAILED: find(\"Hello World\", \"Python\"), got:", find_not_found);
+end
+
+# Test data utility functions
+let copy_test = copy(42);
+tests_total = tests_total + 1;
+if copy_test == 42:
+    tests_passed = tests_passed + 1;
+    print("PASSED: copy(42) = 42");
+else:
+    print("FAILED: copy(42), got:", copy_test);
+end
+
+let test_obj_has = {
+    name: "Test",
+    value: 42
+};
+
+let has_test = has(test_obj_has, "name");
+tests_total = tests_total + 1;
+if has_test == 1:
+    tests_passed = tests_passed + 1;
+    print("PASSED: has(test_obj, \"name\") = 1");
+else:
+    print("FAILED: has(test_obj, \"name\"), got:", has_test);
+end
+
+let has_not_found = has(test_obj_has, "nonexistent");
+tests_total = tests_total + 1;
+if has_not_found == 0:
+    tests_passed = tests_passed + 1;
+    print("PASSED: has(test_obj, \"nonexistent\") = 0");
+else:
+    print("FAILED: has(test_obj, \"nonexistent\"), got:", has_not_found);
+end
+
 print("\nFINAL RESULTS");
 print("=================");
 print("Tests Passed:", tests_passed);

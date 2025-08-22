@@ -4516,9 +4516,267 @@ long long eval_expression(ASTNode* ast) {
             // TODO: Implement proper array choice functionality
             return myco_randint(1, 100);
         }
+        
+        // UTILITY LIBRARY FUNCTIONS v1.3.2
+        // =================================
+        
+        // Pretty-printing and debugging functions
+        else if (func_name && strcmp(func_name, "debug") == 0) {
+            if (ast->child_count < 2 || ast->children[1].child_count < 1) {
+                fprintf(stderr, "Error: debug() function requires one argument\n");
+                return 0;
+            }
+            
+            // Get the value to debug
+            long long value = eval_expression(&ast->children[1].children[0]);
+            if (error_occurred) return 0;
+            
+            // Enhanced debug output with type information
+            printf("DEBUG: ");
+            if (value == -1) {
+                // String value
+                ASTNode* arg_node = &ast->children[1].children[0];
+                if (arg_node->type == AST_EXPR && arg_node->text) {
+                    const char* str_val = get_str_value(arg_node->text);
+                    if (str_val) {
+                        printf("string = \"%s\" (length: %zu)", str_val, strlen(str_val));
+                    } else {
+                        printf("string = \"\" (empty)");
+                    }
+                }
+            } else if (value == -2) {
+                // Array value
+                printf("array (use len() to get size)");
+            } else if (value == -3) {
+                // Object value
+                printf("object (use object_keys() to get properties)");
+            } else {
+                // Numeric value
+                printf("number = %lld", value);
+            }
+            printf("\n");
+            return 1;
+        }
+        
+        // Type checking functions
+        else if (func_name && strcmp(func_name, "type") == 0) {
+            if (ast->child_count < 2 || ast->children[1].child_count < 1) {
+                fprintf(stderr, "Error: type() function requires one argument\n");
+                return 0;
+            }
+            
+            // Get the value to check
+            ASTNode* arg_node = &ast->children[1].children[0];
+            long long value = eval_expression(arg_node);
+            if (error_occurred) return 0;
+            
+            // Check for string literals first (they return 1 from eval_expression)
+            if (arg_node->text && arg_node->text[0] == '"') {
+                return -1; // String literal
+            }
+            // Check for array literals (they return 0 from eval_expression)
+            else if (arg_node->text && arg_node->text[0] == '[') {
+                return -2; // Array literal
+            }
+            // Return type code: -1=string, -2=array, -3=object, >=0=number
+            else if (value == -1) {
+                return -1; // String variable
+            } else if (value == -2) {
+                return -2; // Array variable
+            } else if (value == -3) {
+                return -3; // Object variable
+            } else {
+                return 0; // Number (or any other numeric type)
+            }
+        }
+        
+        else if (func_name && strcmp(func_name, "is_num") == 0) {
+            if (ast->child_count < 2 || ast->children[1].child_count < 1) {
+                fprintf(stderr, "Error: is_num() function requires one argument\n");
+                return 0;
+            }
+            
+            long long value = eval_expression(&ast->children[1].children[0]);
+            if (error_occurred) return 0;
+            
+            // Return 1 if numeric (>= 0), 0 otherwise
+            return (value >= 0) ? 1 : 0;
+        }
+        
+        else if (func_name && strcmp(func_name, "is_str") == 0) {
+            if (ast->child_count < 2 || ast->children[1].child_count < 1) {
+                fprintf(stderr, "Error: is_str() function requires one argument\n");
+                return 0;
+            }
+            
+            ASTNode* arg_node = &ast->children[1].children[0];
+            long long value = eval_expression(arg_node);
+            if (error_occurred) return 0;
+            
+            // Check for string literals first (they start with quote)
+            if (arg_node->text && arg_node->text[0] == '"') {
+                return 1; // String literal
+            }
+            
+            // Return 1 if string variable (-1), 0 otherwise
+            return (value == -1) ? 1 : 0;
+        }
+        
+        else if (func_name && strcmp(func_name, "is_arr") == 0) {
+            if (ast->child_count < 2 || ast->children[1].child_count < 1) {
+                fprintf(stderr, "Error: is_arr() function requires one argument\n");
+                return 0;
+            }
+            
+            ASTNode* arg_node = &ast->children[1].children[0];
+            long long value = eval_expression(arg_node);
+            if (error_occurred) return 0;
+            
+            // Check for array literals first (they start with bracket)
+            if (arg_node->text && arg_node->text[0] == '[') {
+                return 1; // Array literal
+            }
+            
+            // Return 1 if array variable (-2), 0 otherwise
+            return (value == -2) ? 1 : 0;
+        }
+        
+        else if (func_name && strcmp(func_name, "is_obj") == 0) {
+            if (ast->child_count < 2 || ast->children[1].child_count < 1) {
+                fprintf(stderr, "Error: is_obj() function requires one argument\n");
+                return 0;
+            }
+            
+            long long value = eval_expression(&ast->children[1].children[0]);
+            if (error_occurred) return 0;
+            
+            // Return 1 if object (-3), 0 otherwise
+            return (value == -3) ? 1 : 0;
+        }
+        
+        // String utility functions
+        else if (func_name && strcmp(func_name, "str") == 0) {
+            if (ast->child_count < 2 || ast->children[1].child_count < 1) {
+                fprintf(stderr, "Error: str() function requires one argument\n");
+                return 0;
+            }
+            
+            // str() is an alias for to_string()
+            return eval_expression(&ast->children[1].children[0]);
+        }
+        
+        else if (func_name && strcmp(func_name, "find") == 0) {
+            if (ast->child_count < 2 || ast->children[1].child_count < 2) {
+                fprintf(stderr, "Error: find() function requires two arguments (string, substring)\n");
+                return 0;
+            }
+            
+            // Get the main string
+            ASTNode* str_node = &ast->children[1].children[0];
+            const char* main_str = NULL;
+            long long str_result = eval_expression(str_node);
+            
+            if (str_result == -1) {
+                // String variable
+                main_str = get_str_value(str_node->text);
+            } else if (str_result == 1) {
+                // String literal
+                if (str_node->text && str_node->text[0] == '"') {
+                    size_t len = strlen(str_node->text);
+                    if (len >= 2) {
+                        char* temp_str = (char*)tracked_malloc(len - 1, __FILE__, __LINE__, "find_string");
+                        strncpy(temp_str, str_node->text + 1, len - 2);
+                        temp_str[len - 2] = '\0';
+                        main_str = temp_str;
+                    }
+                }
+            }
+            
+            // Get the substring to search for
+            ASTNode* sub_node = &ast->children[1].children[1];
+            const char* sub_str = NULL;
+            long long sub_result = eval_expression(sub_node);
+            
+            if (sub_result == -1) {
+                // String variable
+                sub_str = get_str_value(sub_node->text);
+            } else if (sub_result == 1) {
+                // String literal
+                if (sub_node->text && sub_node->text[0] == '"') {
+                    size_t len = strlen(sub_node->text);
+                    if (len >= 2) {
+                        char* temp_str = (char*)tracked_malloc(len - 1, __FILE__, __LINE__, "find_substring");
+                        strncpy(temp_str, sub_node->text + 1, len - 2);
+                        temp_str[len - 2] = '\0';
+                        sub_str = temp_str;
+                    }
+                }
+            }
+            
+            if (!main_str || !sub_str) {
+                fprintf(stderr, "Error: find() requires string arguments\n");
+                return -1;
+            }
+            
+            // Find the substring position
+            char* found = strstr(main_str, sub_str);
+            if (found) {
+                return (long long)(found - main_str);
+            } else {
+                return -1; // Not found
+            }
+        }
+        
+        // Data utility functions
+        else if (func_name && strcmp(func_name, "copy") == 0) {
+            if (ast->child_count < 2 || ast->children[1].child_count < 1) {
+                fprintf(stderr, "Error: copy() function requires one argument\n");
+                return 0;
+            }
+            
+            // For now, return the value directly (shallow copy)
+            // TODO: Implement deep copy for arrays and objects
+            return eval_expression(&ast->children[1].children[0]);
+        }
+        
+        else if (func_name && strcmp(func_name, "has") == 0) {
+            if (ast->child_count < 2 || ast->children[1].child_count < 2) {
+                fprintf(stderr, "Error: has() function requires two arguments (object, key)\n");
+                return 0;
+            }
+            
+            // Get the object name
+            ASTNode* obj_node = &ast->children[1].children[0];
+            const char* obj_name = NULL;
+            if (obj_node->type == AST_EXPR && obj_node->text) {
+                obj_name = obj_node->text;
+            }
+            
+            // Get the key to check
+            ASTNode* key_node = &ast->children[1].children[1];
+            const char* key_name = NULL;
+            if (key_node->type == AST_EXPR && key_node->text) {
+                key_name = key_node->text;
+            }
+            
+            if (!obj_name || !key_name) {
+                fprintf(stderr, "Error: has() requires valid object and key names\n");
+                return 0;
+            }
+            
+            // Check if the object has the key
+            MycoObject* obj = get_object_value(obj_name);
+            if (obj) {
+                for (int i = 0; i < obj->property_count; i++) {
+                    if (obj->property_names[i] && strcmp(obj->property_names[i], key_name) == 0) {
+                        return 1; // Key exists
+                    }
+                }
+            }
+            return 0; // Key doesn't exist
+        }
     }
 
-    
     // Handle dot expressions (method calls) first
     if (ast->type == AST_DOT) {
         if (ast->child_count >= 2) {
@@ -4912,6 +5170,7 @@ void eval_evaluate(ASTNode* ast) {
                                     str_val = get_str_value("__last_tostring_result");
 
                                 }
+
                                 if (!str_val) {
                                     // Check for first() function result
                                     str_val = get_str_value("__last_first_result");
