@@ -291,7 +291,6 @@ Token* lexer_tokenize(const char* source) {
         GROW_TOKENS_IF_NEEDED();
         switch (*p) {
             case '+': tokens[token_count].type = TOKEN_OPERATOR; tokens[token_count].text = tracked_strdup("+", __FILE__, __LINE__, "lexer_plus"); break;
-            case '-': tokens[token_count].type = TOKEN_OPERATOR; tokens[token_count].text = tracked_strdup("-", __FILE__, __LINE__, "lexer_minus"); break;
             case '*': tokens[token_count].type = TOKEN_OPERATOR; tokens[token_count].text = tracked_strdup("*", __FILE__, __LINE__, "lexer_mult"); break;
             case '/': tokens[token_count].type = TOKEN_OPERATOR; tokens[token_count].text = tracked_strdup("/", __FILE__, __LINE__, "lexer_div"); break;
             case '%': tokens[token_count].type = TOKEN_OPERATOR; tokens[token_count].text = tracked_strdup("%", __FILE__, __LINE__, "lexer_mod"); break;
@@ -347,6 +346,16 @@ Token* lexer_tokenize(const char* source) {
                 } else {
                     tokens[token_count].type = TOKEN_ASSIGN;
                     tokens[token_count].text = tracked_strdup("=", __FILE__, __LINE__, "lexer_operator");
+                }
+                break;
+            case '-':
+                if (*(p + 1) == '>') {
+                    tokens[token_count].type = TOKEN_ARROW;
+                    tokens[token_count].text = tracked_strdup("->", __FILE__, __LINE__, "lexer_arrow");
+                    p++;
+                } else {
+                    tokens[token_count].type = TOKEN_OPERATOR;
+                    tokens[token_count].text = tracked_strdup("-", __FILE__, __LINE__, "lexer_minus");
                 }
                 break;
             default:

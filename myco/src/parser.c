@@ -2416,12 +2416,12 @@ ASTNode* parser_parse(Token* tokens) {
 
             // Parse return type (optional)
             // Look ahead to see if the next token is a type marker
-            if (tokens[current].type == TOKEN_COLON) {
-                current++; // Skip ':'
+            if (tokens[current].type == TOKEN_COLON || tokens[current].type == TOKEN_ARROW) {
+                current++; // Skip ':' or '->'
                 if (tokens[current].type != TOKEN_TYPE_MARKER && tokens[current].type != TOKEN_STRING_TYPE) {
-                    // This colon is for the function body, not a return type
+                    // This colon/arrow is for the function body, not a return type
                     // Back up and treat as implicit return
-                    current--; // Go back to colon
+                    current--; // Go back to colon/arrow
                     
                     // Add implicit return type
                     ASTNode* implicit_return = (ASTNode*)tracked_malloc(sizeof(ASTNode), __FILE__, __LINE__, "parser_parse_func_implicit_return");
@@ -2439,14 +2439,14 @@ ASTNode* parser_parse(Token* tokens) {
                     node->children[node->child_count] = *implicit_return;
                     node->child_count++;
                     
-                    // Now consume the colon for the function body
-                    if (tokens[current].type != TOKEN_COLON) {
-                        fprintf(stderr, "Error: Expected ':' after function declaration at line %d\n", tokens[current].line);
+                    // Now consume the colon/arrow for the function body
+                    if (tokens[current].type != TOKEN_COLON && tokens[current].type != TOKEN_ARROW) {
+                        fprintf(stderr, "Error: Expected ':' or '->' after function declaration at line %d\n", tokens[current].line);
                         parser_free_ast(root);
                         parser_free_ast(node);
                         return NULL;
                     }
-                    current++; // Skip ':'
+                    current++; // Skip ':' or '->'
                 } else {
                     // This is a return type
                     ASTNode* return_type = (ASTNode*)tracked_malloc(sizeof(ASTNode), __FILE__, __LINE__, "parser_parse_func_return_type");
@@ -2473,7 +2473,7 @@ ASTNode* parser_parse(Token* tokens) {
                     node->children[node->child_count] = *return_type;
                     node->child_count++;
                     
-                    // After return type, we need another colon for the function body
+                    // After return type, we need a colon for the function body
                     if (tokens[current].type != TOKEN_COLON) {
                         fprintf(stderr, "Error: Expected ':' after return type at line %d\n", tokens[current].line);
                         parser_free_ast(root);
@@ -2483,8 +2483,8 @@ ASTNode* parser_parse(Token* tokens) {
                     current++; // Skip ':'
                 }
             } else {
-                // No colon found - this is an error
-                fprintf(stderr, "Error: Expected ':' after function declaration at line %d\n", tokens[current].line);
+                // No colon or arrow found - this is an error
+                fprintf(stderr, "Error: Expected ':' or '->' after function declaration at line %d\n", tokens[current].line);
                 parser_free_ast(root);
                 parser_free_ast(node);
                 return NULL;
