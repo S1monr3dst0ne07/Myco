@@ -21,7 +21,7 @@
 
 Myco is a modern, lightweight programming language designed for simplicity and expressiveness. It features dynamic typing, object-oriented capabilities, functional programming with lambda functions, and a clean syntax inspired by Lua and Python.
 
-**Version**: 1.3.0  
+**Version**: 1.3.1  
 **License**: MIT  
 **Repository**: https://github.com/IvyMycelia/myco
 
@@ -407,10 +407,39 @@ end
 ## Functions
 
 ### Function Declaration
+Myco supports two syntaxes for function declarations:
+
+#### Traditional Colon Syntax
 ```myco
 func functionName(parameter1, parameter2):
     # function body
     return value;
+end
+```
+
+#### New Arrow Syntax ⭐ **NEW in v1.3.1**
+```myco
+func functionName(parameter1, parameter2) -> returnType:
+    # function body
+    return value;
+end
+```
+
+#### Type Annotations
+```myco
+# With parameter types
+func add(a: int, b: int) -> int:
+    return a + b;
+end
+
+# With mixed types
+func process(x: int, y) -> string:
+    return "Result: " + to_string(x + y);
+end
+
+# No types (implicit)
+func multiply(a, b):
+    return a * b;
 end
 ```
 

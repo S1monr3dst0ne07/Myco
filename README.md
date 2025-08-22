@@ -5,6 +5,8 @@
 
 Discord: https://discord.gg/CR8xcKb3zM
 
+**Current Version**: v1.3.1 - Arrow Syntax & Math Library
+
 ---
 
 ## 🌟 What is Myco?
@@ -18,9 +20,13 @@ Discord: https://discord.gg/CR8xcKb3zM
 - 🌙 **Clean, readable syntax**
 - 🔮 **Dynamic typing** with `let`
 - 🍂 **Functions, control flow, and loops**
-- 🌲 **List and map support** *soon lol*
+- 🌲 **List and map support** ✅ **Complete**
 - 🧪 **Try-catch error handling**
 - 🧙 **Mystical and themed syntax highlighting** with the Myco VS Code Extension
+- 🧮 **Math library** with 15+ mathematical functions ✅ **v1.3.0**
+- ➡️ **Arrow syntax** for function return types ✅ **v1.3.1**
+- 🎯 **Lambda functions** with functional programming support
+- 🔄 **Implicit functions** with optional type annotations
 
 ---
 
@@ -28,11 +34,19 @@ Discord: https://discord.gg/CR8xcKb3zM
 
 ```myco
 let name = "Ivy";
+
+# Traditional syntax
 func greet(person):
     print("Welcome to the woods,", person, "!");
 end
 
+# New arrow syntax
+func calculate_power(base: int, exponent: int) -> int:
+    return pow(base, exponent);
+end
+
 greet(name);
+let result = calculate_power(2, 8);  # 256
 
 for item in [1, 2, 3]:
     print("Found a mushroom with ID:", item);

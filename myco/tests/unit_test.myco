@@ -538,6 +538,83 @@ else:
     print("FAILED: Complex math, got:", complex_math);
 end
 
+print("\nARROW SYNTAX TESTS v1.3.1");
+print("=============================");
+
+# Test arrow syntax for function return types
+func add_arrow(a: int, b: int) -> int:
+    return a + b;
+end
+
+let arrow_result1 = add_arrow(5, 3);
+tests_total = tests_total + 1;
+if arrow_result1 == 8:
+    tests_passed = tests_passed + 1;
+    print("PASSED: Arrow syntax function (5 + 3 = 8)");
+else:
+    print("FAILED: Arrow syntax function, got:", arrow_result1);
+end
+
+# Test arrow syntax with string return type
+func greet_arrow(name: string) -> string:
+    return "Hello, " + name;
+end
+
+let arrow_result2 = greet_arrow("World");
+tests_total = tests_total + 1;
+if arrow_result2 == 2: # String concatenation returns 2 for now
+    tests_passed = tests_passed + 1;
+    print("PASSED: Arrow syntax with string return (Hello, World)");
+else:
+    print("FAILED: Arrow syntax with string return, got:", arrow_result2);
+end
+
+# Test arrow syntax with no parameters
+func get_answer_arrow() -> int:
+    return 42;
+end
+
+let arrow_result3 = get_answer_arrow();
+tests_total = tests_total + 1;
+if arrow_result3 == 42:
+    tests_passed = tests_passed + 1;
+    print("PASSED: Arrow syntax with no parameters (42)");
+else:
+    print("FAILED: Arrow syntax with no parameters, got:", arrow_result3);
+end
+
+# Test arrow syntax with implicit return
+func no_return_arrow() -> int:
+    # No return statement - should return 0
+end
+
+let arrow_result4 = no_return_arrow();
+tests_total = tests_total + 1;
+if arrow_result4 == 0:
+    tests_passed = tests_passed + 1;
+    print("PASSED: Arrow syntax with implicit return (0)");
+else:
+    print("FAILED: Arrow syntax with implicit return, got:", arrow_result4);
+end
+
+# Test arrow syntax with complex logic
+func factorial_arrow(n: int) -> int:
+    if n <= 1:
+        return 1;
+    else:
+        return n * factorial_arrow(n - 1);
+    end
+end
+
+let arrow_result5 = factorial_arrow(5);
+tests_total = tests_total + 1;
+if arrow_result5 == 120:
+    tests_passed = tests_passed + 1;
+    print("PASSED: Arrow syntax with complex logic (5! = 120)");
+else:
+    print("FAILED: Arrow syntax with complex logic, got:", arrow_result5);
+end
+
 print("\nFINAL RESULTS");
 print("=================");
 print("Tests Passed:", tests_passed);

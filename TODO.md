@@ -19,6 +19,7 @@
 ## Syntax & Usability
 
 * [x] Add **comments** (`# single line`, `''' multi-line '''`)
+* [x] Add **arrow syntax for functions** (`->` return type) ✅ **COMPLETE in v1.3.1**
 * [ ] Improve **function definitions & lambda support**
 * [ ] Add **type hints** (optional, for better tooling)
 * [ ] Add **pretty-printing of objects**
