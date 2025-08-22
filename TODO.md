@@ -20,6 +20,7 @@
 
 * [x] Add **comments** (`# single line`, `''' multi-line '''`)
 * [x] Add **arrow syntax for functions** (`->` return type) ✅ **COMPLETE in v1.3.1**
+* [x] Add **utility library** (debug, type, is_*, find, copy, has) ✅ **COMPLETE in v1.3.2**
 * [ ] Improve **function definitions & lambda support**
 * [ ] Add **type hints** (optional, for better tooling)
 * [ ] Add **pretty-printing of objects**

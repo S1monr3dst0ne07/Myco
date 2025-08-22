@@ -21,7 +21,7 @@
 
 Myco is a modern, lightweight programming language designed for simplicity and expressiveness. It features dynamic typing, object-oriented capabilities, functional programming with lambda functions, and a clean syntax inspired by Lua and Python.
 
-**Version**: 1.3.1  
+**Version**: 1.3.2  
 **License**: MIT  
 **Repository**: https://github.com/IvyMycelia/myco
 
@@ -898,6 +898,57 @@ Returns the number of unique elements in a set.
 ```
 
 **Note**: Set creation and literal syntax will be enhanced in future versions. Current implementation provides the foundation for advanced Set operations.
+
+### Utility Library Functions ⭐ **NEW in v1.3.2**
+
+#### Debugging & Type Checking
+```myco
+# Enhanced debugging with type information
+debug("Hello World");        # DEBUG: string = "Hello World" (length: 11)
+debug(42);                   # DEBUG: number = 42
+debug([1, 2, 3]);           # DEBUG: array (use len() to get size)
+
+# Type checking functions
+let num_type = type(42);     # 0 (number type)
+let str_type = type("test"); # -1 (string type)
+let arr_type = type([1,2]); # -2 (array type)
+
+# Boolean type checks
+let is_number = is_num(42);  # 1 (true)
+let is_string = is_str("test"); # 1 (true)
+let is_array = is_arr([1,2]);   # 1 (true)
+let is_object = is_obj({x: 1}); # 1 (true)
+```
+
+#### String Utilities
+```myco
+# String conversion alias
+let str_value = str(42);     # Same as to_string(42)
+
+# Substring search
+let pos = find("Hello World", "World");  # 6 (position of "World")
+let not_found = find("Hello", "Python"); # -1 (not found)
+```
+
+#### Data Utilities
+```myco
+# Data copying
+let original = 42;
+let copy_value = copy(original);  # 42 (shallow copy)
+
+# Object property checking
+let user = {name: "Alice", age: 25};
+let has_name = has(user, "name");      # 1 (true)
+let has_email = has(user, "email");    # 0 (false)
+```
+
+#### Benefits
+- **Clean Function Names**: Easy to remember and use (`debug`, `type`, `is_num`, etc.)
+- **Enhanced Debugging**: Better development experience with detailed type information
+- **Type Safety**: Comprehensive type checking and introspection
+- **String Operations**: Efficient substring search and string utilities
+- **Data Manipulation**: Object property checking and data copying
+- **Developer Friendly**: All utilities designed for productive development
 
 ## Standard Library
 

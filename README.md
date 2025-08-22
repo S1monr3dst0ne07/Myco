@@ -5,7 +5,7 @@
 
 Discord: https://discord.gg/CR8xcKb3zM
 
-**Current Version**: v1.3.1 - Arrow Syntax & Math Library
+**Current Version**: v1.3.2 - Utility Library & Arrow Syntax
 
 ---
 
