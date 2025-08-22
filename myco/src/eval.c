@@ -6226,7 +6226,10 @@ void eval_evaluate(ASTNode* ast) {
                         
                         // Execute case body - check if it's valid
                         if (case_node->children[1].type == AST_BLOCK && case_node->children[1].children) {
-                            eval_evaluate(&case_node->children[1]);
+                            // Execute each statement in the case body
+                            for (int j = 0; j < case_node->children[1].child_count; j++) {
+                                eval_evaluate(&case_node->children[1].children[j]);
+                            }
                         }
                         
                         // Check for break (in a real implementation, we'd need break handling)
@@ -6237,7 +6240,10 @@ void eval_evaluate(ASTNode* ast) {
                     if (!case_matched || execute_remaining) {
                         // Execute default case - check if it's valid
                         if (case_node->children[0].type == AST_BLOCK && case_node->children[0].children) {
-                            eval_evaluate(&case_node->children[0]);
+                            // Execute each statement in the default body
+                            for (int j = 0; j < case_node->children[0].child_count; j++) {
+                                eval_evaluate(&case_node->children[0].children[j]);
+                            }
                         }
                         break;
                     }
