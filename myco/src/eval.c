@@ -57,8 +57,55 @@
 #include <time.h>
 #include <math.h>
 #include <float.h>
+#include <limits.h>
 
 // Array data structure is now defined in eval.h
+
+/*******************************************************************************
+ * SIMPLE LIBRARY IMPORT SYSTEM
+ ******************************************************************************/
+
+// Forward declarations for library functions
+static long long call_math_function(const char* func_name, ASTNode* args_node);
+static long long call_util_function(const char* func_name, ASTNode* args_node);
+static long long call_core_function(const char* func_name, ASTNode* args_node);
+
+// Global library imports
+static LibraryImport* library_imports = NULL;
+static int library_import_count = 0;
+static int library_import_capacity = 0;
+
+/**
+ * @brief Add a library import
+ */
+void add_library_import(const char* library_name, const char* alias) {
+    if (library_import_count >= library_import_capacity) {
+        library_import_capacity = library_import_capacity == 0 ? 10 : library_import_capacity * 2;
+        library_imports = (LibraryImport*)tracked_realloc(
+            library_imports, 
+            library_import_capacity * sizeof(LibraryImport), 
+            __FILE__, __LINE__, "add_library_import"
+        );
+    }
+    
+    library_imports[library_import_count].library_name = tracked_strdup(library_name, __FILE__, __LINE__, "add_library_import");
+    library_imports[library_import_count].alias = tracked_strdup(alias, __FILE__, __LINE__, "add_library_import");
+    library_import_count++;
+    
+    printf("Imported library '%s' as '%s'\n", library_name, alias);
+}
+
+/**
+ * @brief Get library name for an alias
+ */
+const char* get_library_alias(const char* alias) {
+    for (int i = 0; i < library_import_count; i++) {
+        if (strcmp(library_imports[i].alias, alias) == 0) {
+            return library_imports[i].library_name;
+        }
+    }
+    return NULL;
+}
 
 /*******************************************************************************
  * IMPLICIT FUNCTION SYSTEM
@@ -2796,6 +2843,32 @@ long long eval_expression(ASTNode* ast) {
             return 0;
         }
         
+        // Check if this is a library constant access (e.g., m.PI, m.E) before treating as object access
+        if (ast->children[0].type == AST_EXPR && ast->children[0].text &&
+            ast->children[1].type == AST_EXPR && ast->children[1].text) {
+            
+            const char* alias = ast->children[0].text;
+            const char* constant_name = ast->children[1].text;
+            const char* actual_library = get_library_alias(alias);
+            
+            if (actual_library) {
+                // This is a library alias - handle constants
+                if (strcmp(actual_library, "math") == 0) {
+                    if (strcmp(constant_name, "PI") == 0) {
+                        return (long long)(3.141592653589793 * 1000000);
+                    } else if (strcmp(constant_name, "E") == 0) {
+                        return (long long)(2.718281828459045 * 1000000);
+                    } else if (strcmp(constant_name, "INF") == 0) {
+                        return 999999999;
+                    } else if (strcmp(constant_name, "NAN") == 0) {
+                        return -999999999;
+                    }
+                }
+                // If not a recognized constant, continue to object property access handling
+                // This allows for potential library function calls later
+            }
+        }
+        
         // Handle nested property access recursively
         // For obj.user.name, we need to resolve obj.user first, then get .name
         
@@ -2987,6 +3060,121 @@ long long eval_expression(ASTNode* ast) {
             if (lambda_func) {
                 // Call lambda function
                 return execute_lambda(lambda_func, &ast->children[1]);
+            }
+        }
+        
+        // Check for library function calls (e.g., math.abs, util.debug)
+        if (func_name && strchr(func_name, '.') != NULL) {
+            char* dot_pos = strchr(func_name, '.');
+            if (dot_pos) {
+                char library_name[256];
+                char function_name[256];
+                
+                // Extract library and function names
+                size_t lib_len = dot_pos - func_name;
+                strncpy(library_name, func_name, lib_len);
+                library_name[lib_len] = '\0';
+                
+                strcpy(function_name, dot_pos + 1);
+                
+                // Check if this library is imported
+                const char* alias = get_library_alias(library_name);
+                if (alias) {
+                    // For now, just print a message about the library function call
+                    printf("Library function call: %s.%s() (imported as %s)\n", library_name, function_name, alias);
+                    return 0; // Placeholder return
+                } else {
+                    fprintf(stderr, "Error: Library '%s' not imported. Use 'use %s as <alias>;' first\n", library_name, library_name);
+                    return 0;
+                }
+            }
+        }
+        
+        // Check for dot expression function calls and constants (e.g., m.abs, m.PI, u.debug)
+        if (func_name_node->type == AST_DOT) {
+            // This is a dot expression like m.abs
+            char library_name[256];
+            char function_name[256];
+            
+            // Extract library name from the left side of the dot
+            if (func_name_node->children[0].type == AST_EXPR && func_name_node->children[0].text) {
+                strcpy(library_name, func_name_node->children[0].text);
+            } else {
+                fprintf(stderr, "Error: Invalid library name in dot expression\n");
+                return 0;
+            }
+            
+            // Extract function name from the right side of the dot
+            if (func_name_node->children[1].type == AST_EXPR && func_name_node->children[1].text) {
+                strcpy(function_name, func_name_node->children[1].text);
+            } else {
+                fprintf(stderr, "Error: Invalid function name in dot expression\n");
+                return 0;
+            }
+            
+            // Check if this alias is imported
+            const char* actual_library = get_library_alias(library_name);
+            if (actual_library) {
+                
+                // Now implement the actual function calls
+                if (strcmp(actual_library, "math") == 0) {
+                    return call_math_function(function_name, &ast->children[1]);
+                } else if (strcmp(actual_library, "util") == 0) {
+                    return call_util_function(function_name, &ast->children[1]);
+                } else if (strcmp(actual_library, "core") == 0) {
+                    return call_core_function(function_name, &ast->children[1]);
+                }
+                
+                return 0;
+            } else {
+                fprintf(stderr, "Error: Alias '%s' not imported. Use 'use <library> as %s;' first\n", library_name, library_name);
+                return 0;
+            }
+        }
+        
+        // Check for dot expressions that are not function calls (e.g., m.PI, m.E)
+        if (func_name_node->type == AST_DOT && ast->child_count < 2) {
+            // This is a dot expression like m.PI (no arguments)
+            char library_name[256];
+            char constant_name[256];
+            
+            // Extract library name from the left side of the dot
+            if (func_name_node->children[0].type == AST_EXPR && func_name_node->children[0].text) {
+                strcpy(library_name, func_name_node->children[0].text);
+            } else {
+                fprintf(stderr, "Error: Invalid library name in dot expression\n");
+                return 0;
+            }
+            
+            // Extract constant name from the right side of the dot
+            if (func_name_node->children[1].type == AST_EXPR && func_name_node->children[1].text) {
+                strcpy(constant_name, func_name_node->children[1].text);
+            } else {
+                fprintf(stderr, "Error: Invalid constant name in dot expression\n");
+                return 0;
+            }
+            
+            // Check if this alias is imported
+            const char* actual_library = get_library_alias(library_name);
+            if (actual_library) {
+                // Handle library constants
+                if (strcmp(actual_library, "math") == 0) {
+                    if (strcmp(constant_name, "PI") == 0) {
+                        return (long long)(3.141592653589793 * 1000000);
+                    } else if (strcmp(constant_name, "E") == 0) {
+                        return (long long)(2.718281828459045 * 1000000);
+                    } else if (strcmp(constant_name, "INF") == 0) {
+                        return 999999999;
+                    } else if (strcmp(constant_name, "NAN") == 0) {
+                        return -999999999;
+                    }
+                }
+                
+                fprintf(stderr, "Error: Unknown constant '%s' in library '%s'\n", constant_name, actual_library);
+                return 0;
+            } else {
+                fprintf(stderr, "Error: Alias '%s' not imported. Use 'use <library> as %s;' first\n", library_name, library_name);
+                return 0;
             }
         }
         
@@ -5366,6 +5554,24 @@ long long eval_expression(ASTNode* ast) {
                 }
             }
             
+            // Check if this is a library constant access (e.g., m.PI, m.E)
+            const char* actual_library = get_library_alias(obj_name);
+            if (actual_library) {
+                if (strcmp(actual_library, "math") == 0) {
+                    if (strcmp(method_name, "PI") == 0) {
+                        return (long long)(3.141592653589793 * 1000000);
+                    } else if (strcmp(method_name, "E") == 0) {
+                        return (long long)(2.718281828459045 * 1000000);
+                    } else if (strcmp(method_name, "INF") == 0) {
+                        return 999999999;
+                    } else if (strcmp(method_name, "NAN") == 0) {
+                        return -999999999;
+                    }
+                }
+                // For now, return 0 for unknown constants (will be handled by function calls)
+                return 0;
+            }
+            
             // If not a module, handle as string methods
             const char* str_val = get_str_value(obj_name);
             if (!str_val) str_val = "";
@@ -5639,17 +5845,25 @@ void eval_evaluate(ASTNode* ast) {
         case AST_BLOCK: {
             // Handle special block types
             if (ast->text && strcmp(ast->text, "use") == 0 && ast->child_count == 2) {
-                // This is a 'use' statement: load module and create alias
-                char* module_path = ast->children[0].text;
+                // This is a 'use' statement: import library or load module
+                char* library_name = ast->children[0].text;
                 char* alias = ast->children[1].text;
                 
-                // Load and parse the module
-                ASTNode* module_ast = load_and_parse_module(module_path);
-                if (module_ast) {
-                    // Register the module with the alias
-                    register_module(alias, module_ast);
+                // Check if this is a built-in library
+                if (strcmp(library_name, "math") == 0 || 
+                    strcmp(library_name, "util") == 0 || 
+                    strcmp(library_name, "core") == 0) {
+                    // Import built-in library
+                    add_library_import(library_name, alias);
                 } else {
-                    fprintf(stderr, "Error: Failed to load module '%s'\n", module_path);
+                    // Load and parse the module
+                    ASTNode* module_ast = load_and_parse_module(library_name);
+                    if (module_ast) {
+                        // Register the module with the alias
+                        register_module(alias, module_ast);
+                    } else {
+                        fprintf(stderr, "Error: Failed to load module '%s'\n", library_name);
+                    }
                 }
             } else {
                 // Regular block - evaluate all children
@@ -5683,7 +5897,7 @@ void eval_evaluate(ASTNode* ast) {
                             printf("%.*s", (int)(len-2), arg->text + 1);
                         }
                     } else {
-                        // Variable or number
+                        // Variable or number (AST_EXPR)
                         int64_t value = eval_expression(arg);
                         if (value == -999) {
                             // Already printed, skip further processing
@@ -5858,7 +6072,36 @@ void eval_evaluate(ASTNode* ast) {
                         }
                     }
                 } else if (arg->type == AST_DOT) {
-                    // Handle dot expressions (object property access) with chaining support
+                    // Check if this is a library constant first
+                    if (arg->child_count >= 2 &&
+                        arg->children[0].type == AST_EXPR && arg->children[0].text &&
+                        arg->children[1].type == AST_EXPR && arg->children[1].text) {
+                        
+                        const char* alias = arg->children[0].text;
+                        const char* constant_name = arg->children[1].text;
+                        const char* actual_library = get_library_alias(alias);
+                        
+                        if (actual_library) {
+                            // This is a library alias - handle constants
+                            if (strcmp(actual_library, "math") == 0) {
+                                if (strcmp(constant_name, "PI") == 0) {
+                                    printf("3.14159");
+                                    continue;
+                                } else if (strcmp(constant_name, "E") == 0) {
+                                    printf("2.71828");
+                                    continue;
+                                } else if (strcmp(constant_name, "INF") == 0) {
+                                    printf("inf");
+                                    continue;
+                                } else if (strcmp(constant_name, "NAN") == 0) {
+                                    printf("nan");
+                                    continue;
+                                }
+                            }
+                        }
+                    }
+                    
+                    // If not a library constant, handle as object property access
                     PropertyType prop_type;
                     void* prop_value = evaluate_chained_property_for_print(arg, &prop_type);
                     
@@ -7083,4 +7326,192 @@ MycoSet* get_set_value(const char* name) {
         }
     }
     return NULL;
+}
+
+/*******************************************************************************
+ * LIBRARY FUNCTION IMPLEMENTATIONS
+ ******************************************************************************/
+
+// Math Library Functions
+static long long call_math_function(const char* func_name, ASTNode* args_node) {
+    if (strcmp(func_name, "abs") == 0) {
+        if (args_node->child_count < 1) {
+            fprintf(stderr, "Error: math.abs() requires one argument\n");
+            return 0;
+        }
+        
+        long long value = eval_expression(&args_node->children[0]);
+        return value < 0 ? -value : value;
+        
+    } else if (strcmp(func_name, "pow") == 0) {
+        if (args_node->child_count < 2) {
+            fprintf(stderr, "Error: math.pow() requires two arguments\n");
+            return 0;
+        }
+        
+        long long base = eval_expression(&args_node->children[0]);
+        long long exp = eval_expression(&args_node->children[1]);
+        return (long long)pow((double)base, (double)exp);
+        
+    } else if (strcmp(func_name, "sqrt") == 0) {
+        if (args_node->child_count < 1) {
+            fprintf(stderr, "Error: math.sqrt() requires one argument\n");
+            return 0;
+        }
+        
+        long long value = eval_expression(&args_node->children[0]);
+        if (value < 0) {
+            fprintf(stderr, "Error: math.sqrt() cannot take square root of negative number\n");
+            return 0;
+        }
+        return (long long)sqrt((double)value);
+        
+    } else if (strcmp(func_name, "min") == 0) {
+        if (args_node->child_count < 2) {
+            fprintf(stderr, "Error: math.min() requires at least two arguments\n");
+            return 0;
+        }
+        
+        long long min_val = LLONG_MAX;
+        for (int i = 0; i < args_node->child_count; i++) {
+            long long value = eval_expression(&args_node->children[i]);
+            if (value < min_val) min_val = value;
+        }
+        return min_val;
+        
+    } else if (strcmp(func_name, "max") == 0) {
+        if (args_node->child_count < 2) {
+            fprintf(stderr, "Error: math.max() requires at least two arguments\n");
+            return 0;
+        }
+        
+        long long max_val = LLONG_MIN;
+        for (int i = 0; i < args_node->child_count; i++) {
+            long long value = eval_expression(&args_node->children[i]);
+            if (value > max_val) max_val = value;
+        }
+        return max_val;
+        
+    } else if (strcmp(func_name, "PI") == 0) {
+        if (args_node->child_count == 0) {
+            return (long long)(3.141592653589793 * 1000000);
+        } else {
+            fprintf(stderr, "Error: math.PI is a constant, not a function\n");
+            return 0;
+        }
+        
+    } else if (strcmp(func_name, "E") == 0) {
+        if (args_node->child_count == 0) {
+            return (long long)(2.718281828459045 * 1000000);
+        } else {
+            fprintf(stderr, "Error: math.E is a constant, not a function\n");
+            return 0;
+        }
+        
+    } else if (strcmp(func_name, "INF") == 0) {
+        return 999999999;
+        
+    } else if (strcmp(func_name, "NAN") == 0) {
+        return -999999999;
+        
+    } else {
+        fprintf(stderr, "Error: Unknown math function '%s'\n", func_name);
+        return 0;
+    }
+}
+
+// Utility Library Functions
+static long long call_util_function(const char* func_name, ASTNode* args_node) {
+    if (strcmp(func_name, "debug") == 0) {
+        if (args_node->child_count < 1) {
+            fprintf(stderr, "Error: util.debug() requires one argument\n");
+            return 0;
+        }
+        
+        long long value = eval_expression(&args_node->children[0]);
+        printf("DEBUG: %lld\n", value);
+        return 1;
+        
+    } else if (strcmp(func_name, "type") == 0) {
+        if (args_node->child_count < 1) {
+            fprintf(stderr, "Error: util.type() requires one argument\n");
+            return 0;
+        }
+        
+        ASTNode* arg = &args_node->children[0];
+        if (arg->type == AST_EXPR && arg->text) {
+            if (arg->text[0] == '"') {
+                printf("String");
+            } else {
+                printf("Integer");
+            }
+        } else {
+            printf("Unknown");
+        }
+        return 1;
+        
+    } else if (strcmp(func_name, "is_num") == 0) {
+        if (args_node->child_count < 1) {
+            fprintf(stderr, "Error: util.is_num() requires one argument\n");
+            return 0;
+        }
+        
+        long long value = eval_expression(&args_node->children[0]);
+        return (value >= 0) ? 1 : 0;
+        
+    } else if (strcmp(func_name, "is_str") == 0) {
+        if (args_node->child_count < 1) {
+            fprintf(stderr, "Error: util.is_str() requires one argument\n");
+            return 0;
+        }
+        
+        ASTNode* arg = &args_node->children[0];
+        if (arg->type == AST_EXPR && arg->text && arg->text[0] == '"') {
+            return 1;
+        }
+        return 0;
+        
+    } else {
+        fprintf(stderr, "Error: Unknown utility function '%s'\n", func_name);
+        return 0;
+    }
+}
+
+// Core Library Functions
+static long long call_core_function(const char* func_name, ASTNode* args_node) {
+    if (strcmp(func_name, "print") == 0) {
+        if (args_node->child_count < 1) {
+            fprintf(stderr, "Error: core.print() requires one argument\n");
+            return 0;
+        }
+        
+        long long value = eval_expression(&args_node->children[0]);
+        if (value == -1) {
+            // String value - this would need more complex handling
+            printf("[String]");
+        } else {
+            printf("%lld", value);
+        }
+        return 1;
+        
+    } else if (strcmp(func_name, "len") == 0) {
+        if (args_node->child_count < 1) {
+            fprintf(stderr, "Error: core.len() requires one argument\n");
+            return 0;
+        }
+        
+        ASTNode* arg = &args_node->children[0];
+        if (arg->type == AST_ARRAY_LITERAL) {
+            return arg->child_count;
+        } else if (arg->type == AST_EXPR && arg->text && arg->text[0] == '"') {
+            return (long long)(strlen(arg->text) - 2); // Remove quotes
+        }
+        
+        fprintf(stderr, "Error: core.len() argument must be an array or string\n");
+        return 0;
+        
+    } else {
+        fprintf(stderr, "Error: Unknown core function '%s'\n", func_name);
+        return 0;
+    }
 }

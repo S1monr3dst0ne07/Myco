@@ -106,4 +106,14 @@ long long call_implicit_function(const char* function_name, ASTNode* children, i
 int get_type_combination(int left_type, int right_type);
 void cleanup_implicit_functions(void);
 
+// Simple library import system
+typedef struct {
+    char* library_name;
+    char* alias;
+} LibraryImport;
+
+// Library system function declarations
+void add_library_import(const char* library_name, const char* alias);
+const char* get_library_alias(const char* library_name);
+
 #endif // EVAL_H 

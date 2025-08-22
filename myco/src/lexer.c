@@ -222,6 +222,8 @@ Token* lexer_tokenize(const char* source) {
             char* text = (char*)malloc(len + 1);
             strncpy(text, start, len);
             text[len] = '\0';
+            
+
 
             // Check for keywords
             if (strcmp(text, "func") == 0) tokens[token_count].type = TOKEN_FUNC;

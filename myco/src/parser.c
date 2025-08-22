@@ -590,7 +590,6 @@ static ASTNode* parse_primary(Token* tokens, int* current) {
             parser_free_ast(node);
             return NULL;
         }
-
         ASTNode* dot_node = (ASTNode*)tracked_malloc(sizeof(ASTNode), __FILE__, __LINE__, "parse_primary_dot");
         dot_node->type = AST_DOT;
         dot_node->text = tracked_strdup("dot", __FILE__, __LINE__, "parser");

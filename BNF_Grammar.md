@@ -1,6 +1,6 @@
 # Myco Language BNF Grammar Specification
 
-**Version**: v1.4.0 - Float Support & File I/O   
+**Version**: v1.4.0 - Float Support & Library Import System   
 **Last Updated**: December 2024   
 **Status**: Complete and Current   
 
@@ -25,7 +25,7 @@
 <program> ::= <statement_list>
 
 <statement_list> ::= <statement>*
-<statement> ::= <expression_statement> | <declaration_statement> | <control_statement> | <function_declaration> | <return_statement> | <break_statement> | <continue_statement>
+<statement> ::= <expression_statement> | <declaration_statement> | <control_statement> | <function_declaration> | <return_statement> | <break_statement> | <continue_statement> | <library_import_statement>
 
 <block> ::= "end" | <statement_list> "end"
 ```
@@ -78,6 +78,7 @@
 <array_access> ::= <identifier> "[" <expression> "]"
 
 <object_access> ::= <identifier> "." <identifier>
+<library_access> ::= <identifier> "." <identifier>  # For library.function() calls
 ```
 
 ### Binary Expressions
@@ -112,6 +113,12 @@
 ### Expression Statements
 ```bnf
 <expression_statement> ::= <expression> ";"
+```
+
+### Library Import Statements ⭐ **NEW in v1.4.0**
+
+```bnf
+<library_import_statement> ::= "use" <identifier> "as" <identifier> ";"
 ```
 
 ### Declaration Statements

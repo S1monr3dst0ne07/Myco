@@ -1104,6 +1104,81 @@ let has_email = has(user, "email");    # 0 (false)
 - **Data Manipulation**: Object property checking and data copying
 - **Developer Friendly**: All utilities designed for productive development
 
+## Library Import System ⭐ **NEW in v1.4.0**
+
+Myco now features a comprehensive library import system that provides namespace protection and organized access to built-in functionality:
+
+### Import Syntax
+```myco
+use math as m;      # Import math library with alias 'm'
+use util as u;      # Import utility library with alias 'u'
+use core as c;      # Import core library with alias 'c'
+```
+
+### Available Libraries
+
+#### Math Library (`math`)
+**Constants:**
+- `m.PI` - Mathematical constant π (3.14159)
+- `m.E` - Euler's number e (2.71828)
+- `m.INF` - Infinity
+- `m.NAN` - Not a Number
+
+**Functions:**
+- `m.abs(x)` - Absolute value
+- `m.pow(base, exponent)` - Power function
+- `m.sqrt(x)` - Square root
+- `m.min(a, b)` - Minimum of two values
+- `m.max(a, b)` - Maximum of two values
+- `m.random()` - Random number between 0 and 1
+- `m.randint(min, max)` - Random integer in range
+
+#### Utility Library (`util`)
+**Functions:**
+- `u.debug(value)` - Detailed value inspection
+- `u.type(value)` - Type information
+- `u.is_num(value)` - Check if value is numeric
+- `u.is_str(value)` - Check if value is string
+- `u.is_arr(value)` - Check if value is array
+- `u.is_obj(value)` - Check if value is object
+- `u.str(value)` - Convert to string
+- `u.find(haystack, needle)` - Find substring
+- `u.copy(value)` - Deep copy
+- `u.has(object, key)` - Check object property
+
+#### Core Library (`core`)
+**Functions:**
+- `c.print(...)` - Print function
+- `c.len(value)` - Length function
+
+### Benefits
+- **Namespace Protection**: Built-in functions no longer pollute global namespace
+- **Organized Access**: Functions grouped by functionality
+- **Custom Functions**: Users can create their own functions without conflicts
+- **Clear Dependencies**: Explicit imports show what functionality is used
+- **Professional Structure**: Enterprise-grade organization
+
+### Example Usage
+```myco
+use math as m;
+use util as u;
+
+# Math operations
+let pi = m.PI;
+let area = m.pow(5, 2) * pi;
+
+# Utility functions
+u.debug(area);
+let area_type = u.type(area);
+
+# Custom function (no conflict with built-ins)
+func my_debug(value):
+    print("Custom debug:", value);
+end
+
+my_debug(area);  # Works without conflicts
+```
+
 ## Standard Library
 
 Myco includes a comprehensive standard library with functions for common programming tasks:

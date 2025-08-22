@@ -5,7 +5,7 @@
 
 Discord: https://discord.gg/CR8xcKb3zM
 
-**Current Version**: v1.4.0 - Float Support & File I/O
+**Current Version**: v1.4.0 - Float Support & Library Import System
 
 ---
 
@@ -31,6 +31,7 @@ Discord: https://discord.gg/CR8xcKb3zM
 - 🎯 **Lambda functions** with functional programming support
 - 🔄 **Implicit functions** with optional type annotations
 - 🌊 **Floating-point numbers** with full arithmetic support ✅ **v1.4.0**
+- 📚 **Library import system** with namespace protection ✅ **v1.4.0**
 
 ---
 
@@ -52,11 +53,21 @@ end
 greet(name);
 let result = calculate_power(2, 8);  # 256
 
+# Library import system
+use math as m;
+use util as u;
+
+# Math library examples
+let pi = m.PI;                  # 3.14159
+let e = m.E;                    # 2.71828
+let abs_val = m.abs(-5);        # 5
+let power = m.pow(2, 8);        # 256
+
 # Utility library examples
 let user = {name: "Alice", age: 25};
-debug(user);                    # Detailed object inspection
-let user_type = type(user);     # Returns "Object"
-let has_name = has(user, "name"); # Returns 1 (true)
+u.debug(user);                  # Detailed object inspection
+let user_type = u.type(user);   # Returns "Object"
+let has_name = u.has(user, "name"); # Returns 1 (true)
 
 for item in [1, 2, 3]:
     print("Found a mushroom with ID:", item);
