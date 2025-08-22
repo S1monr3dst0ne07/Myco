@@ -2357,7 +2357,7 @@ ASTNode* parser_parse(Token* tokens) {
                 init_ast_node(param);
                 current++; // Skip parameter name
 
-                // Parse type annotation
+                // Parse type annotation (optional)
                 if (tokens[current].type == TOKEN_COLON) {
                     current++; // Skip ':'
                     if (tokens[current].type != TOKEN_TYPE_MARKER && tokens[current].type != TOKEN_STRING_TYPE) {
@@ -2385,15 +2385,17 @@ ASTNode* parser_parse(Token* tokens) {
                         free(type);
                         return NULL;
                     }
-                    type->children = NULL;
-                    type->child_count = 0;
-                    type->next = NULL;
+                    init_ast_node(type);
                     current++; // Skip type
 
                     // Add type as child of parameter
                     param->children = (ASTNode*)tracked_malloc(sizeof(ASTNode), __FILE__, __LINE__, "parser_parse_func_param_type");
                     param->children[0] = *type;
                     param->child_count = 1;
+                } else {
+                    // No type annotation - parameter is implicitly typed
+                    param->children = NULL;
+                    param->child_count = 0;
                 }
 
                 // Add parameter as child of function
@@ -2412,50 +2414,84 @@ ASTNode* parser_parse(Token* tokens) {
             }
             current++; // Skip ')'
 
-            // Parse return type
+            // Parse return type (optional)
+            // Look ahead to see if the next token is a type marker
             if (tokens[current].type == TOKEN_COLON) {
                 current++; // Skip ':'
                 if (tokens[current].type != TOKEN_TYPE_MARKER && tokens[current].type != TOKEN_STRING_TYPE) {
-                    fprintf(stderr, "Error: Expected return type at line %d\n", tokens[current].line);
-                    parser_free_ast(root);
-                    parser_free_ast(node);
-                    return NULL;
-                }
-                ASTNode* return_type = (ASTNode*)tracked_malloc(sizeof(ASTNode), __FILE__, __LINE__, "parser_parse_func_return_type");
-                if (!return_type) {
-                    fprintf(stderr, "Error: Memory allocation failed\n");
-                    parser_free_ast(root);
-                    parser_free_ast(node);
-                    return NULL;
-                }
-                return_type->type = AST_EXPR;
-                return_type->text = tracked_strdup(tokens[current].text, __FILE__, __LINE__, "parser");
-                if (!return_type->text) {
-                    fprintf(stderr, "Error: Memory allocation failed for return type\n");
-                    parser_free_ast(root);
-                    parser_free_ast(node);
-                    free(return_type);
-                    return NULL;
-                }
-                return_type->children = NULL;
-                return_type->child_count = 0;
-                return_type->next = NULL;
-                current++; // Skip return type
+                    // This colon is for the function body, not a return type
+                    // Back up and treat as implicit return
+                    current--; // Go back to colon
+                    
+                    // Add implicit return type
+                    ASTNode* implicit_return = (ASTNode*)tracked_malloc(sizeof(ASTNode), __FILE__, __LINE__, "parser_parse_func_implicit_return");
+                    if (!implicit_return) {
+                        fprintf(stderr, "Error: Memory allocation failed\n");
+                        parser_free_ast(root);
+                        parser_free_ast(node);
+                        return NULL;
+                    }
+                    implicit_return->type = AST_EXPR;
+                    implicit_return->text = tracked_strdup("implicit", __FILE__, __LINE__, "parser");
+                    init_ast_node(implicit_return);
+                    
+                    node->children = (ASTNode*)tracked_realloc(node->children, (node->child_count + 1) * sizeof(ASTNode), __FILE__, __LINE__, "parser_parse_func_implicit_return");
+                    node->children[node->child_count] = *implicit_return;
+                    node->child_count++;
+                    
+                    // Now consume the colon for the function body
+                    if (tokens[current].type != TOKEN_COLON) {
+                        fprintf(stderr, "Error: Expected ':' after function declaration at line %d\n", tokens[current].line);
+                        parser_free_ast(root);
+                        parser_free_ast(node);
+                        return NULL;
+                    }
+                    current++; // Skip ':'
+                } else {
+                    // This is a return type
+                    ASTNode* return_type = (ASTNode*)tracked_malloc(sizeof(ASTNode), __FILE__, __LINE__, "parser_parse_func_return_type");
+                    if (!return_type) {
+                        fprintf(stderr, "Error: Memory allocation failed\n");
+                        parser_free_ast(root);
+                        parser_free_ast(node);
+                        return NULL;
+                    }
+                    return_type->type = AST_EXPR;
+                    return_type->text = tracked_strdup(tokens[current].text, __FILE__, __LINE__, "parser");
+                    if (!return_type->text) {
+                        fprintf(stderr, "Error: Memory allocation failed for return type\n");
+                        parser_free_ast(root);
+                        parser_free_ast(node);
+                        free(return_type);
+                        return NULL;
+                    }
+                    init_ast_node(return_type);
+                    current++; // Skip return type
 
-                // Add return type as child of function
-                node->children = (ASTNode*)tracked_realloc(node->children, (node->child_count + 1) * sizeof(ASTNode), __FILE__, __LINE__, "parser_parse_return_type");
-                node->children[node->child_count] = *return_type;
-                node->child_count++;
-            }
-
-            // Parse function body
-            if (tokens[current].type != TOKEN_COLON) {
+                    // Add return type as child of function
+                    node->children = (ASTNode*)tracked_realloc(node->children, (node->child_count + 1) * sizeof(ASTNode), __FILE__, __LINE__, "parser_parse_return_type");
+                    node->children[node->child_count] = *return_type;
+                    node->child_count++;
+                    
+                    // After return type, we need another colon for the function body
+                    if (tokens[current].type != TOKEN_COLON) {
+                        fprintf(stderr, "Error: Expected ':' after return type at line %d\n", tokens[current].line);
+                        parser_free_ast(root);
+                        parser_free_ast(node);
+                        return NULL;
+                    }
+                    current++; // Skip ':'
+                }
+            } else {
+                // No colon found - this is an error
                 fprintf(stderr, "Error: Expected ':' after function declaration at line %d\n", tokens[current].line);
                 parser_free_ast(root);
                 parser_free_ast(node);
                 return NULL;
             }
-            current++; // Skip ':'
+
+            // Parse function body
+            // The colon has already been consumed above
 
             ASTNode* body = parse_block(tokens, &current, token_count);
             if (!body) {

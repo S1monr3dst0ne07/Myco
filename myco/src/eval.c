@@ -2176,8 +2176,23 @@ static long long eval_user_function_call(ASTNode* fn, ASTNode* args_node) {
         // Always add as new variable to ensure parameter binding works
         var_env[var_env_size].name = tracked_strdup(pname, __FILE__, __LINE__, "eval");
         if (var_env[var_env_size].name) {
-            var_env[var_env_size].type = VAR_TYPE_NUMBER;
-            var_env[var_env_size].number_value = argvals[i];
+            // Check if parameter has explicit type annotation
+            int param_index = param_indices[i];
+            int has_type = 0;
+            if (param_index < fn->child_count && fn->children[param_index].children && fn->children[param_index].child_count > 0) {
+                has_type = 1;
+            }
+            
+            if (has_type) {
+                // Parameter has explicit type - use it
+                var_env[var_env_size].type = VAR_TYPE_NUMBER;  // For now, default to number
+                var_env[var_env_size].number_value = argvals[i];
+            } else {
+                // Implicit parameter - infer type from argument
+                var_env[var_env_size].type = VAR_TYPE_NUMBER;  // Default to number for now
+                var_env[var_env_size].number_value = argvals[i];
+            }
+            
             var_env[var_env_size].array_value = NULL;
             var_env[var_env_size].string_value = NULL;
             var_env[var_env_size].object_value = NULL;

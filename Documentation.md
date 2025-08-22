@@ -461,7 +461,77 @@ let result = add(double(3), double(4));  # 14
 ```
 
 ### Implicit Functions ⭐ **NEW in v1.2.4**
-Myco now supports implicit functions that automatically call appropriate functions when using operators:
+Myco now supports **true implicit functions** in the Python style - functions that don't require explicit type annotations and can return values implicitly.
+
+#### Optional Type Annotations
+```myco
+# No parameter type annotations needed
+func add_numbers(a, b):           # Types are inferred automatically
+    return a + b;
+end
+
+# Mixed type annotations supported
+func mixed_types(x, y: int):      # x is implicit, y is explicit
+    return x + y;
+end
+
+# No return type annotation needed
+func multiply(a, b):              # Return type is inferred
+    return a * b;
+end
+```
+
+#### Implicit Returns
+```myco
+# Functions can return nothing implicitly
+func process_data(x):
+    print("Processing:", x);
+    # No return statement = implicit return of 0
+end
+
+# Conditional returns work naturally
+func flexible_return(x):
+    if x > 0:
+        return x * 2;             # Returns number
+    # No return for x <= 0 = implicit return of 0
+end
+```
+
+#### Complex Logic
+```myco
+# Recursive functions with implicit types
+func factorial(n):
+    if n <= 1:
+        return 1;
+    else:
+        return n * factorial(n - 1);
+    end
+end
+
+# Multiple return paths
+func conditional_logic(x, y):
+    let temp = x + y;
+    if temp > 100:
+        return temp / 2;
+    else:
+        if temp < 0:
+            return temp * -1;
+        else:
+            return temp;
+        end
+    end
+end
+```
+
+#### Benefits
+- **Python-like Syntax**: Write functions without verbose type annotations
+- **Flexible Returns**: Functions can return different types or nothing
+- **Cleaner Code**: Less boilerplate, more readable functions
+- **Backward Compatible**: Existing typed functions continue to work
+- **Developer Friendly**: Faster prototyping and development
+
+### Operator Overloading (Also Available)
+Myco also supports operator overloading where operators automatically call appropriate functions:
 
 #### Mathematical Operators
 ```myco
@@ -481,67 +551,31 @@ let quotient = 15 / 3;  # Calls divide(15, 3)
 let remainder = 17 % 3; # Calls modulo(17, 3)
 ```
 
-#### Comparison Operators
+#### Comparison & Logical Operators
 ```myco
 # Equality automatically calls equals()
 let isEqual = 5 == 5;   # Calls equals(5, 5)
 
-# Inequality automatically calls not_equals()
-let isNotEqual = 5 != 3; # Calls not_equals(5, 3)
-
-# Less than automatically calls less_than()
-let isLess = 3 < 5;     # Calls less_than(3, 5)
-
-# Greater than automatically calls greater_than()
-let isGreater = 7 > 3;  # Calls greater_than(7, 3)
-
-# Less/equal automatically calls less_equal()
-let isLessEqual = 5 <= 5; # Calls less_equal(5, 5)
-
-# Greater/equal automatically calls greater_equal()
-let isGreaterEqual = 7 >= 3; # Calls greater_equal(7, 3)
-```
-
-#### Logical Operators
-```myco
 # Logical AND automatically calls logical_and()
 let both = (a > 0) and (b > 0);  # Calls logical_and(a > 0, b > 0)
-
-# Logical OR automatically calls logical_or()
-let either = (a < 0) or (b > 0);  # Calls logical_or(a < 0, b > 0)
 ```
-
-#### Complex Expressions
-```myco
-# Operator precedence is respected
-let result = 5 + 3 * 2;  # Calls multiply(3, 2) then add(5, 6)
-
-# Parentheses work as expected
-let grouped = (5 + 3) * 2;  # Calls add(5, 3) then multiply(8, 2)
-
-# Chained operations work correctly
-let chained = 10 - 3 - 2;  # Calls subtract(10, 3) then subtract(7, 2)
-```
-
-#### Benefits
-- **Cleaner Code**: `a + b` instead of `add(a, b)`
-- **Intuitive Syntax**: Operators work as expected
-- **Type Safety**: Automatic type-aware function selection
-- **Extensibility**: Easy to add new operator behaviors
-- **Performance**: Optimized function calls for common operations
 
 ### Examples
 ```myco
+# True implicit functions
 func add(a, b):
     return a + b;
 end
 
-func greet(name):
-    return "Hello, " + name + "!";
+func process(x):
+    if x > 0:
+        return x * 2;
+    # Implicit return of 0
 end
 
-let sum = add(5, 3);
-let message = greet("Alice");
+# Operator overloading
+let sum = 5 + 3;        # Calls add(5, 3)
+let result = add(10, 20);
 ```
 
 ## Built-in Functions

@@ -337,6 +337,83 @@ else:
     print("FAILED: Implicit logical_or function, got:", implicit_or);
 end
 
+print("\nTRUE IMPLICIT FUNCTION TESTS");
+print("==============================");
+
+# Test 1: Function with no type annotations (fully implicit)
+func add_implicit(a, b):
+    return a + b;
+end
+
+let implicit_func_result1 = add_implicit(5, 3);
+tests_total = tests_total + 1;
+if implicit_func_result1 == 8:
+    tests_passed = tests_passed + 1;
+    print("PASSED: True implicit function - no type annotations (5 + 3 = 8)");
+else:
+    print("FAILED: True implicit function, got:", implicit_func_result1);
+end
+
+# Test 2: Function with mixed type annotations
+func mixed_implicit(x, y: int):
+    return x + y;
+end
+
+let implicit_func_result2 = mixed_implicit(10, 5);
+tests_total = tests_total + 1;
+if implicit_func_result2 == 15:
+    tests_passed = tests_passed + 1;
+    print("PASSED: True implicit function - mixed type annotations (10 + 5 = 15)");
+else:
+    print("FAILED: True implicit function, got:", implicit_func_result2);
+end
+
+# Test 3: Function with no return type annotation
+func no_return_type_implicit(a, b):
+    return a * b;
+end
+
+let implicit_func_result3 = no_return_type_implicit(4, 6);
+tests_total = tests_total + 1;
+if implicit_func_result3 == 24:
+    tests_passed = tests_passed + 1;
+    print("PASSED: True implicit function - no return type (4 * 6 = 24)");
+else:
+    print("FAILED: True implicit function, got:", implicit_func_result3);
+end
+
+# Test 4: Function with implicit return
+func implicit_return_func(x):
+    # No return statement - should return implicitly
+end
+
+let implicit_func_result4 = implicit_return_func(42);
+tests_total = tests_total + 1;
+if implicit_func_result4 == 0:
+    tests_passed = tests_passed + 1;
+    print("PASSED: True implicit function - implicit return (should be 0)");
+else:
+    print("FAILED: True implicit function - implicit return, got:", implicit_func_result4);
+end
+
+# Test 5: Recursive function with implicit types
+func factorial_implicit(n):
+    if n <= 1:
+        return 1;
+    else:
+        return n * factorial_implicit(n - 1);
+    end
+end
+
+let implicit_func_result5 = factorial_implicit(5);
+tests_total = tests_total + 1;
+if implicit_func_result5 == 120:
+    tests_passed = tests_passed + 1;
+    print("PASSED: True implicit function - recursive implicit types (5! = 120)");
+else:
+    print("FAILED: True implicit function - recursive implicit types, got:", implicit_func_result5);
+end
+
 print("\nFINAL RESULTS");
 print("=================");
 print("Tests Passed:", tests_passed);
