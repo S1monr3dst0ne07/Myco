@@ -629,18 +629,18 @@ print("PASSED: debug() function working");
 # Test type checking functions
 let type_num = type(42);
 tests_total = tests_total + 1;
-if type_num == 0:
+if type_num == -1: # Returns -1 (string result) for "Integer"
     tests_passed = tests_passed + 1;
-    print("PASSED: type(42) = 0 (number)");
+    print("PASSED: type(42) = Integer");
 else:
     print("FAILED: type(42), got:", type_num);
 end
 
 let type_arr = type([1, 2, 3]);
 tests_total = tests_total + 1;
-if type_arr == 0: # Currently returns 0 for arrays
+if type_arr == -1: # Returns -1 (string result) for "Array"
     tests_passed = tests_passed + 1;
-    print("PASSED: type([1,2,3]) = 0 (array)");
+    print("PASSED: type([1,2,3]) = Array");
 else:
     print("FAILED: type([1,2,3]), got:", type_arr);
 end

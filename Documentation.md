@@ -909,9 +909,9 @@ debug(42);                   # DEBUG: number = 42
 debug([1, 2, 3]);           # DEBUG: array (use len() to get size)
 
 # Type checking functions
-let num_type = type(42);     # 0 (number type)
-let str_type = type("test"); # -1 (string type)
-let arr_type = type([1,2]); # -2 (array type)
+let num_type = type(42);     # "Integer"
+let str_type = type("test"); # "String"
+let arr_type = type([1,2]); # "Array"
 
 # Boolean type checks
 let is_number = is_num(42);  # 1 (true)

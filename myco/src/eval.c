@@ -4570,24 +4570,40 @@ long long eval_expression(ASTNode* ast) {
             long long value = eval_expression(arg_node);
             if (error_occurred) return 0;
             
+            // Store the type name in a predictable variable for print function to access
+            const char* type_name = NULL;
+            
             // Check for string literals first (they return 1 from eval_expression)
             if (arg_node->text && arg_node->text[0] == '"') {
-                return -1; // String literal
+                type_name = "String";
             }
-            // Check for array literals (they return 0 from eval_expression)
-            else if (arg_node->text && arg_node->text[0] == '[') {
-                return -2; // Array literal
+            // Check for array literals (they are AST_ARRAY_LITERAL nodes)
+            else if (arg_node->type == AST_ARRAY_LITERAL) {
+                type_name = "Array";
             }
-            // Return type code: -1=string, -2=array, -3=object, >=0=number
+            // Check for object literals (they are AST_OBJECT_LITERAL nodes)
+            else if (arg_node->type == AST_OBJECT_LITERAL) {
+                type_name = "Object";
+            }
+            // Return type name for variables: -1=string, -2=array, -3=object, >=0=number
             else if (value == -1) {
-                return -1; // String variable
+                type_name = "String";
             } else if (value == -2) {
-                return -2; // Array variable
+                type_name = "Array";
             } else if (value == -3) {
-                return -3; // Object variable
+                type_name = "Object";
             } else {
-                return 0; // Number (or any other numeric type)
+                type_name = "Integer";
             }
+            
+            // Store the type name in a global variable for the print function
+            if (last_concat_result) {
+                tracked_free(last_concat_result, __FILE__, __LINE__, "eval");
+            }
+            last_concat_result = tracked_strdup(type_name, __FILE__, __LINE__, "eval");
+            
+            // Return -1 to indicate this is a string result
+            return -1;
         }
         
         else if (func_name && strcmp(func_name, "is_num") == 0) {
@@ -4632,8 +4648,8 @@ long long eval_expression(ASTNode* ast) {
             long long value = eval_expression(arg_node);
             if (error_occurred) return 0;
             
-            // Check for array literals first (they start with bracket)
-            if (arg_node->text && arg_node->text[0] == '[') {
+            // Check for array literals first (they are AST_ARRAY_LITERAL nodes)
+            if (arg_node->type == AST_ARRAY_LITERAL) {
                 return 1; // Array literal
             }
             
@@ -4647,10 +4663,16 @@ long long eval_expression(ASTNode* ast) {
                 return 0;
             }
             
-            long long value = eval_expression(&ast->children[1].children[0]);
+            ASTNode* arg_node = &ast->children[1].children[0];
+            long long value = eval_expression(arg_node);
             if (error_occurred) return 0;
             
-            // Return 1 if object (-3), 0 otherwise
+            // Check for object literals first (they are AST_OBJECT_LITERAL nodes)
+            if (arg_node->type == AST_OBJECT_LITERAL) {
+                return 1; // Object literal
+            }
+            
+            // Return 1 if object variable (-3), 0 otherwise
             return (value == -3) ? 1 : 0;
         }
         
@@ -4745,18 +4767,42 @@ long long eval_expression(ASTNode* ast) {
                 return 0;
             }
             
-            // Get the object name
+            // Get the object name (same pattern as has_key)
             ASTNode* obj_node = &ast->children[1].children[0];
             const char* obj_name = NULL;
             if (obj_node->type == AST_EXPR && obj_node->text) {
                 obj_name = obj_node->text;
+                if (is_string_literal(obj_name)) {
+                    // Remove quotes from the string literal
+                    size_t len = strlen(obj_name);
+                    if (len >= 2) {
+                        char* temp_name = tracked_malloc(len - 1, __FILE__, __LINE__, "eval");
+                        if (temp_name) {
+                            strncpy(temp_name, obj_name + 1, len - 2);
+                            temp_name[len - 2] = '\0';
+                            obj_name = temp_name;
+                        }
+                    }
+                }
             }
             
-            // Get the key to check
+            // Get the key to check (same pattern as has_key)
             ASTNode* key_node = &ast->children[1].children[1];
             const char* key_name = NULL;
             if (key_node->type == AST_EXPR && key_node->text) {
                 key_name = key_node->text;
+                if (is_string_literal(key_name)) {
+                    // Remove quotes from the string literal
+                    size_t len = strlen(key_name);
+                    if (len >= 2) {
+                        char* temp_key = tracked_malloc(len - 1, __FILE__, __LINE__, "eval");
+                        if (temp_key) {
+                            strncpy(temp_key, key_name + 1, len - 2);
+                            temp_key[len - 2] = '\0';
+                            key_name = temp_key;
+                        }
+                    }
+                }
             }
             
             if (!obj_name || !key_name) {
