@@ -1,3 +1,0 @@
-use ./include/import.myco as importedModule
-
-print(importedModule.factorial(5));
