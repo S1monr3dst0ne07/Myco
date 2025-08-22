@@ -2472,7 +2472,7 @@ long long eval_expression(ASTNode* ast) {
                                 }
                             }
                         }
-                        } else {
+                    } else {
                         // Numeric array
                         array_push(array, &value_to_add);
                         return (long long)array->size;
@@ -4178,6 +4178,8 @@ long long eval_expression(ASTNode* ast) {
 void eval_evaluate(ASTNode* ast) {
     if (!ast) return;
 
+
+
     switch (ast->type) {
         case AST_FOR: {
             // Initialize loop execution state if not already done
@@ -4618,6 +4620,13 @@ void eval_evaluate(ASTNode* ast) {
         case AST_EXPR: {
             if (!ast->text) return;
 
+            // Check if this is an expression statement (text="expr_stmt" with children)
+            if (ast->text && strcmp(ast->text, "expr_stmt") == 0 && ast->child_count >= 1) {
+                // Evaluate the expression inside the statement
+                eval_expression(&ast->children[0]);
+                return;
+            }
+
             // Check if this is a method call (text="call" with children)
             if (ast->text && strcmp(ast->text, "call") == 0 && ast->child_count >= 2) {
                 // Get function name from first child
@@ -4671,7 +4680,9 @@ void eval_evaluate(ASTNode* ast) {
                     return;
                 }
                 
-                // This is a regular function call, continue with existing logic
+                // This is a regular function call - evaluate it using eval_expression
+                eval_expression(ast);
+                return;
             }
 
             // Check if it's a variable
