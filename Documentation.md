@@ -21,7 +21,7 @@
 
 Myco is a modern, lightweight programming language designed for simplicity and expressiveness. It features dynamic typing, object-oriented capabilities, functional programming with lambda functions, and a clean syntax inspired by Lua and Python.
 
-**Version**: 1.2.3  
+**Version**: 1.2.4  
 **License**: MIT  
 **Repository**: https://github.com/IvyMycelia/myco
 
@@ -459,6 +459,76 @@ let double = x => x * 2;
 let add = (a, b) => a + b;
 let result = add(double(3), double(4));  # 14
 ```
+
+### Implicit Functions ⭐ **NEW in v1.2.4**
+Myco now supports implicit functions that automatically call appropriate functions when using operators:
+
+#### Mathematical Operators
+```myco
+# Addition automatically calls add()
+let sum = 5 + 3;        # Calls add(5, 3)
+
+# Subtraction automatically calls subtract()
+let diff = 10 - 4;      # Calls subtract(10, 4)
+
+# Multiplication automatically calls multiply()
+let product = 7 * 6;    # Calls multiply(7, 6)
+
+# Division automatically calls divide()
+let quotient = 15 / 3;  # Calls divide(15, 3)
+
+# Modulo automatically calls modulo()
+let remainder = 17 % 3; # Calls modulo(17, 3)
+```
+
+#### Comparison Operators
+```myco
+# Equality automatically calls equals()
+let isEqual = 5 == 5;   # Calls equals(5, 5)
+
+# Inequality automatically calls not_equals()
+let isNotEqual = 5 != 3; # Calls not_equals(5, 3)
+
+# Less than automatically calls less_than()
+let isLess = 3 < 5;     # Calls less_than(3, 5)
+
+# Greater than automatically calls greater_than()
+let isGreater = 7 > 3;  # Calls greater_than(7, 3)
+
+# Less/equal automatically calls less_equal()
+let isLessEqual = 5 <= 5; # Calls less_equal(5, 5)
+
+# Greater/equal automatically calls greater_equal()
+let isGreaterEqual = 7 >= 3; # Calls greater_equal(7, 3)
+```
+
+#### Logical Operators
+```myco
+# Logical AND automatically calls logical_and()
+let both = (a > 0) and (b > 0);  # Calls logical_and(a > 0, b > 0)
+
+# Logical OR automatically calls logical_or()
+let either = (a < 0) or (b > 0);  # Calls logical_or(a < 0, b > 0)
+```
+
+#### Complex Expressions
+```myco
+# Operator precedence is respected
+let result = 5 + 3 * 2;  # Calls multiply(3, 2) then add(5, 6)
+
+# Parentheses work as expected
+let grouped = (5 + 3) * 2;  # Calls add(5, 3) then multiply(8, 2)
+
+# Chained operations work correctly
+let chained = 10 - 3 - 2;  # Calls subtract(10, 3) then subtract(7, 2)
+```
+
+#### Benefits
+- **Cleaner Code**: `a + b` instead of `add(a, b)`
+- **Intuitive Syntax**: Operators work as expected
+- **Type Safety**: Automatic type-aware function selection
+- **Extensibility**: Easy to add new operator behaviors
+- **Performance**: Optimized function calls for common operations
 
 ### Examples
 ```myco
