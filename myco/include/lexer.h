@@ -40,7 +40,9 @@ typedef enum {
     TOKEN_LBRACE,
     TOKEN_RBRACE,
     TOKEN_LAMBDA,
-    TOKEN_ARROW
+    TOKEN_ARROW,
+    TOKEN_TRUE,
+    TOKEN_FALSE
 } MycoTokenType;
 
 typedef struct {

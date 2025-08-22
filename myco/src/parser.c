@@ -131,6 +131,24 @@ static ASTNode* parse_primary(Token* tokens, int* current) {
             (*current)++;
             break;
             
+        case TOKEN_TRUE:
+            node->type = AST_EXPR;
+            node->text = tracked_strdup("1", __FILE__, __LINE__, "parser"); // True = 1
+            node->children = NULL;
+            node->child_count = 0;
+            node->next = NULL;
+            (*current)++;
+            break;
+            
+        case TOKEN_FALSE:
+            node->type = AST_EXPR;
+            node->text = tracked_strdup("0", __FILE__, __LINE__, "parser"); // False = 0
+            node->children = NULL;
+            node->child_count = 0;
+            node->next = NULL;
+            (*current)++;
+            break;
+            
         case TOKEN_IDENTIFIER:
             // Check if this is a chained property assignment: obj.prop1.prop2... = value
             // Scan ahead to detect the pattern: identifier (.identifier)* = 

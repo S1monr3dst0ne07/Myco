@@ -120,10 +120,10 @@ let arr_type = type([1,2,3]);  # Returns: "Array"
 let obj_type = type({x:1});    # Returns: "Object"
 
 # Boolean type checks
-let is_number = is_num(42);     # Returns: 1 (true)
-let is_string = is_str("test"); # Returns: 1 (true)
-let is_array = is_arr([1,2]);   # Returns: 1 (true)
-let is_object = is_obj({x:1});  # Returns: 1 (true)
+let is_number = is_num(42);     # Returns: 1 (True)
+let is_string = is_str("test"); # Returns: 1 (True)
+let is_array = is_arr([1,2]);   # Returns: 1 (True)
+let is_object = is_obj({x:1});  # Returns: 1 (True)
 ```
 
 ### Strings
@@ -135,8 +135,13 @@ let empty = "";
 
 ### Booleans
 ```myco
-let isTrue = 1;    # True
-let isFalse = 0;   # False
+# Boolean keywords (recommended)
+let isTrue = True;     # True
+let isFalse = False;   # False
+
+# Numeric booleans (legacy support)
+let isValid = 1;       # True (1)
+let isInvalid = 0;     # False (0)
 ```
 
 ### Arrays
@@ -173,7 +178,7 @@ let variableName = value;
 ```myco
 let name = "Bob";
 let age = 25;
-let isActive = 1;
+let isActive = True;
 let scores = [95, 87, 92];
 ```
 
@@ -413,6 +418,27 @@ if condition:
     # code if true
 else:
     # code if false
+end
+
+# Using boolean keywords
+if True:
+    print("This always executes");
+end
+
+if False:
+    print("This never executes");
+else:
+    print("This executes instead");
+end
+
+# Boolean variables
+let user_authenticated = True;
+let has_permission = False;
+
+if user_authenticated and has_permission:
+    print("Access granted");
+else:
+    print("Access denied");
 end
 ```
 

@@ -32,6 +32,7 @@ Discord: https://discord.gg/CR8xcKb3zM
 - 🔄 **Implicit functions** with optional type annotations
 - 🌊 **Floating-point numbers** with full arithmetic support ✅ **v1.4.0**
 - 📚 **Library import system** with namespace protection ✅ **v1.4.0**
+- ✅ **True/False keywords** with backward compatibility ✅ **v1.4.0**
 
 ---
 
@@ -91,6 +92,14 @@ try:
     let result = 10 / 0;
 catch error:
     print("Caught error:", error);
+end
+
+# Boolean keywords (new in v1.4.0)
+let is_active = True;
+let is_finished = False;
+
+if is_active and not is_finished:
+    print("Process is running");
 end
 
 # Float arithmetic examples

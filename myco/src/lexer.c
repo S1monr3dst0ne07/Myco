@@ -245,6 +245,8 @@ Token* lexer_tokenize(const char* source) {
             else if (strcmp(text, "in") == 0) tokens[token_count].type = TOKEN_IN;
             else if (strcmp(text, "use") == 0) tokens[token_count].type = TOKEN_USE;
             else if (strcmp(text, "as") == 0) tokens[token_count].type = TOKEN_AS;
+            else if (strcmp(text, "True") == 0) tokens[token_count].type = TOKEN_TRUE;
+            else if (strcmp(text, "False") == 0) tokens[token_count].type = TOKEN_FALSE;
             else tokens[token_count].type = TOKEN_IDENTIFIER;
 
             tokens[token_count].text = text;

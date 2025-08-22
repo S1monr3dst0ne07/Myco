@@ -982,6 +982,89 @@ end
 
 print("✓ Library system tests completed");
 
+# ============================================================================
+# TRUE/FALSE BOOLEAN TESTS (v1.4.0)
+# ============================================================================
+print("\n--- TRUE/FALSE BOOLEAN TESTS ---");
+
+# Test 19: True keyword
+tests_total = tests_total + 1;
+let bool_true = True;
+if bool_true == 1:
+    tests_passed = tests_passed + 1;
+    print("PASSED: True keyword evaluation");
+else:
+    print("FAILED: True keyword evaluation");
+end
+
+# Test 20: False keyword
+tests_total = tests_total + 1;
+let bool_false = False;
+if bool_false == 0:
+    tests_passed = tests_passed + 1;
+    print("PASSED: False keyword evaluation");
+else:
+    print("FAILED: False keyword evaluation");
+end
+
+# Test 21: True in conditions
+tests_total = tests_total + 1;
+let true_condition_worked = 0;
+if True:
+    true_condition_worked = 1;
+end
+if true_condition_worked == 1:
+    tests_passed = tests_passed + 1;
+    print("PASSED: True keyword in conditions");
+else:
+    print("FAILED: True keyword in conditions");
+end
+
+# Test 22: False in conditions
+tests_total = tests_total + 1;
+let false_condition_worked = 1;
+if False:
+    false_condition_worked = 0;
+end
+if false_condition_worked == 1:
+    tests_passed = tests_passed + 1;
+    print("PASSED: False keyword in conditions");
+else:
+    print("FAILED: False keyword in conditions");
+end
+
+# Test 23: Boolean arithmetic
+tests_total = tests_total + 1;
+let bool_sum = True + False;
+if bool_sum == 1:
+    tests_passed = tests_passed + 1;
+    print("PASSED: Boolean arithmetic (True + False = 1)");
+else:
+    print("FAILED: Boolean arithmetic");
+end
+
+# Test 24: Boolean comparisons
+tests_total = tests_total + 1;
+let bool_comp = True == 1;
+if bool_comp == 1:
+    tests_passed = tests_passed + 1;
+    print("PASSED: Boolean comparison (True == 1)");
+else:
+    print("FAILED: Boolean comparison");
+end
+
+# Test 25: Mixed boolean and numeric
+tests_total = tests_total + 1;
+let mixed_bool = True == 1 and False == 0;
+if mixed_bool == 1:
+    tests_passed = tests_passed + 1;
+    print("PASSED: Mixed boolean and numeric comparison");
+else:
+    print("FAILED: Mixed boolean and numeric comparison");
+end
+
+print("✓ True/False boolean tests completed");
+
 print("\nFINAL RESULTS");
 print("=================");
 print("Tests Passed:", tests_passed);
@@ -1022,7 +1105,8 @@ print("============================");
 # ✅ Try/Catch: Complete error handling system with automatic error catching
 # ✅ Float System: Floating-point literals, arithmetic, and math functions
 # ✅ Library System: Import system with namespace protection and organized access
+# ✅ Boolean Keywords: True/False keywords with full compatibility
 # 
-# All 82 tests passing with 100% success rate
-# Myco v1.4.0 library system is production-ready
+# All 89 tests passing with 100% success rate
+# Myco v1.4.0 True/False boolean support is production-ready
 # ============================================================================

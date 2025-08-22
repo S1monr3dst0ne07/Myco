@@ -53,7 +53,7 @@
 <string_content> ::= <any_char_except_quote> | <escape_sequence>
 <escape_sequence> ::= "\\" <any_char>
 
-<boolean_literal> ::= "0" | "1"  # 0 = false, 1 = true
+<boolean_literal> ::= "0" | "1" | "True" | "False"  # 0/False = false, 1/True = true
 
 <array_literal> ::= "[" <expression_list> "]"
 <expression_list> ::= <expression> ("," <expression>)*
