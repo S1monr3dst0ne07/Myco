@@ -21,9 +21,11 @@
 
 Myco is a modern, lightweight programming language designed for simplicity and expressiveness. It features dynamic typing, object-oriented capabilities, functional programming with lambda functions, and a clean syntax inspired by Lua and Python.
 
-**Version**: 1.3.2  
+**Version**: 1.3.2 - Utility Library & Clear Type System  
 **License**: MIT  
 **Repository**: https://github.com/IvyMycelia/myco
+
+**Latest Features**: Clear type system, comprehensive utility library, arrow syntax for functions
 
 ## Installation
 
@@ -72,6 +74,23 @@ print(variable);
 let integer = 42;
 let negative = -17;
 let zero = 0;
+```
+
+### Type System ⭐ **NEW in v1.3.2**
+Myco features a clear, descriptive type system that returns meaningful names instead of cryptic codes:
+
+```myco
+# Type checking with clear names
+let num_type = type(42);        # Returns: "Integer"
+let str_type = type("hello");   # Returns: "String"
+let arr_type = type([1,2,3]);  # Returns: "Array"
+let obj_type = type({x:1});    # Returns: "Object"
+
+# Boolean type checks
+let is_number = is_num(42);     # Returns: 1 (true)
+let is_string = is_str("test"); # Returns: 1 (true)
+let is_array = is_arr([1,2]);   # Returns: 1 (true)
+let is_object = is_obj({x:1});  # Returns: 1 (true)
 ```
 
 ### Strings

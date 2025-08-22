@@ -5,7 +5,7 @@
 
 Discord: https://discord.gg/CR8xcKb3zM
 
-**Current Version**: v1.3.2 - Utility Library & Arrow Syntax
+**Current Version**: v1.3.2 - Utility Library & Clear Type System
 
 ---
 
@@ -25,6 +25,8 @@ Discord: https://discord.gg/CR8xcKb3zM
 - 🧙 **Mystical and themed syntax highlighting** with the Myco VS Code Extension
 - 🧮 **Math library** with 15+ mathematical functions ✅ **v1.3.0**
 - ➡️ **Arrow syntax** for function return types ✅ **v1.3.1**
+- 🎯 **Utility library** with 20+ functions ✅ **v1.3.2**
+- 🔍 **Clear type system** (no more cryptic codes) ✅ **v1.3.2**
 - 🎯 **Lambda functions** with functional programming support
 - 🔄 **Implicit functions** with optional type annotations
 
@@ -47,6 +49,12 @@ end
 
 greet(name);
 let result = calculate_power(2, 8);  # 256
+
+# Utility library examples
+let user = {name: "Alice", age: 25};
+debug(user);                    # Detailed object inspection
+let user_type = type(user);     # Returns "Object"
+let has_name = has(user, "name"); # Returns 1 (true)
 
 for item in [1, 2, 3]:
     print("Found a mushroom with ID:", item);
