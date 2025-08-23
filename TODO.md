@@ -50,5 +50,13 @@
 * [x] **Library import system** - Namespace protection and organized access ✅ **COMPLETE**
 * [x] **True/False keywords** - Boolean keywords with backward compatibility ✅ **COMPLETE**
 * [x] **File I/O** - Reading/writing files and directory operations ✅ **COMPLETE**
-* [ ] **System integration** - Environment variables, command execution
-* [ ] **Enhanced error handling** - Better error messages and debugging
+
+## 🚀 Next Development Phase (v1.5.0)
+
+* [ ] **Path manipulation** - join_path(), dirname(), basename() utilities
+* [ ] **Environment variables** - get_env(), set_env(), list_env() functions
+* [ ] **Command-line arguments** - get_args(), parse_flags() processing
+* [ ] **Process execution** - execute(), get_pid(), change_dir() capabilities
+* [ ] **Text processing** - CSV, JSON, and line-by-line file operations
+* [ ] **Enhanced error handling** - Stack traces, custom exceptions, warnings
+* [ ] **Debugging tools** - Assertions, profiling, and performance monitoring
