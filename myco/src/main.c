@@ -41,6 +41,420 @@
 #include "memory_tracker.h"
 #include "config.h"
 
+// Forward declarations for variable management
+void set_variable(const char* name, long long value);
+void set_float_variable(const char* name, double value);
+void set_string_variable(const char* name, const char* value);
+long long get_variable(const char* name);
+const char* get_string_variable(const char* name);
+int is_float_variable(const char* name);
+
+// Forward declaration for expression evaluation
+long long eval_expression(ASTNode* ast);
+const char* get_last_concat_result(void);
+int get_last_result_is_float(void);
+void register_function(const char* name, ASTNode* definition);
+
+// Placeholder implementations for functions not yet implemented in modular structure
+void eval_set_base_dir(const char* dir) {
+    // TODO: Implement base directory setting
+}
+
+void init_implicit_functions(void) {
+    // TODO: Initialize implicit functions
+}
+
+void init_libraries(void) {
+    // TODO: Initialize libraries
+}
+
+void set_command_line_args(int argc, char** argv) {
+    // TODO: Set command line arguments
+}
+
+void eval_evaluate(ASTNode* ast) {
+    if (!ast) return;
+    
+    switch (ast->type) {
+        case AST_PRINT: {
+            // Handle print statements
+            if (ast->child_count > 0) {
+                ASTNode* expr = &ast->children[0];
+                
+                // Check if it's a binary expression (like "x = " + x)
+                if (expr->child_count == 2 && expr->text && strcmp(expr->text, "+") == 0) {
+                    // Handle string concatenation
+                    char result[512] = "";
+                    
+                    // Left side
+                    ASTNode* left = &expr->children[0];
+                    
+                    if (left->text && left->child_count == 0) {
+                        // Simple variable reference or string literal
+                        if (left->text[0] == '"' && left->text[strlen(left->text)-1] == '"') {
+                            // String literal - remove quotes
+                            size_t len = strlen(left->text);
+                            char temp[256];
+                            strncpy(temp, left->text + 1, len - 2);
+                            temp[len - 2] = '\0';
+                            strcat(result, temp);
+                        } else {
+                            // Variable reference
+                            const char* str_val = get_string_variable(left->text);
+                            if (str_val) {
+                                strcat(result, str_val);
+                            } else {
+                                long long num_val = get_variable(left->text);
+                                char num_str[64];
+                                // Check if it's a float variable
+                                if (is_float_variable(left->text)) {
+                                    double float_val = (double)num_val / 1000000.0;
+                                    snprintf(num_str, sizeof(num_str), "%.6g", float_val);
+                                } else {
+                                    snprintf(num_str, sizeof(num_str), "%lld", num_val);
+                                }
+                                strcat(result, num_str);
+                            }
+                        }
+                    } else {
+                        // Complex expression - evaluate it
+                        long long num_val = eval_expression(left);
+                        if (num_val == -1) {
+                            // String result - get from last_concat_result
+                            const char* concat_result = get_last_concat_result();
+                            if (concat_result) {
+                                strcat(result, concat_result);
+                            }
+                        } else {
+                            char num_str[64];
+                            snprintf(num_str, sizeof(num_str), "%lld", num_val);
+                            strcat(result, num_str);
+                        }
+                    }
+                    
+                    // Right side
+                    ASTNode* right = &expr->children[1];
+                    if (right->text) {
+                        if (right->text[0] == '"' && right->text[strlen(right->text)-1] == '"') {
+                            // String literal - remove quotes
+                            size_t len = strlen(right->text);
+                            char temp[256];
+                            strncpy(temp, right->text + 1, len - 2);
+                            temp[len - 2] = '\0';
+                            strcat(result, temp);
+                                            } else if (right->child_count > 0 && (
+                        strcmp(right->text, "+") == 0 || strcmp(right->text, "-") == 0 ||
+                        strcmp(right->text, "*") == 0 || strcmp(right->text, "/") == 0 ||
+                        strcmp(right->text, "%") == 0 || strcmp(right->text, "==") == 0 ||
+                        strcmp(right->text, "!=") == 0 || strcmp(right->text, "<") == 0 ||
+                        strcmp(right->text, ">") == 0 || strcmp(right->text, "<=") == 0 ||
+                        strcmp(right->text, ">=") == 0)) {
+                        // Complex expression with operator - evaluate it
+                        long long num_val = eval_expression(right);
+                        if (num_val == -1) {
+                            // String result - get from last_concat_result
+                            const char* concat_result = get_last_concat_result();
+                            if (concat_result) {
+                                strcat(result, concat_result);
+                            }
+                        } else {
+                            char num_str[64];
+                            snprintf(num_str, sizeof(num_str), "%lld", num_val);
+                            strcat(result, num_str);
+                        }
+                    } else if (right->child_count > 0) {
+                        // Complex expression (like function calls) - evaluate it
+                        long long num_val = eval_expression(right);
+                        if (num_val == -1) {
+                            // String result - get from last_concat_result
+                            const char* concat_result = get_last_concat_result();
+                            if (concat_result) {
+                                strcat(result, concat_result);
+                            }
+                        } else {
+                            char num_str[64];
+                            snprintf(num_str, sizeof(num_str), "%lld", num_val);
+                            strcat(result, num_str);
+                        }
+                    } else {
+                        // Variable reference or simple number
+                        const char* str_val = get_string_variable(right->text);
+                        if (str_val) {
+                            strcat(result, str_val);
+                        } else {
+                            // Check if it's a simple number literal
+                            char* endptr;
+                            long long num_val = strtoll(right->text, &endptr, 10);
+                            if (*endptr == '\0') {
+                                // It's a valid number - convert to string
+                                char num_str[64];
+                                snprintf(num_str, sizeof(num_str), "%lld", num_val);
+                                strcat(result, num_str);
+                            } else {
+                                // Try to get as variable
+                                num_val = get_variable(right->text);
+                                char num_str[64];
+                                // Check if it's a float variable
+                                if (is_float_variable(right->text)) {
+                                    double float_val = (double)num_val / 1000000.0;
+                                    snprintf(num_str, sizeof(num_str), "%.6g", float_val);
+                                } else {
+                                    snprintf(num_str, sizeof(num_str), "%lld", num_val);
+                                }
+                                strcat(result, num_str);
+                            }
+                        }
+                    }
+                    } else {
+                        // Complex expression - evaluate it
+                        printf("DEBUG: Evaluating right operand as complex expression\n");
+                        long long num_val = eval_expression(right);
+                        printf("DEBUG: Right operand evaluation result: %lld\n", num_val);
+                        if (num_val == -1) {
+                            // String result - get from last_concat_result
+                            const char* concat_result = get_last_concat_result();
+                            if (concat_result) {
+                                strcat(result, concat_result);
+                            }
+                        } else {
+                            char num_str[64];
+                            snprintf(num_str, sizeof(num_str), "%lld", num_val);
+                            strcat(result, num_str);
+                        }
+                    }
+                    
+                    printf("%s\n", result);
+                } else if (expr->text) {
+                    // Simple expression
+                    if (expr->text[0] == '"' && expr->text[strlen(expr->text)-1] == '"') {
+                        // String literal - remove quotes
+                        size_t len = strlen(expr->text);
+                        char* unquoted = malloc(len - 1);
+                        strncpy(unquoted, expr->text + 1, len - 2);
+                        unquoted[len - 2] = '\0';
+                        printf("%s\n", unquoted);
+                        free(unquoted);
+                    } else {
+                        // Variable reference
+                        const char* str_val = get_string_variable(expr->text);
+                        if (str_val) {
+                            printf("%s\n", str_val);
+                        } else {
+                            long long num_val = get_variable(expr->text);
+                            // Check if it's a float variable
+                            if (is_float_variable(expr->text)) {
+                                double float_val = (double)num_val / 1000000.0;
+                                printf("%.6g\n", float_val);
+                            } else {
+                                printf("%lld\n", num_val);
+                            }
+                        }
+                    }
+                } else if (expr->child_count > 0) {
+                    // Complex expression - evaluate it
+                    long long num_val = eval_expression(expr);
+                    if (num_val == -1) {
+                        // String result - get from last_concat_result
+                        const char* concat_result = get_last_concat_result();
+                        if (concat_result) {
+                            printf("%s\n", concat_result);
+                        }
+                    } else {
+                        // Check if it's a float result
+                        if (get_last_result_is_float()) {
+                            double float_val = (double)num_val / 1000000.0;
+                            printf("%.6g\n", float_val);
+                        } else {
+                            printf("%lld\n", num_val);
+                        }
+                    }
+                }
+            }
+            break;
+        }
+        case AST_LET: {
+            // Handle variable declarations
+            if (ast->child_count >= 2) {
+                char* var_name = ast->children[0].text;
+                if (var_name) {
+                    // Evaluate the right-hand side
+                    ASTNode* value_node = &ast->children[1];
+                    if (value_node->child_count > 0) {
+                        // Complex expression - evaluate it
+                        long long result = eval_expression(value_node);
+                        if (result == -1) {
+                            // String result - get from last_concat_result
+                            const char* concat_result = get_last_concat_result();
+                            if (concat_result) {
+                                set_string_variable(var_name, concat_result);
+                                printf("String variable '%s' = \"%s\"\n", var_name, concat_result);
+                            }
+                        } else {
+                            // Check if the result should be treated as a float
+                            if (get_last_result_is_float()) {
+                                // Store as float variable
+                                double float_val = (double)result / 1000000.0;
+                                set_float_variable(var_name, float_val);
+                                printf("Variable '%s' = %.6f\n", var_name, float_val);
+                            } else {
+                                // Store as regular variable
+                                set_variable(var_name, result);
+                                printf("Variable '%s' = %lld\n", var_name, result);
+                            }
+                        }
+                    } else if (value_node->text) {
+                        // Simple literal
+                        // Check if it's a string literal
+                        if (value_node->text[0] == '"' && value_node->text[strlen(value_node->text)-1] == '"') {
+                            // It's a string - remove quotes and store
+                            size_t len = strlen(value_node->text);
+                            char* unquoted = malloc(len - 1);
+                            strncpy(unquoted, value_node->text + 1, len - 2);
+                            unquoted[len - 2] = '\0';
+                            set_string_variable(var_name, unquoted);
+                            printf("String variable '%s' = \"%s\"\n", var_name, unquoted);
+                            free(unquoted);
+                        } else {
+                            // Try to parse as number
+                            char* endptr;
+                            
+                            // First check if it contains a decimal point (float)
+                            if (strchr(value_node->text, '.') != NULL) {
+                                // It's a float
+                                double float_val = strtod(value_node->text, &endptr);
+                                if (*endptr == '\0') {
+                                    // Use the float variable function
+                                    set_float_variable(var_name, float_val);
+                                    printf("Variable '%s' = %.6f\n", var_name, float_val);
+                                } else {
+                                    printf("Variable '%s' declared (invalid float)\n", var_name);
+                                }
+                            } else {
+                                // It's an integer
+                                long long value = strtoll(value_node->text, &endptr, 10);
+                                if (*endptr == '\0') {
+                                    set_variable(var_name, value);
+                                    printf("Variable '%s' = %lld\n", var_name, value);
+                                } else {
+                                    printf("Variable '%s' declared (unknown type)\n", var_name);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            break;
+        }
+        case AST_ASSIGN: {
+            // Handle variable assignments (reassignments)
+            if (ast->child_count >= 2) {
+                char* var_name = ast->children[0].text;
+                if (var_name) {
+                    // Evaluate the right-hand side
+                    ASTNode* value_node = &ast->children[1];
+                    if (value_node->child_count > 0) {
+                        // Complex expression - evaluate it
+                        long long result = eval_expression(value_node);
+                        if (result == -1) {
+                            // String result - get from last_concat_result
+                            const char* concat_result = get_last_concat_result();
+                            if (concat_result) {
+                                set_string_variable(var_name, concat_result);
+                                printf("String variable '%s' = \"%s\"\n", var_name, concat_result);
+                            }
+                        } else {
+                            // Check if the result should be treated as a float
+                            if (get_last_result_is_float()) {
+                                // Store as float variable
+                                double float_val = (double)result / 1000000.0;
+                                set_float_variable(var_name, float_val);
+                                printf("Variable '%s' = %.6f\n", var_name, float_val);
+                            } else {
+                                // Store as regular variable
+                                set_variable(var_name, result);
+                                printf("Variable '%s' = %lld\n", var_name, result);
+                            }
+                        }
+                    } else if (value_node->text) {
+                        // Simple literal
+                        // Check if it's a string literal
+                        if (value_node->text[0] == '"' && value_node->text[strlen(value_node->text)-1] == '"') {
+                            // It's a string - remove quotes and store
+                            size_t len = strlen(value_node->text);
+                            char* unquoted = malloc(len - 1);
+                            strncpy(unquoted, value_node->text + 1, len - 2);
+                            unquoted[len - 2] = '\0';
+                            set_string_variable(var_name, unquoted);
+                            printf("String variable '%s' = \"%s\"\n", var_name, unquoted);
+                            free(unquoted);
+                        } else {
+                            // Try to parse as number
+                            char* endptr;
+                            
+                            // First check if it contains a decimal point (float)
+                            if (strchr(value_node->text, '.') != NULL) {
+                                // It's a float
+                                double float_val = strtod(value_node->text, &endptr);
+                                if (*endptr == '\0') {
+                                    // Use the float variable function
+                                    set_float_variable(var_name, float_val);
+                                    printf("Variable '%s' = %.6f\n", var_name, float_val);
+                                } else {
+                                    printf("Variable '%s' declared (invalid float)\n", var_name);
+                                }
+                            } else {
+                                // It's an integer
+                                long long value = strtoll(value_node->text, &endptr, 10);
+                                if (*endptr == '\0') {
+                                    set_variable(var_name, value);
+                                    printf("Variable '%s' = %lld\n", var_name, value);
+                                } else {
+                                    printf("Variable '%s' declared (invalid type)\n", var_name);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            break;
+        }
+        case AST_FUNC: {
+            // Handle function definitions
+            if (ast->text) {
+                register_function(ast->text, ast);
+                printf("Function '%s' defined\n", ast->text);
+            }
+            break;
+        }
+        case AST_BLOCK: {
+            // Handle blocks of statements
+            for (int i = 0; i < ast->child_count; i++) {
+                eval_evaluate(&ast->children[i]);
+            }
+            break;
+        }
+        default: {
+            // Handle other node types
+            for (int i = 0; i < ast->child_count; i++) {
+                eval_evaluate(&ast->children[i]);
+            }
+            break;
+        }
+    }
+}
+
+void cleanup_libraries(void) {
+    // TODO: Cleanup libraries
+}
+
+void cleanup_implicit_functions(void) {
+    // TODO: Cleanup implicit functions
+}
+
+void cleanup_loop_execution_state(void) {
+    // TODO: Cleanup loop execution state
+}
+
 /*******************************************************************************
  * MAIN ENTRY POINT
  ******************************************************************************/
