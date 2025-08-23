@@ -147,4 +147,12 @@ void cleanup_text_utils_library(void);
 void init_debug_library(void);
 void cleanup_debug_library(void);
 
+// Type System Foundation (v1.6.0) function declarations
+void init_type_system(void);
+void cleanup_type_system(void);
+
+// Language Polish Library (v1.6.0) function declarations
+void init_language_polish(void);
+void cleanup_language_polish(void);
+
 #endif // EVAL_H 

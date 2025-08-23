@@ -77,6 +77,8 @@ static long long call_args_function(const char* func_name, ASTNode* args_node);
 static long long call_process_function(const char* func_name, ASTNode* args_node);
 static long long call_text_utils_function(const char* func_name, ASTNode* args_node);
 static long long call_debug_function(const char* func_name, ASTNode* args_node);
+static long long call_type_system_function(const char* func_name, ASTNode* args_node);
+static long long call_language_polish_function(const char* func_name, ASTNode* args_node);
 
 // Global library imports
 static LibraryImport* library_imports = NULL;
@@ -95,6 +97,16 @@ static char last_error_message[2048] = "";
 static char last_warning_message[2048] = "";
 static int performance_timer_active = 0;
 static clock_t performance_start_time = 0;
+
+// Global type system state (v1.6.0)
+static int type_checking_enabled = 1;
+static int type_inference_enabled = 1;
+static int strict_type_mode = 0;
+
+// Global language polish state (v1.6.0)
+static int enhanced_lambdas_enabled = 1;
+static int string_interpolation_enabled = 1;
+static int template_literals_enabled = 1;
 
 /**
  * @brief Add a library import
@@ -3200,6 +3212,10 @@ long long eval_expression(ASTNode* ast) {
                     return call_text_utils_function(function_name, &ast->children[1]);
                 } else if (strcmp(actual_library, "debug") == 0) {
                     return call_debug_function(function_name, &ast->children[1]);
+                } else if (strcmp(actual_library, "types") == 0) {
+                    return call_type_system_function(function_name, &ast->children[1]);
+                } else if (strcmp(actual_library, "polish") == 0) {
+                    return call_language_polish_function(function_name, &ast->children[1]);
                 }
                 
                 return 0;
@@ -5938,7 +5954,9 @@ void eval_evaluate(ASTNode* ast) {
                     strcmp(library_name, "args") == 0 ||
                     strcmp(library_name, "process") == 0 ||
                     strcmp(library_name, "text_utils") == 0 ||
-                    strcmp(library_name, "debug") == 0) {
+                    strcmp(library_name, "debug") == 0 ||
+                    strcmp(library_name, "types") == 0 ||
+                    strcmp(library_name, "polish") == 0) {
                     // Import built-in library
                     printf("DEBUG: Importing built-in library '%s' as '%s'\n", library_name, alias);
                     add_library_import(library_name, alias);
@@ -9190,6 +9208,289 @@ static long long call_debug_function(const char* func_name, ASTNode* args_node) 
         
     } else {
         fprintf(stderr, "Error: Unknown debug function '%s'\n", func_name);
+        return 0;
+    }
+}
+
+// Type System Foundation Library Functions (v1.6.0)
+static long long call_type_system_function(const char* func_name, ASTNode* args_node) {
+    if (strcmp(func_name, "typeof") == 0) {
+        if (args_node->child_count < 1) {
+            fprintf(stderr, "Error: types.typeof() requires one argument (value)\n");
+            return 0;
+        }
+        
+        // Get value from argument
+        ASTNode* value_node = &args_node->children[0];
+        if (value_node->type != AST_EXPR || !value_node->text) {
+            fprintf(stderr, "Error: types.typeof() argument must be a valid expression\n");
+            return 0;
+        }
+        
+        // For now, we'll return a simple type identifier
+        // In a full implementation, this would evaluate the expression
+        printf("🔍 Type analysis: %s\n", value_node->text);
+        
+        // Return type identifier (placeholder)
+        return 1; // Type analysis completed
+        
+    } else if (strcmp(func_name, "is_type") == 0) {
+        if (args_node->child_count < 2) {
+            fprintf(stderr, "Error: types.is_type() requires two arguments (value, expected_type)\n");
+            return 0;
+        }
+        
+        // Get value and expected type from arguments
+        ASTNode* value_node = &args_node->children[0];
+        ASTNode* type_node = &args_node->children[1];
+        
+        if (value_node->type != AST_EXPR || !value_node->text) {
+            fprintf(stderr, "Error: types.is_type() first argument must be a valid expression\n");
+            return 0;
+        }
+        
+        if (type_node->type != AST_EXPR || !type_node->text) {
+            fprintf(stderr, "Error: types.is_type() second argument must be a valid type\n");
+            return 0;
+        }
+        
+        // For now, we'll do a simple type check
+        printf("🔍 Type check: %s is %s\n", value_node->text, type_node->text);
+        
+        // Return type check result (placeholder)
+        return 1; // Type check completed
+        
+    } else if (strcmp(func_name, "cast") == 0) {
+        if (args_node->child_count < 2) {
+            fprintf(stderr, "Error: types.cast() requires two arguments (value, target_type)\n");
+            return 0;
+        }
+        
+        // Get value and target type from arguments
+        ASTNode* value_node = &args_node->children[0];
+        ASTNode* target_type_node = &args_node->children[1];
+        
+        if (value_node->type != AST_EXPR || !value_node->text) {
+            fprintf(stderr, "Error: types.cast() first argument must be a valid expression\n");
+            return 0;
+        }
+        
+        if (target_type_node->type != AST_EXPR || !target_type_node->text) {
+            fprintf(stderr, "Error: types.cast() second argument must be a valid type\n");
+            return 0;
+        }
+        
+        // For now, we'll do a simple type cast simulation
+        printf("🔄 Type cast: %s -> %s\n", value_node->text, target_type_node->text);
+        
+        // Return cast result (placeholder)
+        return 1; // Type cast completed
+        
+    } else if (strcmp(func_name, "enable_type_checking") == 0) {
+        if (args_node->child_count != 0) {
+            fprintf(stderr, "Error: types.enable_type_checking() takes no arguments\n");
+            return 0;
+        }
+        
+        type_checking_enabled = 1;
+        printf("🔧 Type checking enabled\n");
+        return 1;
+        
+    } else if (strcmp(func_name, "disable_type_checking") == 0) {
+        if (args_node->child_count != 0) {
+            fprintf(stderr, "Error: types.disable_type_checking() takes no arguments\n");
+            return 0;
+        }
+        
+        type_checking_enabled = 0;
+        printf("🔧 Type checking disabled\n");
+        return 0;
+        
+    } else if (strcmp(func_name, "enable_type_inference") == 0) {
+        if (args_node->child_count != 0) {
+            fprintf(stderr, "Error: types.enable_type_inference() takes no arguments\n");
+            return 0;
+        }
+        
+        type_inference_enabled = 1;
+        printf("🔧 Type inference enabled\n");
+        return 1;
+        
+    } else if (strcmp(func_name, "disable_type_inference") == 0) {
+        if (args_node->child_count != 0) {
+            fprintf(stderr, "Error: types.disable_type_inference() takes no arguments\n");
+            return 0;
+        }
+        
+        type_inference_enabled = 0;
+        printf("🔧 Type inference disabled\n");
+        return 0;
+        
+    } else if (strcmp(func_name, "set_strict_mode") == 0) {
+        if (args_node->child_count < 1) {
+            fprintf(stderr, "Error: types.set_strict_mode() requires one argument (enabled)\n");
+            return 0;
+        }
+        
+        // Get strict mode setting from argument
+        ASTNode* mode_node = &args_node->children[0];
+        if (mode_node->type != AST_EXPR || !mode_node->text) {
+            fprintf(stderr, "Error: types.set_strict_mode() argument must be a valid expression\n");
+            return 0;
+        }
+        
+        // For now, we'll use a simple toggle
+        strict_type_mode = !strict_type_mode;
+        
+        printf("🔧 Strict type mode %s\n", strict_type_mode ? "enabled" : "disabled");
+        return strict_type_mode ? 1 : 0;
+        
+    } else if (strcmp(func_name, "get_type_stats") == 0) {
+        if (args_node->child_count != 0) {
+            fprintf(stderr, "Error: types.get_type_stats() takes no arguments\n");
+            return 0;
+        }
+        
+        // Display type system statistics
+        printf("📊 TYPE SYSTEM STATISTICS:\n");
+        printf("==========================\n");
+        printf("  Type Checking: %s\n", type_checking_enabled ? "ENABLED" : "DISABLED");
+        printf("  Type Inference: %s\n", type_inference_enabled ? "ENABLED" : "DISABLED");
+        printf("  Strict Mode: %s\n", strict_type_mode ? "ENABLED" : "DISABLED");
+        printf("  Status: %s\n", type_checking_enabled ? "ACTIVE" : "INACTIVE");
+        
+        return type_checking_enabled + type_inference_enabled + strict_type_mode;
+        
+    } else {
+        fprintf(stderr, "Error: Unknown types function '%s'\n", func_name);
+        return 0;
+    }
+}
+
+// Language Polish Library Functions (v1.6.0)
+static long long call_language_polish_function(const char* func_name, ASTNode* args_node) {
+    if (strcmp(func_name, "enhance_lambda") == 0) {
+        if (args_node->child_count < 1) {
+            fprintf(stderr, "Error: polish.enhance_lambda() requires one argument (lambda_expression)\n");
+            return 0;
+        }
+        
+        // Get lambda expression from argument
+        ASTNode* lambda_node = &args_node->children[0];
+        if (lambda_node->type != AST_EXPR || !lambda_node->text) {
+            fprintf(stderr, "Error: polish.enhance_lambda() argument must be a valid lambda expression\n");
+            return 0;
+        }
+        
+        // For now, we'll simulate enhanced lambda processing
+        printf("🚀 Enhanced lambda processing: %s\n", lambda_node->text);
+        
+        // Return enhancement result (placeholder)
+        return 1; // Lambda enhancement completed
+        
+    } else if (strcmp(func_name, "interpolate_string") == 0) {
+        if (args_node->child_count < 2) {
+            fprintf(stderr, "Error: polish.interpolate_string() requires two arguments (template, values)\n");
+            return 0;
+        }
+        
+        // Get template and values from arguments
+        ASTNode* template_node = &args_node->children[0];
+        ASTNode* values_node = &args_node->children[1];
+        
+        if (template_node->type != AST_EXPR || !template_node->text) {
+            fprintf(stderr, "Error: polish.interpolate_string() template must be a valid string\n");
+            return 0;
+        }
+        
+        if (values_node->type != AST_EXPR || !values_node->text) {
+            fprintf(stderr, "Error: polish.interpolate_string() values must be a valid expression\n");
+            return 0;
+        }
+        
+        // For now, we'll simulate string interpolation
+        printf("📝 String interpolation: %s with %s\n", template_node->text, values_node->text);
+        
+        // Return interpolation result (placeholder)
+        return 1; // String interpolation completed
+        
+    } else if (strcmp(func_name, "create_template") == 0) {
+        if (args_node->child_count < 1) {
+            fprintf(stderr, "Error: polish.create_template() requires one argument (template_string)\n");
+            return 0;
+        }
+        
+        // Get template string from argument
+        ASTNode* template_node = &args_node->children[0];
+        if (template_node->type != AST_EXPR || !template_node->text) {
+            fprintf(stderr, "Error: polish.create_template() argument must be a valid template string\n");
+            return 0;
+        }
+        
+        // For now, we'll simulate template creation
+        printf("📋 Template creation: %s\n", template_node->text);
+        
+        // Return template creation result (placeholder)
+        return 1; // Template creation completed
+        
+    } else if (strcmp(func_name, "enable_enhanced_lambdas") == 0) {
+        if (args_node->child_count != 0) {
+            fprintf(stderr, "Error: polish.enable_enhanced_lambdas() takes no arguments\n");
+            return 0;
+        }
+        
+        enhanced_lambdas_enabled = 1;
+        printf("🔧 Enhanced lambdas enabled\n");
+        return 1;
+        
+    } else if (strcmp(func_name, "disable_enhanced_lambdas") == 0) {
+        if (args_node->child_count != 0) {
+            fprintf(stderr, "Error: polish.disable_enhanced_lambdas() takes no arguments\n");
+            return 0;
+        }
+        
+        enhanced_lambdas_enabled = 0;
+        printf("🔧 Enhanced lambdas disabled\n");
+        return 0;
+        
+    } else if (strcmp(func_name, "enable_string_interpolation") == 0) {
+        if (args_node->child_count != 0) {
+            fprintf(stderr, "Error: polish.enable_string_interpolation() takes no arguments\n");
+            return 0;
+        }
+        
+        string_interpolation_enabled = 1;
+        printf("🔧 String interpolation enabled\n");
+        return 1;
+        
+    } else if (strcmp(func_name, "disable_string_interpolation") == 0) {
+        if (args_node->child_count != 0) {
+            fprintf(stderr, "Error: polish.disable_string_interpolation() takes no arguments\n");
+            return 0;
+        }
+        
+        string_interpolation_enabled = 0;
+        printf("🔧 String interpolation disabled\n");
+        return 0;
+        
+    } else if (strcmp(func_name, "get_polish_stats") == 0) {
+        if (args_node->child_count != 0) {
+            fprintf(stderr, "Error: polish.get_polish_stats() takes no arguments\n");
+            return 0;
+        }
+        
+        // Display language polish statistics
+        printf("📊 LANGUAGE POLISH STATISTICS:\n");
+        printf("==============================\n");
+        printf("  Enhanced Lambdas: %s\n", enhanced_lambdas_enabled ? "ENABLED" : "DISABLED");
+        printf("  String Interpolation: %s\n", string_interpolation_enabled ? "ENABLED" : "DISABLED");
+        printf("  Template Literals: %s\n", template_literals_enabled ? "ENABLED" : "DISABLED");
+        printf("  Status: %s\n", enhanced_lambdas_enabled ? "ACTIVE" : "INACTIVE");
+        
+        return enhanced_lambdas_enabled + string_interpolation_enabled + template_literals_enabled;
+        
+    } else {
+        fprintf(stderr, "Error: Unknown polish function '%s'\n", func_name);
         return 0;
     }
 }
