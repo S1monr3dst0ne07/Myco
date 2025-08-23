@@ -74,6 +74,8 @@ static long long call_file_io_function(const char* func_name, ASTNode* args_node
 static long long call_path_utils_function(const char* func_name, ASTNode* args_node);
 static long long call_env_function(const char* func_name, ASTNode* args_node);
 static long long call_args_function(const char* func_name, ASTNode* args_node);
+static long long call_process_function(const char* func_name, ASTNode* args_node);
+static long long call_text_utils_function(const char* func_name, ASTNode* args_node);
 
 // Global library imports
 static LibraryImport* library_imports = NULL;
@@ -3182,6 +3184,10 @@ long long eval_expression(ASTNode* ast) {
                     return call_env_function(function_name, &ast->children[1]);
                 } else if (strcmp(actual_library, "args") == 0) {
                     return call_args_function(function_name, &ast->children[1]);
+                } else if (strcmp(actual_library, "process") == 0) {
+                    return call_process_function(function_name, &ast->children[1]);
+                } else if (strcmp(actual_library, "text_utils") == 0) {
+                    return call_text_utils_function(function_name, &ast->children[1]);
                 }
                 
                 return 0;
@@ -5917,7 +5923,9 @@ void eval_evaluate(ASTNode* ast) {
                     strcmp(library_name, "file_io") == 0 ||
                     strcmp(library_name, "path_utils") == 0 ||
                     strcmp(library_name, "env") == 0 ||
-                    strcmp(library_name, "args") == 0) {
+                    strcmp(library_name, "args") == 0 ||
+                    strcmp(library_name, "process") == 0 ||
+                    strcmp(library_name, "text_utils") == 0) {
                     // Import built-in library
                     printf("DEBUG: Importing built-in library '%s' as '%s'\n", library_name, alias);
                     add_library_import(library_name, alias);
@@ -8521,6 +8529,429 @@ static long long call_args_function(const char* func_name, ASTNode* args_node) {
         
     } else {
         fprintf(stderr, "Error: Unknown args function '%s'\n", func_name);
+        return 0;
+    }
+}
+
+// Process Execution Library Functions
+static long long call_process_function(const char* func_name, ASTNode* args_node) {
+    if (strcmp(func_name, "execute") == 0) {
+        if (args_node->child_count < 1) {
+            fprintf(stderr, "Error: process.execute() requires one argument (command)\n");
+            return 0;
+        }
+        
+        // Get command from argument
+        ASTNode* cmd_node = &args_node->children[0];
+        if (cmd_node->type != AST_EXPR || !cmd_node->text) {
+            fprintf(stderr, "Error: process.execute() command must be a string\n");
+            return 0;
+        }
+        
+        // Extract command (remove quotes)
+        char command[2048];
+        if (is_string_literal(cmd_node->text)) {
+            size_t len = strlen(cmd_node->text);
+            if (len > 2) {
+                strncpy(command, cmd_node->text + 1, len - 2);
+                command[len - 2] = '\0';
+            } else {
+                command[0] = '\0';
+            }
+        } else {
+            strncpy(command, cmd_node->text, sizeof(command) - 1);
+            command[sizeof(command) - 1] = '\0';
+        }
+        
+        // Validate command
+        if (strlen(command) == 0) {
+            fprintf(stderr, "Error: process.execute() command cannot be empty\n");
+            return 0;
+        }
+        
+        printf("Executing command: %s\n", command);
+        
+        // Execute the command using system()
+        int result = system(command);
+        
+        if (result == 0) {
+            printf("Command executed successfully (exit code: %d)\n", result);
+        } else {
+            printf("Command failed with exit code: %d\n", result);
+        }
+        
+        return result;
+        
+    } else if (strcmp(func_name, "get_pid") == 0) {
+        if (args_node->child_count != 0) {
+            fprintf(stderr, "Error: process.get_pid() takes no arguments\n");
+            return 0;
+        }
+        
+        // Get current process ID
+        pid_t pid = getpid();
+        printf("Current process ID: %d\n", (int)pid);
+        return (long long)pid;
+        
+    } else if (strcmp(func_name, "get_cwd") == 0) {
+        if (args_node->child_count != 0) {
+            fprintf(stderr, "Error: process.get_cwd() takes no arguments\n");
+            return 0;
+        }
+        
+        // Get current working directory
+        char cwd[2048];
+        if (getcwd(cwd, sizeof(cwd)) != NULL) {
+            printf("Current working directory: %s\n", cwd);
+            
+            // Store result in a temporary variable
+            char temp_var_name[64];
+            snprintf(temp_var_name, sizeof(temp_var_name), "__get_cwd_result_%p", (void*)args_node);
+            set_str_value(temp_var_name, tracked_strdup(cwd, __FILE__, __LINE__, "get_cwd_result"));
+            
+            return 1;
+        } else {
+            fprintf(stderr, "Error: Failed to get current working directory\n");
+            return 0;
+        }
+        
+    } else if (strcmp(func_name, "change_dir") == 0) {
+        if (args_node->child_count < 1) {
+            fprintf(stderr, "Error: process.change_dir() requires one argument (path)\n");
+            return 0;
+        }
+        
+        // Get path from argument
+        ASTNode* path_node = &args_node->children[0];
+        if (path_node->type != AST_EXPR || !path_node->text) {
+            fprintf(stderr, "Error: process.change_dir() path must be a string\n");
+            return 0;
+        }
+        
+        // Extract path (remove quotes)
+        char path[1024];
+        if (is_string_literal(path_node->text)) {
+            size_t len = strlen(path_node->text);
+            if (len > 2) {
+                strncpy(path, path_node->text + 1, len - 2);
+                path[len - 2] = '\0';
+            } else {
+                path[0] = '\0';
+            }
+        } else {
+            strncpy(path, path_node->text, sizeof(path) - 1);
+            path[sizeof(path) - 1] = '\0';
+        }
+        
+        // Validate path
+        if (strlen(path) == 0) {
+            fprintf(stderr, "Error: process.change_dir() path cannot be empty\n");
+            return 0;
+        }
+        
+        printf("Changing directory to: %s\n", path);
+        
+        // Change directory
+        int result = chdir(path);
+        if (result == 0) {
+            printf("Successfully changed to directory: %s\n", path);
+            
+            // Get new working directory to confirm
+            char new_cwd[2048];
+            if (getcwd(new_cwd, sizeof(new_cwd)) != NULL) {
+                printf("New working directory: %s\n", new_cwd);
+            }
+            
+            return 1;
+        } else {
+            fprintf(stderr, "Error: Failed to change directory to '%s'\n", path);
+            return 0;
+        }
+        
+    } else {
+        fprintf(stderr, "Error: Unknown process function '%s'\n", func_name);
+        return 0;
+    }
+}
+
+// Text Processing Utilities Library Functions
+static long long call_text_utils_function(const char* func_name, ASTNode* args_node) {
+    if (strcmp(func_name, "read_lines") == 0) {
+        if (args_node->child_count < 1) {
+            fprintf(stderr, "Error: text_utils.read_lines() requires one argument (filename)\n");
+            return 0;
+        }
+        
+        // Get filename from argument
+        ASTNode* file_node = &args_node->children[0];
+        if (file_node->type != AST_EXPR || !file_node->text) {
+            fprintf(stderr, "Error: text_utils.read_lines() filename must be a string\n");
+            return 0;
+        }
+        
+        // Extract filename (remove quotes)
+        char filename[1024];
+        if (is_string_literal(file_node->text)) {
+            size_t len = strlen(file_node->text);
+            if (len > 2) {
+                strncpy(filename, file_node->text + 1, len - 2);
+                filename[len - 2] = '\0';
+            } else {
+                filename[0] = '\0';
+            }
+        } else {
+            strncpy(filename, file_node->text, sizeof(filename) - 1);
+            filename[sizeof(filename) - 1] = '\0';
+        }
+        
+        // Validate filename
+        if (strlen(filename) == 0) {
+            fprintf(stderr, "Error: text_utils.read_lines() filename cannot be empty\n");
+            return 0;
+        }
+        
+        // Read file line by line
+        FILE* file = fopen(filename, "r");
+        if (!file) {
+            fprintf(stderr, "Error: Could not open file '%s' for reading\n", filename);
+            return 0;
+        }
+        
+        printf("Reading lines from file: %s\n", filename);
+        
+        char line[2048];
+        int line_count = 0;
+        
+        while (fgets(line, sizeof(line), file)) {
+            // Remove newline character
+            size_t len = strlen(line);
+            if (len > 0 && line[len-1] == '\n') {
+                line[len-1] = '\0';
+            }
+            
+            printf("  Line %d: %s\n", line_count + 1, line);
+            line_count++;
+        }
+        
+        fclose(file);
+        printf("Total lines read: %d\n", line_count);
+        
+        return line_count;
+        
+    } else if (strcmp(func_name, "write_lines") == 0) {
+        if (args_node->child_count < 2) {
+            fprintf(stderr, "Error: text_utils.write_lines() requires two arguments (filename, lines)\n");
+            return 0;
+        }
+        
+        // Get filename from first argument
+        ASTNode* file_node = &args_node->children[0];
+        if (file_node->type != AST_EXPR || !file_node->text) {
+            fprintf(stderr, "Error: text_utils.write_lines() filename must be a string\n");
+            return 0;
+        }
+        
+        // Get lines from second argument
+        ASTNode* lines_node = &args_node->children[1];
+        if (lines_node->type != AST_EXPR || !lines_node->text) {
+            fprintf(stderr, "Error: text_utils.write_lines() lines must be a string\n");
+            return 0;
+        }
+        
+        // Extract filename (remove quotes)
+        char filename[1024];
+        if (is_string_literal(file_node->text)) {
+            size_t len = strlen(file_node->text);
+            if (len > 2) {
+                strncpy(filename, file_node->text + 1, len - 2);
+                filename[len - 2] = '\0';
+            } else {
+                filename[0] = '\0';
+            }
+        } else {
+            strncpy(filename, file_node->text, sizeof(filename) - 1);
+            filename[sizeof(filename) - 1] = '\0';
+        }
+        
+        // Extract lines (remove quotes)
+        char lines[2048];
+        if (is_string_literal(lines_node->text)) {
+            size_t len = strlen(lines_node->text);
+            if (len > 2) {
+                strncpy(lines, lines_node->text + 1, len - 2);
+                lines[len - 2] = '\0';
+            } else {
+                lines[0] = '\0';
+            }
+        } else {
+            strncpy(lines, lines_node->text, sizeof(lines) - 1);
+            lines[sizeof(lines) - 1] = '\0';
+        }
+        
+        // Validate inputs
+        if (strlen(filename) == 0) {
+            fprintf(stderr, "Error: text_utils.write_lines() filename cannot be empty\n");
+            return 0;
+        }
+        
+        // Write lines to file
+        FILE* file = fopen(filename, "w");
+        if (!file) {
+            fprintf(stderr, "Error: Could not open file '%s' for writing\n", filename);
+            return 0;
+        }
+        
+        printf("Writing lines to file: %s\n", filename);
+        printf("Content: %s\n", lines);
+        
+        // For now, write the content as a single line
+        // In a full implementation, this would parse the lines array
+        fprintf(file, "%s\n", lines);
+        
+        fclose(file);
+        printf("Successfully wrote to file: %s\n", filename);
+        
+        return 1;
+        
+    } else if (strcmp(func_name, "read_csv") == 0) {
+        if (args_node->child_count < 1) {
+            fprintf(stderr, "Error: text_utils.read_csv() requires one argument (filename)\n");
+            return 0;
+        }
+        
+        // Get filename from argument
+        ASTNode* file_node = &args_node->children[0];
+        if (file_node->type != AST_EXPR || !file_node->text) {
+            fprintf(stderr, "Error: text_utils.read_csv() filename must be a string\n");
+            return 0;
+        }
+        
+        // Extract filename (remove quotes)
+        char filename[1024];
+        if (is_string_literal(file_node->text)) {
+            size_t len = strlen(file_node->text);
+            if (len > 2) {
+                strncpy(filename, file_node->text + 1, len - 2);
+                filename[len - 2] = '\0';
+            } else {
+                filename[0] = '\0';
+            }
+        } else {
+            strncpy(filename, file_node->text, sizeof(filename) - 1);
+            filename[sizeof(filename) - 1] = '\0';
+        }
+        
+        // Validate filename
+        if (strlen(filename) == 0) {
+            fprintf(stderr, "Error: text_utils.read_csv() filename cannot be empty\n");
+            return 0;
+        }
+        
+        // Read CSV file
+        FILE* file = fopen(filename, "r");
+        if (!file) {
+            fprintf(stderr, "Error: Could not open CSV file '%s' for reading\n", filename);
+            return 0;
+        }
+        
+        printf("Reading CSV file: %s\n", filename);
+        
+        char line[2048];
+        int row_count = 0;
+        
+        while (fgets(line, sizeof(line), file)) {
+            // Remove newline character
+            size_t len = strlen(line);
+            if (len > 0 && line[len-1] == '\n') {
+                line[len-1] = '\0';
+            }
+            
+            printf("  Row %d: %s\n", row_count + 1, line);
+            row_count++;
+        }
+        
+        fclose(file);
+        printf("Total CSV rows read: %d\n", row_count);
+        
+        return row_count;
+        
+    } else if (strcmp(func_name, "write_csv") == 0) {
+        if (args_node->child_count < 2) {
+            fprintf(stderr, "Error: text_utils.write_csv() requires two arguments (filename, data)\n");
+            return 0;
+        }
+        
+        // Get filename from first argument
+        ASTNode* file_node = &args_node->children[0];
+        if (file_node->type != AST_EXPR || !file_node->text) {
+            fprintf(stderr, "Error: text_utils.write_csv() filename must be a string\n");
+            return 0;
+        }
+        
+        // Get data from second argument
+        ASTNode* data_node = &args_node->children[1];
+        if (data_node->type != AST_EXPR || !data_node->text) {
+            fprintf(stderr, "Error: text_utils.write_csv() data must be a string\n");
+            return 0;
+        }
+        
+        // Extract filename (remove quotes)
+        char filename[1024];
+        if (is_string_literal(file_node->text)) {
+            size_t len = strlen(file_node->text);
+            if (len > 2) {
+                strncpy(filename, file_node->text + 1, len - 2);
+                filename[len - 2] = '\0';
+            } else {
+                filename[0] = '\0';
+            }
+        } else {
+            strncpy(filename, file_node->text, sizeof(filename) - 1);
+            filename[sizeof(filename) - 1] = '\0';
+        }
+        
+        // Extract data (remove quotes)
+        char data[2048];
+        if (is_string_literal(data_node->text)) {
+            size_t len = strlen(data_node->text);
+            if (len > 2) {
+                strncpy(data, data_node->text + 1, len - 2);
+                data[len - 2] = '\0';
+            } else {
+                data[0] = '\0';
+            }
+        } else {
+            strncpy(data, data_node->text, sizeof(data) - 1);
+            data[sizeof(data) - 1] = '\0';
+        }
+        
+        // Validate inputs
+        if (strlen(filename) == 0) {
+            fprintf(stderr, "Error: text_utils.write_csv() filename cannot be empty\n");
+            return 0;
+        }
+        
+        // Write CSV data to file
+        FILE* file = fopen(filename, "w");
+        if (!file) {
+            fprintf(stderr, "Error: Could not open CSV file '%s' for writing\n", filename);
+            return 0;
+        }
+        
+        printf("Writing CSV data to file: %s\n", filename);
+        printf("Content: %s\n", data);
+        
+        // For now, write the content as CSV data
+        // In a full implementation, this would format the data properly
+        fprintf(file, "%s\n", data);
+        
+        fclose(file);
+        printf("Successfully wrote CSV data to file: %s\n", filename);
+        
+        return 1;
+        
+    } else {
+        fprintf(stderr, "Error: Unknown text_utils function '%s'\n", func_name);
         return 0;
     }
 }

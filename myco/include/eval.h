@@ -135,4 +135,12 @@ void cleanup_env_library(void);
 void init_args_library(void);
 void cleanup_args_library(void);
 
+// Process execution library function declarations
+void init_process_library(void);
+void cleanup_process_library(void);
+
+// Text processing utilities library function declarations
+void init_text_utils_library(void);
+void cleanup_text_utils_library(void);
+
 #endif // EVAL_H 
