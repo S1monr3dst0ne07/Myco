@@ -155,4 +155,12 @@ void cleanup_type_system(void);
 void init_language_polish(void);
 void cleanup_language_polish(void);
 
+// Testing Framework Library (v1.6.0) function declarations
+void init_testing_framework(void);
+void cleanup_testing_framework(void);
+
+// Advanced Data Structures Library (v1.6.0) function declarations
+void init_data_structures(void);
+void cleanup_data_structures(void);
+
 #endif // EVAL_H 
