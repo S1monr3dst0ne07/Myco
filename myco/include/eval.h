@@ -143,4 +143,8 @@ void cleanup_process_library(void);
 void init_text_utils_library(void);
 void cleanup_text_utils_library(void);
 
+// Enhanced error handling and debugging library function declarations
+void init_debug_library(void);
+void cleanup_debug_library(void);
+
 #endif // EVAL_H 

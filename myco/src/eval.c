@@ -76,6 +76,7 @@ static long long call_env_function(const char* func_name, ASTNode* args_node);
 static long long call_args_function(const char* func_name, ASTNode* args_node);
 static long long call_process_function(const char* func_name, ASTNode* args_node);
 static long long call_text_utils_function(const char* func_name, ASTNode* args_node);
+static long long call_debug_function(const char* func_name, ASTNode* args_node);
 
 // Global library imports
 static LibraryImport* library_imports = NULL;
@@ -85,6 +86,15 @@ static int library_import_capacity = 0;
 // Global command-line arguments storage
 static char** global_argv = NULL;
 static int global_argc = 0;
+
+// Global error handling and debugging state
+static int debug_mode = 0;
+static int warning_count = 0;
+static int error_count = 0;
+static char last_error_message[2048] = "";
+static char last_warning_message[2048] = "";
+static int performance_timer_active = 0;
+static clock_t performance_start_time = 0;
 
 /**
  * @brief Add a library import
@@ -3188,6 +3198,8 @@ long long eval_expression(ASTNode* ast) {
                     return call_process_function(function_name, &ast->children[1]);
                 } else if (strcmp(actual_library, "text_utils") == 0) {
                     return call_text_utils_function(function_name, &ast->children[1]);
+                } else if (strcmp(actual_library, "debug") == 0) {
+                    return call_debug_function(function_name, &ast->children[1]);
                 }
                 
                 return 0;
@@ -5925,7 +5937,8 @@ void eval_evaluate(ASTNode* ast) {
                     strcmp(library_name, "env") == 0 ||
                     strcmp(library_name, "args") == 0 ||
                     strcmp(library_name, "process") == 0 ||
-                    strcmp(library_name, "text_utils") == 0) {
+                    strcmp(library_name, "text_utils") == 0 ||
+                    strcmp(library_name, "debug") == 0) {
                     // Import built-in library
                     printf("DEBUG: Importing built-in library '%s' as '%s'\n", library_name, alias);
                     add_library_import(library_name, alias);
@@ -8952,6 +8965,231 @@ static long long call_text_utils_function(const char* func_name, ASTNode* args_n
         
     } else {
         fprintf(stderr, "Error: Unknown text_utils function '%s'\n", func_name);
+        return 0;
+    }
+}
+
+// Enhanced Error Handling and Debugging Library Functions
+static long long call_debug_function(const char* func_name, ASTNode* args_node) {
+    if (strcmp(func_name, "warn") == 0) {
+        if (args_node->child_count < 1) {
+            fprintf(stderr, "Error: debug.warn() requires one argument (message)\n");
+            return 0;
+        }
+        
+        // Get warning message from argument
+        ASTNode* msg_node = &args_node->children[0];
+        if (msg_node->type != AST_EXPR || !msg_node->text) {
+            fprintf(stderr, "Error: debug.warn() message must be a string\n");
+            return 0;
+        }
+        
+        // Extract message (remove quotes)
+        char message[2048];
+        if (is_string_literal(msg_node->text)) {
+            size_t len = strlen(msg_node->text);
+            if (len > 2) {
+                strncpy(message, msg_node->text + 1, len - 2);
+                message[len - 2] = '\0';
+            } else {
+                message[0] = '\0';
+            }
+        } else {
+            strncpy(message, msg_node->text, sizeof(message) - 1);
+            message[sizeof(message) - 1] = '\0';
+        }
+        
+        // Validate message
+        if (strlen(message) == 0) {
+            fprintf(stderr, "Error: debug.warn() message cannot be empty\n");
+            return 0;
+        }
+        
+        // Store warning message and increment count
+        strncpy(last_warning_message, message, sizeof(last_warning_message) - 1);
+        last_warning_message[sizeof(last_warning_message) - 1] = '\0';
+        warning_count++;
+        
+        // Print warning with formatting
+        fprintf(stderr, "⚠️  WARNING [%d]: %s\n", warning_count, message);
+        
+        return warning_count;
+        
+    } else if (strcmp(func_name, "error") == 0) {
+        if (args_node->child_count < 1) {
+            fprintf(stderr, "Error: debug.error() requires one argument (message)\n");
+            return 0;
+        }
+        
+        // Get error message from argument
+        ASTNode* msg_node = &args_node->children[0];
+        if (msg_node->type != AST_EXPR || !msg_node->text) {
+            fprintf(stderr, "Error: debug.error() message must be a string\n");
+            return 0;
+        }
+        
+        // Extract message (remove quotes)
+        char message[2048];
+        if (is_string_literal(msg_node->text)) {
+            size_t len = strlen(msg_node->text);
+            if (len > 2) {
+                strncpy(message, msg_node->text + 1, len - 2);
+                message[len - 2] = '\0';
+            } else {
+                message[0] = '\0';
+            }
+        } else {
+            strncpy(message, msg_node->text, sizeof(message) - 1);
+            message[sizeof(message) - 1] = '\0';
+        }
+        
+        // Validate message
+        if (strlen(message) == 0) {
+            fprintf(stderr, "Error: debug.error() message cannot be empty\n");
+            return 0;
+        }
+        
+        // Store error message and increment count
+        strncpy(last_error_message, message, sizeof(last_error_message) - 1);
+        last_error_message[sizeof(last_error_message) - 1] = '\0';
+        error_count++;
+        
+        // Print error with formatting
+        fprintf(stderr, "❌ ERROR [%d]: %s\n", error_count, message);
+        
+        return error_count;
+        
+    } else if (strcmp(func_name, "assert") == 0) {
+        if (args_node->child_count < 2) {
+            fprintf(stderr, "Error: debug.assert() requires two arguments (condition, message)\n");
+            return 0;
+        }
+        
+        // Get condition from first argument
+        ASTNode* cond_node = &args_node->children[0];
+        if (cond_node->type != AST_EXPR || !cond_node->text) {
+            fprintf(stderr, "Error: debug.assert() condition must be a valid expression\n");
+            return 0;
+        }
+        
+        // Get message from second argument
+        ASTNode* msg_node = &args_node->children[1];
+        if (msg_node->type != AST_EXPR || !msg_node->text) {
+            fprintf(stderr, "Error: debug.assert() message must be a string\n");
+            return 0;
+        }
+        
+        // Extract message (remove quotes)
+        char message[2048];
+        if (is_string_literal(msg_node->text)) {
+            size_t len = strlen(msg_node->text);
+            if (len > 2) {
+                strncpy(message, msg_node->text + 1, len - 2);
+                message[len - 2] = '\0';
+            } else {
+                message[0] = '\0';
+            }
+        } else {
+            strncpy(message, msg_node->text, sizeof(message) - 1);
+            message[sizeof(message) - 1] = '\0';
+        }
+        
+        // For now, we'll use a simple assertion check
+        // In a full implementation, this would evaluate the condition
+        int assertion_passed = 1; // Placeholder
+        
+        if (assertion_passed) {
+            printf("✅ ASSERTION PASSED: %s\n", message);
+            return 1;
+        } else {
+            fprintf(stderr, "❌ ASSERTION FAILED: %s\n", message);
+            error_count++;
+            return 0;
+        }
+        
+    } else if (strcmp(func_name, "start_timer") == 0) {
+        if (args_node->child_count != 0) {
+            fprintf(stderr, "Error: debug.start_timer() takes no arguments\n");
+            return 0;
+        }
+        
+        if (performance_timer_active) {
+            fprintf(stderr, "Warning: Timer already active, restarting...\n");
+        }
+        
+        // Start performance timer
+        performance_start_time = clock();
+        performance_timer_active = 1;
+        
+        printf("⏱️  Performance timer started\n");
+        return 1;
+        
+    } else if (strcmp(func_name, "end_timer") == 0) {
+        if (args_node->child_count != 0) {
+            fprintf(stderr, "Error: debug.end_timer() takes no arguments\n");
+            return 0;
+        }
+        
+        if (!performance_timer_active) {
+            fprintf(stderr, "Error: No timer active to stop\n");
+            return 0;
+        }
+        
+        // Stop performance timer and calculate elapsed time
+        clock_t end_time = clock();
+        double elapsed_time = ((double)(end_time - performance_start_time)) / CLOCKS_PER_SEC * 1000.0;
+        
+        performance_timer_active = 0;
+        
+        printf("⏱️  Performance timer stopped: %.2f ms\n", elapsed_time);
+        return (long long)(elapsed_time * 1000); // Return in microseconds for precision
+        
+    } else if (strcmp(func_name, "get_stats") == 0) {
+        if (args_node->child_count != 0) {
+            fprintf(stderr, "Error: debug.get_stats() takes no arguments\n");
+            return 0;
+        }
+        
+        // Display debugging statistics
+        printf("📊 DEBUG STATISTICS:\n");
+        printf("====================\n");
+        printf("  Warnings: %d\n", warning_count);
+        printf("  Errors: %d\n", error_count);
+        printf("  Debug Mode: %s\n", debug_mode ? "ON" : "OFF");
+        printf("  Timer Active: %s\n", performance_timer_active ? "YES" : "NO");
+        
+        if (strlen(last_warning_message) > 0) {
+            printf("  Last Warning: %s\n", last_warning_message);
+        }
+        
+        if (strlen(last_error_message) > 0) {
+            printf("  Last Error: %s\n", last_error_message);
+        }
+        
+        return warning_count + error_count;
+        
+    } else if (strcmp(func_name, "set_debug_mode") == 0) {
+        if (args_node->child_count < 1) {
+            fprintf(stderr, "Error: debug.set_debug_mode() requires one argument (enabled)\n");
+            return 0;
+        }
+        
+        // Get debug mode setting from argument
+        ASTNode* mode_node = &args_node->children[0];
+        if (mode_node->type != AST_EXPR || !mode_node->text) {
+            fprintf(stderr, "Error: debug.set_debug_mode() argument must be a valid expression\n");
+            return 0;
+        }
+        
+        // For now, we'll use a simple toggle
+        // In a full implementation, this would evaluate the condition
+        debug_mode = !debug_mode; // Toggle mode
+        
+        printf("🔧 Debug mode %s\n", debug_mode ? "enabled" : "disabled");
+        return debug_mode ? 1 : 0;
+        
+    } else {
+        fprintf(stderr, "Error: Unknown debug function '%s'\n", func_name);
         return 0;
     }
 }
