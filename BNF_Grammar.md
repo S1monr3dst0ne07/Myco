@@ -1,6 +1,6 @@
 # Myco Language BNF Grammar Specification
 
-**Version**: v1.4.0 - Float Support & Library Import System   
+**Version**: v1.4.0 - Float Support & Library Import System & File I/O   
 **Last Updated**: December 2024   
 **Status**: Complete and Current   
 

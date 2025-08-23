@@ -115,5 +115,11 @@ typedef struct {
 // Library system function declarations
 void add_library_import(const char* library_name, const char* alias);
 const char* get_library_alias(const char* library_name);
+void init_libraries(void);
+void cleanup_libraries(void);
+
+// File I/O library function declarations
+void init_file_io_library(void);
+void cleanup_file_io_library(void);
 
 #endif // EVAL_H 

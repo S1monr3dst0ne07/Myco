@@ -180,8 +180,14 @@ int main(int argc, char* argv[]) {
         // Initialize implicit function system
         init_implicit_functions();
         
+        // Initialize library system
+        init_libraries();
+        
         // Evaluate the AST
         eval_evaluate(ast);
+        
+        // Cleanup library system
+        cleanup_libraries();
     }
     
     // Cleanup

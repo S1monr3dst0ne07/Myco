@@ -5,7 +5,7 @@
 
 Discord: https://discord.gg/CR8xcKb3zM
 
-**Current Version**: v1.4.0 - Float Support & Library Import System
+**Current Version**: v1.4.0 - Float Support & Library Import System & File I/O
 
 ---
 
@@ -33,6 +33,7 @@ Discord: https://discord.gg/CR8xcKb3zM
 - 🌊 **Floating-point numbers** with full arithmetic support ✅ **v1.4.0**
 - 📚 **Library import system** with namespace protection ✅ **v1.4.0**
 - ✅ **True/False keywords** with backward compatibility ✅ **v1.4.0**
+- 📁 **File I/O operations** with comprehensive file management ✅ **v1.4.0**
 
 ---
 
@@ -100,6 +101,25 @@ let is_finished = False;
 
 if is_active and not is_finished:
     print("Process is running");
+end
+
+# File I/O operations (new in v1.4.0)
+use file_io as f;
+
+# Check if directory exists
+if f.exists("."):
+    print("Current directory exists");
+end
+
+# List directory contents
+let file_count = f.list_dir(".");
+print("Found", file_count, "entries");
+
+# Write and read files
+f.write_file("data.txt", "Hello from Myco!");
+let read_success = f.read_file("data.txt");
+if read_success:
+    print("File read successfully");
 end
 
 # Float arithmetic examples

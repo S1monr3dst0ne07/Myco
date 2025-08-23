@@ -1177,6 +1177,21 @@ use core as c;      # Import core library with alias 'c'
 - `c.print(...)` - Print function
 - `c.len(value)` - Length function
 
+#### File I/O Library (`file_io`) ⭐ **NEW in v1.4.0**
+**Functions:**
+- `f.read_file(filename)` - Read file contents, returns `1` on success, `0` on failure
+- `f.write_file(filename, content)` - Write content to file, returns `1` on success, `0` on failure
+- `f.list_dir(path)` - List directory contents, returns number of entries found
+- `f.exists(path)` - Check if file/directory exists, returns `1` if exists, `0` if not
+
+**Features:**
+- **Large File Support**: Handles files up to 2GB in size
+- **Buffer Safety**: 1024-byte filename/path buffers with overflow protection
+- **Cross-Platform**: Works on Windows, macOS, and Linux
+- **Error Handling**: Comprehensive error messages for debugging
+- **Memory Management**: Automatic cleanup with tracked memory allocation
+- **Content Types**: Supports string literals, variables, and numeric conversion
+
 ### Benefits
 - **Namespace Protection**: Built-in functions no longer pollute global namespace
 - **Organized Access**: Functions grouped by functionality
@@ -1203,6 +1218,59 @@ func my_debug(value):
 end
 
 my_debug(area);  # Works without conflicts
+
+# File I/O operations
+use file_io as f;
+
+# Check if directory exists
+if f.exists("."):
+    print("Current directory exists");
+end
+
+# List directory contents
+let file_count = f.list_dir(".");
+print("Found", file_count, "entries");
+
+# Write and read files
+f.write_file("data.txt", "Hello from Myco!");
+let read_success = f.read_file("data.txt");
+if read_success:
+    print("File read successfully");
+end
+
+# Error handling example
+let file_exists = f.exists("nonexistent.txt");
+if file_exists == 0:
+    print("File does not exist");
+end
+
+# Content type handling
+let number = 42;
+f.write_file("number.txt", number);  # Automatically converts to string
+
+# Long filename support
+let long_name = "this_is_a_very_long_filename_that_tests_buffer_handling.txt";
+f.write_file(long_name, "Long filename test");
+
+### Error Handling and Limitations
+
+**Common Error Cases:**
+- **Empty paths**: Returns error for empty filenames or paths
+- **Invalid paths**: Clear error messages for non-existent files/directories
+- **Permission issues**: Handles read/write permission errors gracefully
+- **Memory allocation**: Automatic cleanup on memory allocation failures
+
+**Limitations:**
+- **Filename length**: Maximum 1023 characters (1024-byte buffer with null terminator)
+- **Path length**: Maximum 1023 characters for directory paths
+- **File size**: Limited by available system memory (typically 2GB+)
+- **Binary files**: Content is treated as text (null bytes may cause issues)
+
+**Best Practices:**
+- Always check return values for error conditions
+- Use descriptive filenames for better debugging
+- Handle file operations in try-catch blocks when appropriate
+- Clean up temporary files after use
 ```
 
 ## Standard Library

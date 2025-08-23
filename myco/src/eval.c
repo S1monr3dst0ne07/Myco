@@ -40,6 +40,7 @@
 #include "parser.h"
 #include "memory_tracker.h"
 #include <sys/stat.h>
+#include <dirent.h>
 #ifdef _WIN32
 #include <windows.h>
 #else
@@ -69,6 +70,7 @@
 static long long call_math_function(const char* func_name, ASTNode* args_node);
 static long long call_util_function(const char* func_name, ASTNode* args_node);
 static long long call_core_function(const char* func_name, ASTNode* args_node);
+static long long call_file_io_function(const char* func_name, ASTNode* args_node);
 
 // Global library imports
 static LibraryImport* library_imports = NULL;
@@ -105,6 +107,40 @@ const char* get_library_alias(const char* alias) {
         }
     }
     return NULL;
+}
+
+/**
+ * @brief Initialize the library system
+ */
+void init_libraries(void) {
+    // Initialize library import system
+    library_imports = NULL;
+    library_import_count = 0;
+    library_import_capacity = 0;
+    
+    printf("Library system initialized\n");
+}
+
+/**
+ * @brief Cleanup the library system
+ */
+void cleanup_libraries(void) {
+    if (library_imports) {
+        for (int i = 0; i < library_import_count; i++) {
+            if (library_imports[i].library_name) {
+                tracked_free(library_imports[i].library_name, __FILE__, __LINE__, "cleanup_libraries");
+            }
+            if (library_imports[i].alias) {
+                tracked_free(library_imports[i].alias, __FILE__, __LINE__, "cleanup_libraries");
+            }
+        }
+        tracked_free(library_imports, __FILE__, __LINE__, "cleanup_libraries");
+        library_imports = NULL;
+        library_import_count = 0;
+        library_import_capacity = 0;
+    }
+    
+    printf("Library system cleaned up\n");
 }
 
 /*******************************************************************************
@@ -2864,7 +2900,7 @@ long long eval_expression(ASTNode* ast) {
                         return -999999999;
                     }
                 }
-                // If not a recognized constant, continue to object property access handling
+                // If not a recognized constant, continue to object access handling
                 // This allows for potential library function calls later
             }
         }
@@ -3123,6 +3159,8 @@ long long eval_expression(ASTNode* ast) {
                     return call_util_function(function_name, &ast->children[1]);
                 } else if (strcmp(actual_library, "core") == 0) {
                     return call_core_function(function_name, &ast->children[1]);
+                } else if (strcmp(actual_library, "file_io") == 0) {
+                    return call_file_io_function(function_name, &ast->children[1]);
                 }
                 
                 return 0;
@@ -5677,8 +5715,8 @@ long long eval_expression(ASTNode* ast) {
         if (*endptr == '\0') {
             return num;
         }
-}
-
+    }
+    
     return 0;
 }
 
@@ -5849,14 +5887,19 @@ void eval_evaluate(ASTNode* ast) {
                 char* library_name = ast->children[0].text;
                 char* alias = ast->children[1].text;
                 
+                printf("DEBUG: Processing use statement: library='%s', alias='%s'\n", library_name, alias);
+                
                 // Check if this is a built-in library
                 if (strcmp(library_name, "math") == 0 || 
                     strcmp(library_name, "util") == 0 || 
-                    strcmp(library_name, "core") == 0) {
+                    strcmp(library_name, "core") == 0 ||
+                    strcmp(library_name, "file_io") == 0) {
                     // Import built-in library
+                    printf("DEBUG: Importing built-in library '%s' as '%s'\n", library_name, alias);
                     add_library_import(library_name, alias);
                 } else {
                     // Load and parse the module
+                    printf("DEBUG: Attempting to load module '%s'\n", library_name);
                     ASTNode* module_ast = load_and_parse_module(library_name);
                     if (module_ast) {
                         // Register the module with the alias
@@ -6159,33 +6202,10 @@ void eval_evaluate(ASTNode* ast) {
                 } else {
                             printf("(null)");
                         }
-                    } else if (value == -3) {
-                        // This is an object variable - get and print the object contents
-                        if (arg->text) {
-                            MycoObject* obj = get_object_value(arg->text);
-                            if (obj) {
-                                printf("{");
-                                for (int j = 0; j < obj->property_count; j++) {
-                                    if (j > 0) printf(", ");
-                                    printf("%s: ", obj->property_names[j]);
-                                    
-                                    // Use type-based printing instead of heuristics
-                                    void* prop_value = obj->property_values[j];
-                                    PropertyType prop_type = obj->property_types[j];
-                                    print_property_value(prop_value, prop_type);
-                                }
-                                printf("}");
-                            } else {
-                                printf("(null)");
-                            }
-                        } else {
-                            printf("(null)");
-                        }
-                    } else if (value != -999) {
+                    } else if (value == -999) {
                     printf("%lld", (long long)value);
                     }
                 }
-            }
             printf("\n");
             return;
         }
@@ -6223,7 +6243,6 @@ void eval_evaluate(ASTNode* ast) {
                         method_name = func_name_node->children[1].text;
                     }
                     
-
                     
                     if (obj_name && method_name) {
                         // Get the object
@@ -7123,6 +7142,9 @@ void eval_evaluate(ASTNode* ast) {
     }
 }
 
+// Main evaluation function ends here
+}
+
 // Function to clear module AST references to prevent double-free
 void eval_clear_module_asts() {
     if (modules && modules_size > 0) {
@@ -7512,6 +7534,295 @@ static long long call_core_function(const char* func_name, ASTNode* args_node) {
         
     } else {
         fprintf(stderr, "Error: Unknown core function '%s'\n", func_name);
+        return 0;
+    }
+}
+
+// File I/O Library Functions
+static long long call_file_io_function(const char* func_name, ASTNode* args_node) {
+    if (strcmp(func_name, "read_file") == 0) {
+        if (args_node->child_count < 1) {
+            fprintf(stderr, "Error: file_io.read_file() requires one argument (filename)\n");
+            return 0;
+        }
+        
+        // Get filename from argument
+        ASTNode* filename_node = &args_node->children[0];
+        if (filename_node->type != AST_EXPR || !filename_node->text) {
+            fprintf(stderr, "Error: file_io.read_file() filename must be a string\n");
+            return 0;
+        }
+        
+        // Extract filename (remove quotes)
+        char filename[1024];
+        if (is_string_literal(filename_node->text)) {
+            size_t len = strlen(filename_node->text);
+            if (len > 2) {
+                strncpy(filename, filename_node->text + 1, len - 2);
+                filename[len - 2] = '\0';
+            } else {
+                filename[0] = '\0';
+            }
+        } else {
+            strncpy(filename, filename_node->text, sizeof(filename) - 1);
+            filename[sizeof(filename) - 1] = '\0';
+        }
+        
+        // Validate filename
+        if (strlen(filename) == 0) {
+            fprintf(stderr, "Error: file_io.read_file() filename cannot be empty\n");
+            return 0;
+        }
+        
+        // Read file content
+        FILE* file = fopen(filename, "r");
+        if (!file) {
+            fprintf(stderr, "Error: Cannot open file '%s' for reading\n", filename);
+            return 0;
+        }
+        
+        // Get file size
+        fseek(file, 0, SEEK_END);
+        long file_size = ftell(file);
+        fseek(file, 0, SEEK_SET);
+        
+        if (file_size < 0) {
+            fclose(file);
+            fprintf(stderr, "Error: Cannot determine file size\n");
+            return 0;
+        }
+        
+        // Read file content
+        char* content = (char*)tracked_malloc(file_size + 1, __FILE__, __LINE__, "file_read");
+        if (!content) {
+            fclose(file);
+            fprintf(stderr, "Error: Memory allocation failed\n");
+            return 0;
+        }
+        
+        size_t bytes_read = fread(content, 1, file_size, file);
+        content[bytes_read] = '\0';
+        fclose(file);
+        
+        // Store content in a temporary variable and return success
+        char temp_var_name[64];
+        snprintf(temp_var_name, sizeof(temp_var_name), "__file_content_%p", (void*)args_node);
+        set_str_value(temp_var_name, content);
+        
+        printf("File '%s' read successfully (%zu bytes)\n", filename, bytes_read);
+        return 1;
+        
+    } else if (strcmp(func_name, "write_file") == 0) {
+        if (args_node->child_count < 2) {
+            fprintf(stderr, "Error: file_io.write_file() requires two arguments (filename, content)\n");
+            return 0;
+        }
+        
+        // Get filename from first argument
+        ASTNode* filename_node = &args_node->children[0];
+        if (filename_node->type != AST_EXPR || !filename_node->text) {
+            fprintf(stderr, "Error: file_io.write_file() filename must be a string\n");
+            return 0;
+        }
+        
+        // Extract filename (remove quotes)
+        char filename[1024];
+        if (is_string_literal(filename_node->text)) {
+            size_t len = strlen(filename_node->text);
+            if (len > 2) {
+                strncpy(filename, filename_node->text + 1, len - 2);
+                filename[len - 2] = '\0';
+            } else {
+                filename[0] = '\0';
+            }
+        } else {
+            strncpy(filename, filename_node->text, sizeof(filename) - 1);
+            filename[sizeof(filename) - 1] = '\0';
+        }
+        
+        // Validate filename
+        if (strlen(filename) == 0) {
+            fprintf(stderr, "Error: file_io.write_file() filename cannot be empty\n");
+            return 0;
+        }
+        
+        // Get content from second argument
+        ASTNode* content_node = &args_node->children[1];
+        char* content = NULL;
+        
+        if (content_node->type == AST_EXPR && content_node->text) {
+            if (is_string_literal(content_node->text)) {
+                // String literal
+                size_t len = strlen(content_node->text);
+                if (len > 2) {
+                    content = (char*)tracked_malloc(len - 1, __FILE__, __LINE__, "file_write_content");
+                    if (content) {
+                        strncpy(content, content_node->text + 1, len - 2);
+                        content[len - 2] = '\0';
+                    }
+                }
+            } else {
+                // Variable name - get its value
+                content = (char*)get_str_value(content_node->text);
+                if (content) {
+                    content = tracked_strdup(content, __FILE__, __LINE__, "file_write_content");
+                } else {
+                    // Try to evaluate the expression
+                    long long eval_result = eval_expression(content_node);
+                    if (eval_result == -1) {
+                        // It's a string variable
+                        content = (char*)get_str_value(content_node->text);
+                        if (content) {
+                            content = tracked_strdup(content, __FILE__, __LINE__, "file_write_content");
+                        }
+                    } else {
+                        // Convert numeric result to string
+                        char num_str[64];
+                        snprintf(num_str, sizeof(num_str), "%lld", eval_result);
+                        content = tracked_strdup(num_str, __FILE__, __LINE__, "file_write_content");
+                    }
+                }
+            }
+        }
+        
+        if (!content) {
+            fprintf(stderr, "Error: file_io.write_file() content must be a string\n");
+            return 0;
+        }
+        
+        // Write to file
+        FILE* file = fopen(filename, "w");
+        if (!file) {
+            fprintf(stderr, "Error: Cannot open file '%s' for writing\n", filename);
+            tracked_free(content, __FILE__, __LINE__, "file_write_content");
+            return 0;
+        }
+        
+        size_t bytes_written = fwrite(content, 1, strlen(content), file);
+        fclose(file);
+        
+        printf("File '%s' written successfully (%zu bytes)\n", filename, bytes_written);
+        tracked_free(content, __FILE__, __LINE__, "file_write_content");
+        return 1;
+        
+    } else if (strcmp(func_name, "list_dir") == 0) {
+        if (args_node->child_count < 1) {
+            fprintf(stderr, "Error: file_io.list_dir() requires one argument (directory path)\n");
+            return 0;
+        }
+        
+        // Get directory path from argument
+        ASTNode* path_node = &args_node->children[0];
+        if (path_node->type != AST_EXPR || !path_node->text) {
+            fprintf(stderr, "Error: file_io.list_dir() path must be a string\n");
+            return 0;
+        }
+        
+        // Extract path (remove quotes)
+        char path[1024];
+        if (is_string_literal(path_node->text)) {
+            size_t len = strlen(path_node->text);
+            if (len > 2) {
+                strncpy(path, path_node->text + 1, len - 2);
+                path[len - 2] = '\0';
+            } else {
+                path[0] = '\0';
+            }
+        } else {
+            strncpy(path, path_node->text, sizeof(path) - 1);
+            path[sizeof(path) - 1] = '\0';
+        }
+        
+        // Validate path
+        if (strlen(path) == 0) {
+            fprintf(stderr, "Error: file_io.list_dir() path cannot be empty\n");
+            return 0;
+        }
+        
+        // List directory contents
+        DIR* dir = opendir(path);
+        if (!dir) {
+            fprintf(stderr, "Error: Cannot open directory '%s'\n", path);
+            return 0;
+        }
+        
+        printf("Directory listing for '%s':\n", path);
+        struct dirent* entry;
+        int count = 0;
+        
+        while ((entry = readdir(dir)) != NULL) {
+            // Use stat to determine if it's a directory (more portable than d_type)
+            char full_path[2048];
+            snprintf(full_path, sizeof(full_path), "%s/%s", path, entry->d_name);
+            struct stat entry_stat;
+            if (stat(full_path, &entry_stat) == 0) {
+                if (S_ISDIR(entry_stat.st_mode)) {
+                    printf("  [DIR]  %s\n", entry->d_name);
+                } else {
+                    printf("  [FILE] %s\n", entry->d_name);
+                }
+            } else {
+                printf("  [???]  %s\n", entry->d_name);
+            }
+            count++;
+        }
+        
+        closedir(dir);
+        printf("Total: %d entries\n", count);
+        return count;
+        
+    } else if (strcmp(func_name, "exists") == 0) {
+        if (args_node->child_count < 1) {
+            fprintf(stderr, "Error: file_io.exists() requires one argument (path)\n");
+            return 0;
+        }
+        
+        // Get path from argument
+        ASTNode* path_node = &args_node->children[0];
+        if (path_node->type != AST_EXPR || !path_node->text) {
+            fprintf(stderr, "Error: file_io.exists() path must be a string\n");
+            return 0;
+        }
+        
+        // Extract path (remove quotes)
+        char path[1024];
+        if (is_string_literal(path_node->text)) {
+            size_t len = strlen(path_node->text);
+            if (len > 2) {
+                strncpy(path, path_node->text + 1, len - 2);
+                path[len - 2] = '\0';
+            } else {
+                path[0] = '\0';
+            }
+        } else {
+            strncpy(path, path_node->text, sizeof(path) - 1);
+            path[sizeof(path) - 1] = '\0';
+        }
+        
+        // Validate path
+        if (strlen(path) == 0) {
+            fprintf(stderr, "Error: file_io.exists() path cannot be empty\n");
+            return 0;
+        }
+        
+        // Check if file/directory exists
+        struct stat st;
+        int exists = (stat(path, &st) == 0);
+        
+        if (exists) {
+            if (S_ISDIR(st.st_mode)) {
+                printf("Directory '%s' exists\n", path);
+            } else {
+                printf("File '%s' exists (%lld bytes)\n", path, (long long)st.st_size);
+            }
+        } else {
+            printf("Path '%s' does not exist\n", path);
+        }
+        
+        return exists ? 1 : 0;
+        
+    } else {
+        fprintf(stderr, "Error: Unknown file I/O function '%s'\n", func_name);
         return 0;
     }
 }
