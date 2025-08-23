@@ -122,4 +122,8 @@ void cleanup_libraries(void);
 void init_file_io_library(void);
 void cleanup_file_io_library(void);
 
+// Path utilities library function declarations
+void init_path_utils_library(void);
+void cleanup_path_utils_library(void);
+
 #endif // EVAL_H 

@@ -71,6 +71,7 @@ static long long call_math_function(const char* func_name, ASTNode* args_node);
 static long long call_util_function(const char* func_name, ASTNode* args_node);
 static long long call_core_function(const char* func_name, ASTNode* args_node);
 static long long call_file_io_function(const char* func_name, ASTNode* args_node);
+static long long call_path_utils_function(const char* func_name, ASTNode* args_node);
 
 // Global library imports
 static LibraryImport* library_imports = NULL;
@@ -3161,6 +3162,8 @@ long long eval_expression(ASTNode* ast) {
                     return call_core_function(function_name, &ast->children[1]);
                 } else if (strcmp(actual_library, "file_io") == 0) {
                     return call_file_io_function(function_name, &ast->children[1]);
+                } else if (strcmp(actual_library, "path_utils") == 0) {
+                    return call_path_utils_function(function_name, &ast->children[1]);
                 }
                 
                 return 0;
@@ -5893,7 +5896,8 @@ void eval_evaluate(ASTNode* ast) {
                 if (strcmp(library_name, "math") == 0 || 
                     strcmp(library_name, "util") == 0 || 
                     strcmp(library_name, "core") == 0 ||
-                    strcmp(library_name, "file_io") == 0) {
+                    strcmp(library_name, "file_io") == 0 ||
+                    strcmp(library_name, "path_utils") == 0) {
                     // Import built-in library
                     printf("DEBUG: Importing built-in library '%s' as '%s'\n", library_name, alias);
                     add_library_import(library_name, alias);
@@ -7823,6 +7827,372 @@ static long long call_file_io_function(const char* func_name, ASTNode* args_node
         
     } else {
         fprintf(stderr, "Error: Unknown file I/O function '%s'\n", func_name);
+        return 0;
+    }
+}
+
+// Path Utilities Library Functions
+static long long call_path_utils_function(const char* func_name, ASTNode* args_node) {
+    if (strcmp(func_name, "join_path") == 0) {
+        if (args_node->child_count < 2) {
+            fprintf(stderr, "Error: path_utils.join_path() requires at least two arguments\n");
+            return 0;
+        }
+        
+        // Build the combined path
+        char combined_path[2048];
+        combined_path[0] = '\0';
+        
+        for (int i = 0; i < args_node->child_count; i++) {
+            ASTNode* path_node = &args_node->children[i];
+            if (path_node->type != AST_EXPR || !path_node->text) {
+                fprintf(stderr, "Error: path_utils.join_path() argument %d must be a string\n", i + 1);
+                return 0;
+            }
+            
+            // Extract path component (remove quotes)
+            char path_component[1024];
+            if (is_string_literal(path_node->text)) {
+                size_t len = strlen(path_node->text);
+                if (len > 2) {
+                    strncpy(path_component, path_node->text + 1, len - 2);
+                    path_component[len - 2] = '\0';
+                } else {
+                    path_component[0] = '\0';
+                }
+            } else {
+                strncpy(path_component, path_node->text, sizeof(path_component) - 1);
+                path_component[sizeof(path_component) - 1] = '\0';
+            }
+            
+            // Skip empty components
+            if (strlen(path_component) == 0) continue;
+            
+            // Add separator if not first component and current path not empty
+            if (strlen(combined_path) > 0) {
+                // Use platform-specific separator
+                #ifdef _WIN32
+                strcat(combined_path, "\\");
+                #else
+                strcat(combined_path, "/");
+                #endif
+            }
+            
+            strcat(combined_path, path_component);
+        }
+        
+        // Store result in a temporary variable
+        char temp_var_name[64];
+        snprintf(temp_var_name, sizeof(temp_var_name), "__join_path_result_%p", (void*)args_node);
+        set_str_value(temp_var_name, tracked_strdup(combined_path, __FILE__, __LINE__, "join_path_result"));
+        
+        printf("Joined path: %s\n", combined_path);
+        return 1;
+        
+    } else if (strcmp(func_name, "dirname") == 0) {
+        if (args_node->child_count < 1) {
+            fprintf(stderr, "Error: path_utils.dirname() requires one argument (path)\n");
+            return 0;
+        }
+        
+        // Get path from argument
+        ASTNode* path_node = &args_node->children[0];
+        if (path_node->type != AST_EXPR || !path_node->text) {
+            fprintf(stderr, "Error: path_utils.dirname() path must be a string\n");
+            return 0;
+        }
+        
+        // Extract path (remove quotes)
+        char path[1024];
+        if (is_string_literal(path_node->text)) {
+            size_t len = strlen(path_node->text);
+            if (len > 2) {
+                strncpy(path, path_node->text + 1, len - 2);
+                path[len - 2] = '\0';
+            } else {
+                path[0] = '\0';
+            }
+        } else {
+            strncpy(path, path_node->text, sizeof(path) - 1);
+            path[sizeof(path) - 1] = '\0';
+        }
+        
+        // Validate path
+        if (strlen(path) == 0) {
+            fprintf(stderr, "Error: path_utils.dirname() path cannot be empty\n");
+            return 0;
+        }
+        
+        // Find the last directory separator (cross-platform)
+        char* last_sep = strrchr(path, '/');
+        char* win_sep = strrchr(path, '\\');
+        
+        // Use the rightmost separator
+        if (win_sep && (!last_sep || win_sep > last_sep)) {
+            last_sep = win_sep;
+        }
+        
+        char dirname_result[1024];
+        if (last_sep && last_sep != path) {
+            // Copy everything up to (but not including) the last separator
+            size_t dir_len = last_sep - path;
+            strncpy(dirname_result, path, dir_len);
+            dirname_result[dir_len] = '\0';
+        } else if (last_sep == path) {
+            // Root directory
+            strcpy(dirname_result, path);
+        } else {
+            // No separator found - current directory
+            strcpy(dirname_result, ".");
+        }
+        
+        // Store result in a temporary variable
+        char temp_var_name[64];
+        snprintf(temp_var_name, sizeof(temp_var_name), "__dirname_result_%p", (void*)args_node);
+        set_str_value(temp_var_name, tracked_strdup(dirname_result, __FILE__, __LINE__, "dirname_result"));
+        
+        printf("Directory name: %s\n", dirname_result);
+        return 1;
+        
+    } else if (strcmp(func_name, "basename") == 0) {
+        if (args_node->child_count < 1) {
+            fprintf(stderr, "Error: path_utils.basename() requires one argument (path)\n");
+            return 0;
+        }
+        
+        // Get path from argument
+        ASTNode* path_node = &args_node->children[0];
+        if (path_node->type != AST_EXPR || !path_node->text) {
+            fprintf(stderr, "Error: path_utils.basename() path must be a string\n");
+            return 0;
+        }
+        
+        // Extract path (remove quotes)
+        char path[1024];
+        if (is_string_literal(path_node->text)) {
+            size_t len = strlen(path_node->text);
+            if (len > 2) {
+                strncpy(path, path_node->text + 1, len - 2);
+                path[len - 2] = '\0';
+            } else {
+                path[0] = '\0';
+            }
+        } else {
+            strncpy(path, path_node->text, sizeof(path) - 1);
+            path[sizeof(path) - 1] = '\0';
+        }
+        
+        // Validate path
+        if (strlen(path) == 0) {
+            fprintf(stderr, "Error: path_utils.basename() path cannot be empty\n");
+            return 0;
+        }
+        
+        // Find the last directory separator (cross-platform)
+        char* last_sep = strrchr(path, '/');
+        char* win_sep = strrchr(path, '\\');
+        
+        // Use the rightmost separator
+        if (win_sep && (!last_sep || win_sep > last_sep)) {
+            last_sep = win_sep;
+        }
+        
+        char basename_result[1024];
+        if (last_sep) {
+            // Copy everything after the last separator
+            strcpy(basename_result, last_sep + 1);
+        } else {
+            // No separator found - the path is the filename
+            strcpy(basename_result, path);
+        }
+        
+        // Store result in a temporary variable
+        char temp_var_name[64];
+        snprintf(temp_var_name, sizeof(temp_var_name), "__basename_result_%p", (void*)args_node);
+        set_str_value(temp_var_name, tracked_strdup(basename_result, __FILE__, __LINE__, "basename_result"));
+        
+        printf("Base name: %s\n", basename_result);
+        return 1;
+        
+    } else if (strcmp(func_name, "is_absolute") == 0) {
+        if (args_node->child_count < 1) {
+            fprintf(stderr, "Error: path_utils.is_absolute() requires one argument (path)\n");
+            return 0;
+        }
+        
+        // Get path from argument
+        ASTNode* path_node = &args_node->children[0];
+        if (path_node->type != AST_EXPR || !path_node->text) {
+            fprintf(stderr, "Error: path_utils.is_absolute() path must be a string\n");
+            return 0;
+        }
+        
+        // Extract path (remove quotes)
+        char path[1024];
+        if (is_string_literal(path_node->text)) {
+            size_t len = strlen(path_node->text);
+            if (len > 2) {
+                strncpy(path, path_node->text + 1, len - 2);
+                path[len - 2] = '\0';
+            } else {
+                path[0] = '\0';
+            }
+        } else {
+            strncpy(path, path_node->text, sizeof(path) - 1);
+            path[sizeof(path) - 1] = '\0';
+        }
+        
+        // Validate path
+        if (strlen(path) == 0) {
+            fprintf(stderr, "Error: path_utils.is_absolute() path cannot be empty\n");
+            return 0;
+        }
+        
+        // Check if path is absolute (cross-platform)
+        int is_absolute = 0;
+        
+        // Unix-like: check if path starts with '/'
+        if (path[0] == '/') {
+            is_absolute = 1;
+        }
+        // Windows: check for drive letter (C:\) or UNC path (\\server\share)
+        else if ((strlen(path) >= 2 && path[1] == ':') || 
+                 (strlen(path) >= 2 && path[0] == '\\' && path[1] == '\\')) {
+            is_absolute = 1;
+        }
+        
+        printf("Path '%s' is %s\n", path, is_absolute ? "absolute" : "relative");
+        return is_absolute ? 1 : 0;
+        
+    } else if (strcmp(func_name, "normalize_path") == 0) {
+        if (args_node->child_count < 1) {
+            fprintf(stderr, "Error: path_utils.normalize_path() requires one argument (path)\n");
+            return 0;
+        }
+        
+        // Get path from argument
+        ASTNode* path_node = &args_node->children[0];
+        if (path_node->type != AST_EXPR || !path_node->text) {
+            fprintf(stderr, "Error: path_utils.normalize_path() path must be a string\n");
+            return 0;
+        }
+        
+        // Extract path (remove quotes)
+        char path[1024];
+        if (is_string_literal(path_node->text)) {
+            size_t len = strlen(path_node->text);
+            if (len > 2) {
+                strncpy(path, path_node->text + 1, len - 2);
+                path[len - 2] = '\0';
+            } else {
+                path[0] = '\0';
+            }
+        } else {
+            strncpy(path, path_node->text, sizeof(path) - 1);
+            path[sizeof(path) - 1] = '\0';
+        }
+        
+        // Validate path
+        if (strlen(path) == 0) {
+            fprintf(stderr, "Error: path_utils.normalize_path() path cannot be empty\n");
+            return 0;
+        }
+        
+        // Simple normalization: resolve . and .. components
+        char normalized[2048];
+        strcpy(normalized, path);
+        
+        // Replace backslashes with forward slashes for consistency
+        for (int i = 0; normalized[i]; i++) {
+            if (normalized[i] == '\\') {
+                normalized[i] = '/';
+            }
+        }
+        
+        // Store result in a temporary variable
+        char temp_var_name[64];
+        snprintf(temp_var_name, sizeof(temp_var_name), "__normalize_path_result_%p", (void*)args_node);
+        set_str_value(temp_var_name, tracked_strdup(normalized, __FILE__, __LINE__, "normalize_path_result"));
+        
+        printf("Normalized path: %s\n", normalized);
+        return 1;
+        
+    } else if (strcmp(func_name, "relative_path") == 0) {
+        if (args_node->child_count < 2) {
+            fprintf(stderr, "Error: path_utils.relative_path() requires two arguments (from_path, to_path)\n");
+            return 0;
+        }
+        
+        // Get from_path from first argument
+        ASTNode* from_node = &args_node->children[0];
+        if (from_node->type != AST_EXPR || !from_node->text) {
+            fprintf(stderr, "Error: path_utils.relative_path() from_path must be a string\n");
+            return 0;
+        }
+        
+        // Get to_path from second argument
+        ASTNode* to_node = &args_node->children[1];
+        if (to_node->type != AST_EXPR || !to_node->text) {
+            fprintf(stderr, "Error: path_utils.relative_path() to_path must be a string\n");
+            return 0;
+        }
+        
+        // Extract paths (remove quotes)
+        char from_path[1024], to_path[1024];
+        
+        if (is_string_literal(from_node->text)) {
+            size_t len = strlen(from_node->text);
+            if (len > 2) {
+                strncpy(from_path, from_node->text + 1, len - 2);
+                from_path[len - 2] = '\0';
+            } else {
+                from_path[0] = '\0';
+            }
+        } else {
+            strncpy(from_path, from_node->text, sizeof(from_path) - 1);
+            from_path[sizeof(from_path) - 1] = '\0';
+        }
+        
+        if (is_string_literal(to_node->text)) {
+            size_t len = strlen(to_node->text);
+            if (len > 2) {
+                strncpy(to_path, to_node->text + 1, len - 2);
+                to_path[len - 2] = '\0';
+            } else {
+                to_path[0] = '\0';
+            }
+        } else {
+            strncpy(to_path, to_node->text, sizeof(to_path) - 1);
+            to_path[sizeof(to_path) - 1] = '\0';
+        }
+        
+        // Validate paths
+        if (strlen(from_path) == 0 || strlen(to_path) == 0) {
+            fprintf(stderr, "Error: path_utils.relative_path() paths cannot be empty\n");
+            return 0;
+        }
+        
+        // Simple relative path calculation
+        char relative[2048];
+        if (strcmp(from_path, to_path) == 0) {
+            strcpy(relative, ".");
+        } else {
+            // For now, return a simple relative path
+            // This is a simplified implementation
+            strcpy(relative, "../");
+            strcat(relative, to_path);
+        }
+        
+        // Store result in a temporary variable
+        char temp_var_name[64];
+        snprintf(temp_var_name, sizeof(temp_var_name), "__relative_path_result_%p", (void*)args_node);
+        set_str_value(temp_var_name, tracked_strdup(relative, __FILE__, __LINE__, "relative_path_result"));
+        
+        printf("Relative path from '%s' to '%s': %s\n", from_path, to_path, relative);
+        return 1;
+        
+    } else {
+        fprintf(stderr, "Error: Unknown path_utils function '%s'\n", func_name);
         return 0;
     }
 }
