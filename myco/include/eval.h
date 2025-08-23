@@ -117,6 +117,7 @@ void add_library_import(const char* library_name, const char* alias);
 const char* get_library_alias(const char* library_name);
 void init_libraries(void);
 void cleanup_libraries(void);
+void set_command_line_args(int argc, char** argv);
 
 // File I/O library function declarations
 void init_file_io_library(void);
@@ -125,5 +126,13 @@ void cleanup_file_io_library(void);
 // Path utilities library function declarations
 void init_path_utils_library(void);
 void cleanup_path_utils_library(void);
+
+// Environment variables library function declarations
+void init_env_library(void);
+void cleanup_env_library(void);
+
+// Command-line arguments library function declarations
+void init_args_library(void);
+void cleanup_args_library(void);
 
 #endif // EVAL_H 

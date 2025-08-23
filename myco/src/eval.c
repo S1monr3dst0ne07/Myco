@@ -72,11 +72,17 @@ static long long call_util_function(const char* func_name, ASTNode* args_node);
 static long long call_core_function(const char* func_name, ASTNode* args_node);
 static long long call_file_io_function(const char* func_name, ASTNode* args_node);
 static long long call_path_utils_function(const char* func_name, ASTNode* args_node);
+static long long call_env_function(const char* func_name, ASTNode* args_node);
+static long long call_args_function(const char* func_name, ASTNode* args_node);
 
 // Global library imports
 static LibraryImport* library_imports = NULL;
 static int library_import_count = 0;
 static int library_import_capacity = 0;
+
+// Global command-line arguments storage
+static char** global_argv = NULL;
+static int global_argc = 0;
 
 /**
  * @brief Add a library import
@@ -120,6 +126,14 @@ void init_libraries(void) {
     library_import_capacity = 0;
     
     printf("Library system initialized\n");
+}
+
+/**
+ * @brief Set command-line arguments for the args library
+ */
+void set_command_line_args(int argc, char** argv) {
+    global_argc = argc;
+    global_argv = argv;
 }
 
 /**
@@ -3164,6 +3178,10 @@ long long eval_expression(ASTNode* ast) {
                     return call_file_io_function(function_name, &ast->children[1]);
                 } else if (strcmp(actual_library, "path_utils") == 0) {
                     return call_path_utils_function(function_name, &ast->children[1]);
+                } else if (strcmp(actual_library, "env") == 0) {
+                    return call_env_function(function_name, &ast->children[1]);
+                } else if (strcmp(actual_library, "args") == 0) {
+                    return call_args_function(function_name, &ast->children[1]);
                 }
                 
                 return 0;
@@ -5897,7 +5915,9 @@ void eval_evaluate(ASTNode* ast) {
                     strcmp(library_name, "util") == 0 || 
                     strcmp(library_name, "core") == 0 ||
                     strcmp(library_name, "file_io") == 0 ||
-                    strcmp(library_name, "path_utils") == 0) {
+                    strcmp(library_name, "path_utils") == 0 ||
+                    strcmp(library_name, "env") == 0 ||
+                    strcmp(library_name, "args") == 0) {
                     // Import built-in library
                     printf("DEBUG: Importing built-in library '%s' as '%s'\n", library_name, alias);
                     add_library_import(library_name, alias);
@@ -8193,6 +8213,314 @@ static long long call_path_utils_function(const char* func_name, ASTNode* args_n
         
     } else {
         fprintf(stderr, "Error: Unknown path_utils function '%s'\n", func_name);
+        return 0;
+    }
+}
+
+// Environment Variables Library Functions
+static long long call_env_function(const char* func_name, ASTNode* args_node) {
+    if (strcmp(func_name, "get_env") == 0) {
+        if (args_node->child_count < 1) {
+            fprintf(stderr, "Error: env.get_env() requires one argument (variable_name)\n");
+            return 0;
+        }
+        
+        // Get variable name from argument
+        ASTNode* var_node = &args_node->children[0];
+        if (var_node->type != AST_EXPR || !var_node->text) {
+            fprintf(stderr, "Error: env.get_env() variable name must be a string\n");
+            return 0;
+        }
+        
+        // Extract variable name (remove quotes)
+        char var_name[1024];
+        if (is_string_literal(var_node->text)) {
+            size_t len = strlen(var_node->text);
+            if (len > 2) {
+                strncpy(var_name, var_node->text + 1, len - 2);
+                var_name[len - 2] = '\0';
+            } else {
+                var_name[0] = '\0';
+            }
+        } else {
+            strncpy(var_name, var_node->text, sizeof(var_name) - 1);
+            var_name[sizeof(var_name) - 1] = '\0';
+        }
+        
+        // Validate variable name
+        if (strlen(var_name) == 0) {
+            fprintf(stderr, "Error: env.get_env() variable name cannot be empty\n");
+            return 0;
+        }
+        
+        // Get environment variable value
+        const char* value = getenv(var_name);
+        if (value) {
+            // Store result in a temporary variable
+            char temp_var_name[64];
+            snprintf(temp_var_name, sizeof(temp_var_name), "__get_env_result_%p", (void*)args_node);
+            set_str_value(temp_var_name, tracked_strdup(value, __FILE__, __LINE__, "get_env_result"));
+            
+            printf("Environment variable '%s' = '%s'\n", var_name, value);
+            return 1;
+        } else {
+            printf("Environment variable '%s' not found\n", var_name);
+            return 0;
+        }
+        
+    } else if (strcmp(func_name, "set_env") == 0) {
+        if (args_node->child_count < 2) {
+            fprintf(stderr, "Error: env.set_env() requires two arguments (variable_name, value)\n");
+            return 0;
+        }
+        
+        // Get variable name from first argument
+        ASTNode* var_node = &args_node->children[0];
+        if (var_node->type != AST_EXPR || !var_node->text) {
+            fprintf(stderr, "Error: env.set_env() variable name must be a string\n");
+            return 0;
+        }
+        
+        // Get value from second argument
+        ASTNode* val_node = &args_node->children[1];
+        if (val_node->type != AST_EXPR || !val_node->text) {
+            fprintf(stderr, "Error: env.set_env() value must be a string\n");
+            return 0;
+        }
+        
+        // Extract variable name (remove quotes)
+        char var_name[1024];
+        if (is_string_literal(var_node->text)) {
+            size_t len = strlen(var_node->text);
+            if (len > 2) {
+                strncpy(var_name, var_node->text + 1, len - 2);
+                var_name[len - 2] = '\0';
+            } else {
+                var_name[0] = '\0';
+            }
+        } else {
+            strncpy(var_name, var_node->text, sizeof(var_name) - 1);
+            var_name[sizeof(var_name) - 1] = '\0';
+        }
+        
+        // Extract value (remove quotes)
+        char value[1024];
+        if (is_string_literal(val_node->text)) {
+            size_t len = strlen(val_node->text);
+            if (len > 2) {
+                strncpy(value, val_node->text + 1, len - 2);
+                value[len - 2] = '\0';
+            } else {
+                value[0] = '\0';
+            }
+        } else {
+            strncpy(value, val_node->text, sizeof(value) - 1);
+            value[sizeof(value) - 1] = '\0';
+        }
+        
+        // Validate inputs
+        if (strlen(var_name) == 0) {
+            fprintf(stderr, "Error: env.set_env() variable name cannot be empty\n");
+            return 0;
+        }
+        
+        // Set environment variable
+        int result = setenv(var_name, value, 1); // 1 = overwrite existing
+        if (result == 0) {
+            printf("Set environment variable '%s' = '%s'\n", var_name, value);
+            return 1;
+        } else {
+            fprintf(stderr, "Error: Failed to set environment variable '%s'\n", var_name);
+            return 0;
+        }
+        
+    } else if (strcmp(func_name, "has_env") == 0) {
+        if (args_node->child_count < 1) {
+            fprintf(stderr, "Error: env.has_env() requires one argument (variable_name)\n");
+            return 0;
+        }
+        
+        // Get variable name from argument
+        ASTNode* var_node = &args_node->children[0];
+        if (var_node->type != AST_EXPR || !var_node->text) {
+            fprintf(stderr, "Error: env.has_env() variable name must be a string\n");
+            return 0;
+        }
+        
+        // Extract variable name (remove quotes)
+        char var_name[1024];
+        if (is_string_literal(var_node->text)) {
+            size_t len = strlen(var_node->text);
+            if (len > 2) {
+                strncpy(var_name, var_node->text + 1, len - 2);
+                var_name[len - 2] = '\0';
+            } else {
+                var_name[0] = '\0';
+            }
+        } else {
+            strncpy(var_name, var_node->text, sizeof(var_name) - 1);
+            var_name[sizeof(var_name) - 1] = '\0';
+        }
+        
+        // Validate variable name
+        if (strlen(var_name) == 0) {
+            fprintf(stderr, "Error: env.has_env() variable name cannot be empty\n");
+            return 0;
+        }
+        
+        // Check if environment variable exists
+        const char* value = getenv(var_name);
+        int exists = (value != NULL);
+        
+        printf("Environment variable '%s' %s\n", var_name, exists ? "exists" : "does not exist");
+        return exists ? 1 : 0;
+        
+    } else if (strcmp(func_name, "list_env") == 0) {
+        if (args_node->child_count != 0) {
+            fprintf(stderr, "Error: env.list_env() takes no arguments\n");
+            return 0;
+        }
+        
+        // List all environment variables
+        printf("Environment Variables:\n");
+        printf("=====================\n");
+        
+        extern char** environ;
+        int count = 0;
+        
+        if (environ) {
+            for (int i = 0; environ[i] != NULL; i++) {
+                printf("  %s\n", environ[i]);
+                count++;
+            }
+        }
+        
+        printf("Total: %d environment variables\n", count);
+        return count;
+        
+    } else {
+        fprintf(stderr, "Error: Unknown env function '%s'\n", func_name);
+        return 0;
+    }
+}
+
+// Command-Line Arguments Library Functions
+static long long call_args_function(const char* func_name, ASTNode* args_node) {
+    if (strcmp(func_name, "get_args") == 0) {
+        if (args_node->child_count != 0) {
+            fprintf(stderr, "Error: args.get_args() takes no arguments\n");
+            return 0;
+        }
+        
+        // Return all command-line arguments as a formatted string
+        if (!global_argv || global_argc == 0) {
+            printf("No command-line arguments available\n");
+            return 0;
+        }
+        
+        printf("Command-line arguments (%d total):\n", global_argc);
+        for (int i = 0; i < global_argc; i++) {
+            printf("  [%d]: %s\n", i, global_argv[i]);
+        }
+        
+        return global_argc;
+        
+    } else if (strcmp(func_name, "get_arg") == 0) {
+        if (args_node->child_count < 1) {
+            fprintf(stderr, "Error: args.get_arg() requires one argument (index)\n");
+            return 0;
+        }
+        
+        // Get index from argument
+        ASTNode* index_node = &args_node->children[0];
+        if (index_node->type != AST_EXPR || !index_node->text) {
+            fprintf(stderr, "Error: args.get_arg() index must be a number\n");
+            return 0;
+        }
+        
+        // Parse index (remove quotes if string literal)
+        char index_str[64];
+        if (is_string_literal(index_node->text)) {
+            size_t len = strlen(index_node->text);
+            if (len > 2) {
+                strncpy(index_str, index_node->text + 1, len - 2);
+                index_str[len - 2] = '\0';
+            } else {
+                index_str[0] = '\0';
+            }
+        } else {
+            strncpy(index_str, index_node->text, sizeof(index_str) - 1);
+            index_str[sizeof(index_str) - 1] = '\0';
+        }
+        
+        // Convert to integer
+        char* endptr;
+        long index = strtol(index_str, &endptr, 10);
+        if (*endptr != '\0') {
+            fprintf(stderr, "Error: args.get_arg() index must be a valid number\n");
+            return 0;
+        }
+        
+        // Validate index bounds
+        if (index < 0 || index >= global_argc) {
+            fprintf(stderr, "Error: args.get_arg() index %ld out of bounds (0-%d)\n", index, global_argc - 1);
+            return 0;
+        }
+        
+        // Get and display the argument
+        const char* arg_value = global_argv[index];
+        printf("Argument [%ld]: %s\n", index, arg_value);
+        
+        // Store result in a temporary variable
+        char temp_var_name[64];
+        snprintf(temp_var_name, sizeof(temp_var_name), "__get_arg_result_%p", (void*)args_node);
+        set_str_value(temp_var_name, tracked_strdup(arg_value, __FILE__, __LINE__, "get_arg_result"));
+        
+        return 1;
+        
+    } else if (strcmp(func_name, "arg_count") == 0) {
+        if (args_node->child_count != 0) {
+            fprintf(stderr, "Error: args.arg_count() takes no arguments\n");
+            return 0;
+        }
+        
+        // Return the total number of command-line arguments
+        printf("Total command-line arguments: %d\n", global_argc);
+        return global_argc;
+        
+    } else if (strcmp(func_name, "parse_flags") == 0) {
+        if (args_node->child_count != 0) {
+            fprintf(stderr, "Error: args.parse_flags() takes no arguments\n");
+            return 0;
+        }
+        
+        // Parse and display flags (arguments starting with - or --)
+        if (!global_argv || global_argc == 0) {
+            printf("No command-line arguments to parse\n");
+            return 0;
+        }
+        
+        printf("Parsing command-line flags:\n");
+        int flag_count = 0;
+        
+        for (int i = 1; i < global_argc; i++) { // Skip program name (index 0)
+            const char* arg = global_argv[i];
+            if (arg && (arg[0] == '-' || (arg[0] == '-' && arg[1] == '-'))) {
+                printf("  Flag [%d]: %s\n", i, arg);
+                flag_count++;
+            }
+        }
+        
+        if (flag_count == 0) {
+            printf("  No flags found\n");
+        } else {
+            printf("  Total flags: %d\n", flag_count);
+        }
+        
+        return flag_count;
+        
+    } else {
+        fprintf(stderr, "Error: Unknown args function '%s'\n", func_name);
         return 0;
     }
 }

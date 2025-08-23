@@ -183,6 +183,9 @@ int main(int argc, char* argv[]) {
         // Initialize library system
         init_libraries();
         
+        // Set command-line arguments for the args library
+        set_command_line_args(argc, argv);
+        
         // Evaluate the AST
         eval_evaluate(ast);
         
