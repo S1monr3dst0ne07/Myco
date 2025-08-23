@@ -1,6 +1,6 @@
 # Myco Language BNF Grammar Specification
 
-**Version**: v1.4.0 - Float Support & Library Import System & File I/O   
+**Version**: v1.5.0 - Enhanced System Integration & Error Handling   
 **Last Updated**: December 2024   
 **Status**: Complete and Current   
 
@@ -119,6 +119,46 @@
 
 ```bnf
 <library_import_statement> ::= "use" <identifier> "as" <identifier> ";"
+```
+
+### Built-in Libraries ⭐ **NEW in v1.5.0**
+
+Myco v1.5.0 provides comprehensive system integration through specialized libraries:
+
+#### Path Utilities Library (`path_utils`)
+```bnf
+<path_utils_function> ::= <identifier> "." <path_function> "(" <argument_list> ")"
+<path_function> ::= "join_path" | "dirname" | "basename" | "is_absolute" | "normalize_path" | "relative_path"
+```
+
+#### Environment Variables Library (`env`)
+```bnf
+<env_function> ::= <identifier> "." <env_function_name> "(" <argument_list> ")"
+<env_function_name> ::= "get_env" | "set_env" | "list_env" | "has_env"
+```
+
+#### Command-Line Arguments Library (`args`)
+```bnf
+<args_function> ::= <identifier> "." <args_function_name> "(" <argument_list> ")"
+<args_function_name> ::= "get_args" | "get_arg" | "arg_count" | "parse_flags"
+```
+
+#### Process Execution Library (`process`)
+```bnf
+<process_function> ::= <identifier> "." <process_function_name> "(" <argument_list> ")"
+<process_function_name> ::= "execute" | "get_pid" | "get_cwd" | "change_dir"
+```
+
+#### Text Processing Library (`text_utils`)
+```bnf
+<text_utils_function> ::= <identifier> "." <text_utils_function_name> "(" <argument_list> ")"
+<text_utils_function_name> ::= "read_lines" | "write_lines" | "read_csv" | "write_csv"
+```
+
+#### Enhanced Debugging Library (`debug`)
+```bnf
+<debug_function> ::= <identifier> "." <debug_function_name> "(" <argument_list> ")"
+<debug_function_name> ::= "warn" | "error" | "assert" | "start_timer" | "end_timer" | "get_stats" | "set_debug_mode"
 ```
 
 ### Declaration Statements

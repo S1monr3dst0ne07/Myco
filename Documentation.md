@@ -21,7 +21,7 @@
 
 Myco is a modern, lightweight programming language designed for simplicity and expressiveness. It features dynamic typing, object-oriented capabilities, functional programming with lambda functions, and a clean syntax inspired by Lua and Python.
 
-**Version**: 1.4.0 - Float Support & File I/O  
+**Version**: 1.5.0 - Enhanced System Integration & Error Handling  
 **License**: MIT  
 **Repository**: https://github.com/IvyMycelia/myco
 
@@ -1283,6 +1283,170 @@ Myco includes a comprehensive standard library with functions for common program
 - **Set operations**: set_has, set_add, set_size
 - **Type conversion**: to_string
 - **Utility functions**: len for size checking
+
+## System Integration Libraries (v1.5.0) ⭐ **NEW**
+
+Myco v1.5.0 introduces comprehensive system integration capabilities through specialized libraries:
+
+### Path Utilities Library (`path_utils`)
+
+**Cross-platform path manipulation and validation:**
+
+```myco
+use path_utils as p;
+
+# Path combination and manipulation
+let full_path = p.join_path("home", "user", "documents", "file.txt");
+let dir = p.dirname("/home/user/documents/file.txt");        # "/home/user/documents"
+let file = p.basename("/home/user/documents/file.txt");      # "file.txt"
+
+# Path analysis
+let is_abs = p.is_absolute("/home/user");                   # True
+let normalized = p.normalize_path("./.././file.txt");       # "../file.txt"
+let relative = p.relative_path("/home/user", "/home/user/documents"); # "documents"
+```
+
+**Functions:**
+- `p.join_path(path1, path2, ...)` - Combine path components safely
+- `p.dirname(path)` - Extract directory name from full path
+- `p.basename(path)` - Extract filename from full path
+- `p.is_absolute(path)` - Check if path is absolute (cross-platform)
+- `p.normalize_path(path)` - Normalize path separators and format
+- `p.relative_path(from, to)` - Calculate relative path between locations
+
+### Environment Variables Library (`env`)
+
+**System configuration and environment management:**
+
+```myco
+use env as e;
+
+# Environment variable access
+let home_dir = e.get_env("HOME");
+let path_var = e.get_env("PATH");
+
+# Environment variable management
+e.set_env("MYCO_DEBUG", "1");
+let has_debug = e.has_env("MYCO_DEBUG");
+
+# Environment inspection
+let all_vars = e.list_env();
+```
+
+**Functions:**
+- `e.get_env(name)` - Get environment variable value
+- `e.set_env(name, value)` - Set environment variable
+- `e.list_env()` - List all environment variables
+- `e.has_env(name)` - Check if environment variable exists
+
+### Command-Line Arguments Library (`args`)
+
+**User input processing and command-line parsing:**
+
+```myco
+use args as a;
+
+# Command-line argument access
+let total_args = a.arg_count();
+let first_arg = a.get_arg(0);
+let second_arg = a.get_arg(1);
+
+# Flag parsing
+a.parse_flags();  # Identifies and displays flags (-, --)
+```
+
+**Functions:**
+- `a.get_args()` - Get all command-line arguments
+- `a.get_arg(index)` - Get argument at specific position
+- `a.arg_count()` - Get total number of arguments
+- `a.parse_flags()` - Parse command-line flags and options
+
+### Process Execution Library (`process`)
+
+**System process management and shell execution:**
+
+```myco
+use process as proc;
+
+# Process information
+let current_pid = proc.get_pid();
+let current_dir = proc.get_cwd();
+
+# Shell command execution
+proc.execute("ls -la");
+proc.execute("echo 'Hello from Myco'");
+
+# Directory management
+proc.change_dir("/home/user/documents");
+```
+
+**Functions:**
+- `proc.execute(command)` - Execute shell command and return output
+- `proc.get_pid()` - Get current process ID
+- `proc.get_cwd()` - Get current working directory
+- `proc.change_dir(path)` - Change current working directory
+
+### Text Processing Library (`text_utils`)
+
+**Advanced file and data processing:**
+
+```myco
+use text_utils as t;
+
+# Line-by-line file operations
+t.write_lines("data.txt", "Hello World");
+let lines = t.read_lines("data.txt");
+
+# CSV file handling
+t.write_csv("data.csv", "Name,Age,City");
+t.write_csv("data.csv", "Alice,25,New York");
+t.write_csv("data.csv", "Bob,30,San Francisco");
+
+let csv_lines = t.read_csv("data.csv");
+```
+
+**Functions:**
+- `t.read_lines(filename)` - Read file as array of lines
+- `t.write_lines(filename, content)` - Write content as line to file
+- `t.read_csv(filename)` - Read CSV file line by line
+- `t.write_csv(filename, content)` - Write content as line to CSV file
+
+### Enhanced Debugging Library (`debug`)
+
+**Professional-grade error handling and development tools:**
+
+```myco
+use debug as d;
+
+# Warning and error system
+d.warn("This is a warning message");
+d.error("This is an error message");
+
+# Performance profiling
+d.start_timer();
+# ... perform operations ...
+let elapsed = d.end_timer();  # Returns elapsed time in microseconds
+
+# Debug mode control
+d.set_debug_mode("enabled");
+let debug_stats = d.get_stats();
+```
+
+**Functions:**
+- `d.warn(message)` - Generate formatted warnings with emojis and counters
+- `d.error(message)` - Generate formatted errors with emojis and counters
+- `d.assert(condition, message)` - Handle assertions with pass/fail reporting
+- `d.start_timer()` - Start performance timing with validation
+- `d.end_timer()` - Stop timing and report elapsed time in milliseconds
+- `d.get_stats()` - Comprehensive statistics with formatted output
+- `d.set_debug_mode()` - Toggle debug mode on/off
+
+**Professional Features:**
+- **Emoji formatting** - ⚠️ for warnings, ❌ for errors, ✅ for assertions, ⏱️ for timing
+- **Counter tracking** - Automatic warning and error counting
+- **Message storage** - Last warning and error messages preserved
+- **Timer validation** - Prevents invalid timer operations
+- **Comprehensive reporting** - Detailed statistics and status information
 
 ## Examples
 

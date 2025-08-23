@@ -1,7 +1,7 @@
 # ============================================================================
 # MYCO COMPREHENSIVE UNIT TEST SUITE
 # ============================================================================
-# Version: v1.4.0 - Float Support & File I/O
+# Version: v1.5.0 - Enhanced System Integration & Error Handling
 # Total Tests: 74
 # Test Categories: Basic Arithmetic, Variables, Functions, Arrays, Objects, 
 #                  Math Library, Arrow Syntax, Utility Library, Type System,
@@ -11,7 +11,7 @@
 
 print("MYCO COMPREHENSIVE UNIT TEST SUITE");
 print("========================================");
-print("Version: v1.4.0 - Float Support & File I/O");
+print("Version: v1.5.0 - Enhanced System Integration & Error Handling");
 print("Total Tests: 74");
 print("Test Categories: Basic Arithmetic, Variables, Functions, Arrays, Objects");
 print("                 Math Library, Arrow Syntax, Utility Library, Type System");
@@ -1088,7 +1088,7 @@ print("============================");
 # ============================================================================
 # TEST SUITE SUMMARY
 # ============================================================================
-# Myco v1.4.0 - Float Support & Library Import System
+# Myco v1.5.0 - Enhanced System Integration & Error Handling
 # 
 # Test Coverage:
 # ✅ Basic Arithmetic: Addition, subtraction, multiplication, division

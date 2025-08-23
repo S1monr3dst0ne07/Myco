@@ -5,7 +5,7 @@
 
 Discord: https://discord.gg/CR8xcKb3zM
 
-**Current Version**: v1.4.0 - Float Support & Library Import System & File I/O
+**Current Version**: v1.5.0 - Enhanced System Integration & Error Handling
 
 ---
 
@@ -34,6 +34,12 @@ Discord: https://discord.gg/CR8xcKb3zM
 - 📚 **Library import system** with namespace protection ✅ **v1.4.0**
 - ✅ **True/False keywords** with backward compatibility ✅ **v1.4.0**
 - 📁 **File I/O operations** with comprehensive file management ✅ **v1.4.0**
+- 🛣️ **Path utilities** for cross-platform path manipulation ✅ **v1.5.0**
+- 🌍 **Environment variables** for system configuration ✅ **v1.5.0**
+- 📝 **Command-line arguments** for user input processing ✅ **v1.5.0**
+- ⚡ **Process execution** for shell command execution ✅ **v1.5.0**
+- 📊 **Text processing** for CSV and data handling ✅ **v1.5.0**
+- 🐛 **Enhanced debugging** with professional error handling ✅ **v1.5.0**
 
 ---
 
@@ -98,6 +104,43 @@ end
 # Boolean keywords (new in v1.4.0)
 let is_active = True;
 let is_finished = False;
+
+# System Integration Libraries (new in v1.5.0)
+use path_utils as p;
+use env as e;
+use args as a;
+use process as proc;
+use text_utils as t;
+use debug as d;
+
+# Path utilities
+let full_path = p.join_path("home", "user", "documents");
+let dir_name = p.dirname("/home/user/file.txt");  # "/home/user"
+let file_name = p.basename("/home/user/file.txt"); # "file.txt"
+
+# Environment variables
+let home_dir = e.get_env("HOME");
+e.set_env("MYCO_DEBUG", "1");
+
+# Command-line arguments
+let total_args = a.arg_count();
+let first_arg = a.get_arg(0);
+
+# Process execution
+let current_pid = proc.get_pid();
+let current_dir = proc.get_cwd();
+proc.execute("ls -la");
+
+# Text processing
+t.write_lines("data.txt", "Hello World");
+let lines = t.read_lines("data.txt");
+t.write_csv("data.csv", "Name,Age,City");
+
+# Enhanced debugging
+d.start_timer();
+d.warn("Processing data...");
+let elapsed = d.end_timer();
+let stats = d.get_stats();
 
 if is_active and not is_finished:
     print("Process is running");
