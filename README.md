@@ -4,6 +4,7 @@
 > 🌿 Think C meets Lua — but with mushrooms.
 
 Discord: https://discord.gg/CR8xcKb3zM
+Website: https://mycolang.org
 
 **Current Version**: v1.6.0 - Language Maturity & Developer Experience
 
