@@ -367,7 +367,7 @@ static ASTNode* parse_primary(Token* tokens, int* current) {
                 }
                 
                 // Create a negative number by combining '-' and the number
-                char* negative_num = (char*)malloc(strlen(tokens[*current].text) + 2);
+                char* negative_num = (char*)tracked_malloc(strlen(tokens[*current].text) + 2, __FILE__, __LINE__, "parse_primary_negative_num");
                 sprintf(negative_num, "-%s", tokens[*current].text);
                 
                 node->type = AST_EXPR;
@@ -387,7 +387,7 @@ static ASTNode* parse_primary(Token* tokens, int* current) {
         case TOKEN_STRING:
             node->type = AST_EXPR;
             // Wrap the string literal in quotes
-            char* quoted = (char*)malloc(strlen(tokens[*current].text) + 3);
+            char* quoted = (char*)tracked_malloc(strlen(tokens[*current].text) + 3, __FILE__, __LINE__, "parse_primary_quoted_string");
             sprintf(quoted, "\"%s\"", tokens[*current].text);
             node->text = quoted;
             node->children = NULL;
@@ -2032,7 +2032,6 @@ static ASTNode* parse_statement(Token* tokens, int* current, int token_count) {
             (*current)++; // Skip '('
 
             while (tokens[*current].type != TOKEN_RPAREN) {
-                
                 ASTNode* arg = parse_expression(tokens, current);
                 if (!arg) {
                     parser_free_ast(node);

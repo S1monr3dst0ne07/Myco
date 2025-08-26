@@ -4,9 +4,8 @@
 > 🌿 Think C meets Lua — but with mushrooms.
 
 Discord: https://discord.gg/CR8xcKb3zM
-Website: https://mycolang.org
 
-**Current Version**: v1.6.0 - Language Maturity & Developer Experience
+**Current Version**: v1.5.0 - Enhanced System Integration & Error Handling
 
 ---
 
@@ -26,10 +25,10 @@ Website: https://mycolang.org
 - 🧙 **Mystical and themed syntax highlighting** with the Myco VS Code Extension
 - 🧮 **Math library** with 15+ mathematical functions and float support ✅ **v1.4.0**
 - ➡️ **Arrow syntax** for function return types ✅ **v1.3.1**
-- 🎯 **Utility library** with 20+ functions ✅ **v1.3.2**
+- ** **Utility library** with 20+ functions ✅ **v1.3.2**
 - 🔍 **Clear type system** (no more cryptic codes) ✅ **v1.3.2**
 - 🔀 **Switch/case statements** ✅ **v1.3.3**
-- 🎯 **Lambda functions** with functional programming support
+- ** **Lambda functions** with functional programming support
 - 🔄 **Implicit functions** with optional type annotations
 - 🌊 **Floating-point numbers** with full arithmetic support ✅ **v1.4.0**
 - 📚 **Library import system** with namespace protection ✅ **v1.4.0**
@@ -41,10 +40,6 @@ Website: https://mycolang.org
 - ⚡ **Process execution** for shell command execution ✅ **v1.5.0**
 - 📊 **Text processing** for CSV and data handling ✅ **v1.5.0**
 - 🐛 **Enhanced debugging** with professional error handling ✅ **v1.5.0**
-- 🎯 **Type system foundation** for enterprise-grade type safety ✅ **v1.6.0**
-- ✨ **Language polish** with enhanced lambdas and string interpolation ✅ **v1.6.0**
-- 🧪 **Testing framework** with professional testing and benchmarking ✅ **v1.6.0**
-- 🔗 **Advanced data structures** with enterprise-grade algorithms ✅ **v1.6.0**
 
 ---
 
@@ -103,33 +98,6 @@ end
 try:
     let result = 10 / 0;
 catch error:
-    print("Error:", error);
-end
-
-# v1.6.0 Language Maturity Examples
-use types as t;
-use polish as p;
-use test as test_framework;
-use data as d;
-
-# Type System Foundation
-let type_info = t.typeof("Hello World");
-let is_string = t.is_type("Hello", "string");
-let converted = t.cast("42", "number");
-
-# Language Polish
-let enhanced_lambda = p.enhance_lambda("(x) => x * 2");
-let interpolated = p.interpolate_string("Hello ${name}!", "name=Alice");
-
-# Testing Framework
-test_framework.describe("My Test Suite");
-test_framework.it("should work correctly");
-test_framework.assert("2 + 2 == 4", "Basic arithmetic");
-
-# Advanced Data Structures
-let linked_list = d.create_linked_list("42");
-let binary_tree = d.create_binary_tree("100");
-let sorted_array = d.quicksort("[5, 2, 8, 1, 9]");
     print("Caught error:", error);
 end
 

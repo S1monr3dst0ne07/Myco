@@ -1,6 +1,6 @@
 # Myco Language BNF Grammar Specification
 
-**Version**: v1.6.0 - Language Maturity & Developer Experience   
+**Version**: v1.5.0 - Enhanced System Integration & Error Handling   
 **Last Updated**: December 2024   
 **Status**: Complete and Current   
 
@@ -344,7 +344,7 @@ Myco v1.5.0 provides comprehensive system integration through specialized librar
 - Constants: `PI`, `E`, `INF`, `NAN`
 - **Float Support**: Enhanced with floating-point arithmetic and mixed-type operations
 
-### 🎯 **Utility Library (v1.3.2)**
+### ** **Utility Library (v1.3.2)**
 - Debugging: `debug()`
 - Type checking: `type()`, `is_num()`, `is_str()`, `is_arr()`, `is_obj()`
 - String utilities: `str()`, `is_str()`, `find()`
@@ -356,25 +356,6 @@ Myco v1.5.0 provides comprehensive system integration through specialized librar
 - **Mixed Operations**: Integer and float arithmetic with float result
 - **Enhanced Math**: All math functions support float inputs and outputs
 - **Float Display**: Proper formatting with 6 significant digits
-
-### 📚 **Library Import System (v1.4.0)**
-- **Import Syntax**: `use <library> as <alias>;`
-- **Namespace Protection**: Built-in functions accessed via `alias.function()`
-- **Available Libraries**: `math`, `utility`, `io`, `path_utils`, `env`, `args`, `process`, `text_utils`, `debug`, `types`, `polish`, `test`, `data`
-
-### 🔧 **System Integration (v1.5.0)**
-- **Path Utilities**: `join_path()`, `dirname()`, `basename()`, `normalize_path()`, `is_absolute()`, `relative_path()`
-- **Environment Variables**: `get_env()`, `set_env()`, `list_env()`, `has_env()`
-- **Command-Line Arguments**: `get_args()`, `get_arg()`, `arg_count()`, `parse_flags()`
-- **Process Execution**: `execute()`, `get_pid()`, `get_cwd()`, `change_dir()`
-- **Text Processing**: `read_lines()`, `write_lines()`, `read_csv()`, `write_csv()`
-- **Enhanced Debugging**: `warn()`, `error()`, `assert()`, `start_timer()`, `end_timer()`, `get_stats()`
-
-### 🎯 **Language Maturity (v1.6.0)**
-- **Type System Foundation**: `typeof()`, `is_type()`, `cast()`, `enable_type_checking()`, `disable_type_checking()`, `enable_type_inference()`, `disable_type_inference()`, `set_strict_mode()`, `get_type_stats()`
-- **Language Polish**: `enhance_lambda()`, `interpolate_string()`, `create_template()`, `enable_enhanced_lambdas()`, `disable_enhanced_lambdas()`, `enable_string_interpolation()`, `disable_string_interpolation()`, `get_polish_stats()`
-- **Testing Framework**: `describe()`, `it()`, `expect()`, `assert()`, `assert_equals()`, `start_benchmark()`, `end_benchmark()`, `get_test_stats()`, `reset_tests()`
-- **Advanced Data Structures**: `create_linked_list()`, `create_binary_tree()`, `create_hash_table()`, `create_priority_queue()`, `quicksort()`, `binary_search()`, `get_data_stats()`, `reset_data_structures()`
 
 ---
 
@@ -391,19 +372,12 @@ Myco v1.5.0 provides comprehensive system integration through specialized librar
 
 ## Future Extensions
 
-### ✅ **Completed Features**
-- **v1.4.0**: Float Support, Library Import System, True/False Keywords, File I/O
-- **v1.5.0**: System Integration (Path Utilities, Environment Variables, Command-Line Args, Process Execution, Text Processing, Enhanced Debugging)
-- **v1.6.0**: Language Maturity (Type System Foundation, Language Polish, Testing Framework, Advanced Data Structures)
-
-### 🚀 **Planned for v1.7.0+**
-- **Package Management**: Package manager with dependency resolution
-- **Package Registry**: Community library ecosystem
-- **Development Tools**: IDE support and enhanced tooling
-- **Async Programming**: Asynchronous operations and concurrency
-- **Networking**: HTTP, WebSocket, and network protocols
-- **Database Integration**: Database connectivity and ORM features
+### Planned for v1.4.0+
+- **Float Support**: ✅ **COMPLETE** - Floating-point number literals and operations
+- **File I/O**: File reading/writing operations
+- **System Integration**: Environment variables, command execution
+- **Enhanced Error Handling**: Custom exception types, advanced error handling
 
 ---
 
-*This BNF grammar specification is current as of Myco v1.6.0 and will be updated with each new language version.*
+*This BNF grammar specification is current as of Myco v1.4.0 and will be updated with each new language version.*

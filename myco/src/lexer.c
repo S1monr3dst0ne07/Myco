@@ -94,7 +94,7 @@ static MycoTokenType get_keyword_type(const char* text) {
  */
 Token* lexer_tokenize(const char* source) {
     int capacity = INITIAL_TOKEN_CAPACITY;
-    Token* tokens = (Token*)malloc(capacity * sizeof(Token));
+    Token* tokens = (Token*)tracked_malloc(capacity * sizeof(Token), __FILE__, __LINE__, "lexer_tokenize");
     if (!tokens) {
         fprintf(stderr, "Error: Memory allocation failed\n");
         return NULL;
@@ -108,13 +108,13 @@ Token* lexer_tokenize(const char* source) {
     #define GROW_TOKENS_IF_NEEDED() do { \
         if (token_count >= capacity) { \
             capacity *= 2; \
-            Token* new_tokens = (Token*)realloc(tokens, capacity * sizeof(Token)); \
+            Token* new_tokens = (Token*)tracked_realloc(tokens, capacity * sizeof(Token), __FILE__, __LINE__, "lexer_grow_tokens"); \
             if (!new_tokens) { \
                 fprintf(stderr, "Error: Memory reallocation failed\n"); \
                 for (int i = 0; i < token_count; i++) { \
-                    if (tokens[i].text) free(tokens[i].text); \
+                    if (tokens[i].text) tracked_free(tokens[i].text, __FILE__, __LINE__, "lexer_error_cleanup"); \
                 } \
-                free(tokens); \
+                tracked_free(tokens, __FILE__, __LINE__, "lexer_error_cleanup"); \
                 return NULL; \
             } \
             tokens = new_tokens; \
@@ -153,7 +153,7 @@ Token* lexer_tokenize(const char* source) {
             p += 2;
             while (*p && !isspace(*p)) p++;
             int len = p - start;
-            char* text = (char*)malloc(len + 1);
+            char* text = (char*)tracked_malloc(len + 1, __FILE__, __LINE__, "lexer_path_token");
             strncpy(text, start, len); text[len] = '\0';
             tokens[token_count].type = TOKEN_PATH;
             tokens[token_count].text = text;
@@ -173,7 +173,7 @@ Token* lexer_tokenize(const char* source) {
                 while (isdigit(*p)) p++;
                 
                 int len = p - start;
-                char* text = (char*)malloc(len + 1);
+                char* text = (char*)tracked_malloc(len + 1, __FILE__, __LINE__, "lexer_float_token");
                 strncpy(text, start, len);
                 text[len] = '\0';
                 
@@ -219,7 +219,7 @@ Token* lexer_tokenize(const char* source) {
             const char* start = p;
             while (isalnum(*p) || *p == '_') p++;
             int len = p - start;
-            char* text = (char*)malloc(len + 1);
+            char* text = (char*)tracked_malloc(len + 1, __FILE__, __LINE__, "lexer_keyword_identifier");
             strncpy(text, start, len);
             text[len] = '\0';
             
@@ -273,7 +273,7 @@ Token* lexer_tokenize(const char* source) {
             }
             
             int len = p - start;
-            char* text = (char*)malloc(len + 1);
+            char* text = (char*)tracked_malloc(len + 1, __FILE__, __LINE__, "lexer_number_token");
             strncpy(text, start, len);
             text[len] = '\0';
             
@@ -305,7 +305,7 @@ Token* lexer_tokenize(const char* source) {
                         default: ch = esc; break;
                     }
                 }
-                if (len + 1 >= cap) { cap = cap ? cap * 2 : 32; buf = (char*)realloc(buf, cap); }
+                if (len + 1 >= cap) { cap = cap ? cap * 2 : 32; buf = (char*)tracked_realloc(buf, cap, __FILE__, __LINE__, "lexer_string_buffer"); }
                 buf[len++] = ch;
             }
             if (!buf) { buf = (char*)tracked_malloc(1, __FILE__, __LINE__, "lexer_init"); buf[0] = '\0'; }
@@ -315,7 +315,7 @@ Token* lexer_tokenize(const char* source) {
                 free(buf);
                 return NULL;
             }
-            if (len + 1 >= cap) { cap = len + 1; buf = (char*)realloc(buf, cap); }
+            if (len + 1 >= cap) { cap = len + 1; buf = (char*)tracked_realloc(buf, cap, __FILE__, __LINE__, "lexer_string_buffer_final"); }
             buf[len] = '\0';
             tokens[token_count].type = TOKEN_STRING;
             tokens[token_count].text = buf;
@@ -432,7 +432,9 @@ Token* lexer_tokenize(const char* source) {
 void lexer_free_tokens(Token* tokens) {
     if (!tokens) return;
     for (int i = 0; tokens[i].type != TOKEN_EOF; i++) {
-        free(tokens[i].text);
+        if (tokens[i].text) {
+            tracked_free(tokens[i].text, __FILE__, __LINE__, "lexer_free_tokens");
+        }
     }
-    free(tokens);
+    tracked_free(tokens, __FILE__, __LINE__, "lexer_free_tokens");
 }

@@ -70,17 +70,15 @@
 static long long call_math_function(const char* func_name, ASTNode* args_node);
 static long long call_util_function(const char* func_name, ASTNode* args_node);
 static long long call_core_function(const char* func_name, ASTNode* args_node);
-static long long call_file_function(const char* func_name, ASTNode* args_node);
-static long long call_path_function(const char* func_name, ASTNode* args_node);
+static long long call_file_io_function(const char* func_name, ASTNode* args_node);
+static long long call_array_function(const char* func_name, ASTNode* args_node);
+static long long call_object_function(const char* func_name, ASTNode* args_node);
+static long long call_path_utils_function(const char* func_name, ASTNode* args_node);
 static long long call_env_function(const char* func_name, ASTNode* args_node);
 static long long call_args_function(const char* func_name, ASTNode* args_node);
 static long long call_process_function(const char* func_name, ASTNode* args_node);
-static long long call_text_function(const char* func_name, ASTNode* args_node);
+static long long call_text_utils_function(const char* func_name, ASTNode* args_node);
 static long long call_debug_function(const char* func_name, ASTNode* args_node);
-static long long call_type_system_function(const char* func_name, ASTNode* args_node);
-static long long call_language_polish_function(const char* func_name, ASTNode* args_node);
-static long long call_testing_framework_function(const char* func_name, ASTNode* args_node);
-static long long call_data_structures_function(const char* func_name, ASTNode* args_node);
 
 // Global library imports
 static LibraryImport* library_imports = NULL;
@@ -99,33 +97,6 @@ static char last_error_message[2048] = "";
 static char last_warning_message[2048] = "";
 static int performance_timer_active = 0;
 static clock_t performance_start_time = 0;
-
-// Global type system state (v1.6.0)
-static int type_checking_enabled = 1;
-static int type_inference_enabled = 1;
-static int strict_type_mode = 0;
-
-// Global language polish state (v1.6.0)
-static int enhanced_lambdas_enabled = 1;
-static int string_interpolation_enabled = 1;
-static int template_literals_enabled = 1;
-
-// Global testing framework state (v1.6.0)
-static int test_mode_active = 0;
-static int test_count = 0;
-static int test_passed = 0;
-static int test_failed = 0;
-static int test_skipped = 0;
-static char current_test_name[256] = "";
-static char current_test_suite[256] = "";
-static int benchmark_mode = 0;
-static clock_t benchmark_start_time = 0;
-
-// Global data structures state (v1.6.0)
-static int linked_list_mode = 0;
-static int binary_tree_mode = 0;
-static int hash_table_mode = 0;
-static int priority_queue_mode = 0;
 
 /**
  * @brief Add a library import
@@ -168,7 +139,7 @@ void init_libraries(void) {
     library_import_count = 0;
     library_import_capacity = 0;
     
-    printf("Library system initialized\n");
+
 }
 
 /**
@@ -198,7 +169,7 @@ void cleanup_libraries(void) {
         library_import_capacity = 0;
     }
     
-    printf("Library system cleaned up\n");
+
 }
 
 /*******************************************************************************
@@ -382,7 +353,7 @@ void init_implicit_functions(void) {
     operator_map[operator_map_size].supports_types[TYPE_COMBINATION_OBJECT] = 1;
     operator_map_size++;
     
-    printf("Implicit function system initialized with %d operators\n", operator_map_size);
+
 }
 
 /**
@@ -495,9 +466,9 @@ void cleanup_implicit_functions(void) {
     if (operator_map) {
         tracked_free(operator_map, __FILE__, __LINE__, "cleanup_implicit_functions");
         operator_map = NULL;
+        operator_map_size = 0;
+        operator_map_capacity = 0;
     }
-    operator_map_size = 0;
-    operator_map_capacity = 0;
 }
 
 /*******************************************************************************
@@ -866,7 +837,7 @@ static int scope_stack_capacity = 0;
 static void push_scope() {
     if (scope_stack_size >= scope_stack_capacity) {
         int new_capacity = scope_stack_capacity ? scope_stack_capacity * 2 : 8;
-        ScopeEntry* new_stack = (ScopeEntry*)realloc(scope_stack, new_capacity * sizeof(ScopeEntry));
+        ScopeEntry* new_stack = (ScopeEntry*)tracked_realloc(scope_stack, new_capacity * sizeof(ScopeEntry), __FILE__, __LINE__, "expand_scope_stack");
         if (!new_stack) {
             fprintf(stderr, "Error: Failed to expand scope stack\n");
             return;
@@ -1018,7 +989,7 @@ static void register_function(const char* name, ASTNode* fn) {
     // Expand capacity if needed
     if (functions_size >= functions_cap) {
         int new_cap = functions_cap ? functions_cap * 2 : 8;
-        FuncEntry* new_funcs = (FuncEntry*)realloc(functions, new_cap * sizeof(FuncEntry));
+        FuncEntry* new_funcs = (FuncEntry*)tracked_realloc(functions, new_cap * sizeof(FuncEntry), __FILE__, __LINE__, "expand_functions");
         if (!new_funcs) {
             // Handle realloc failure
             return;
@@ -1192,7 +1163,7 @@ void set_float_value(const char* name, double value) {
     // Expand capacity if needed
     if (var_env_size >= var_env_capacity) {
         int new_capacity = var_env_capacity ? var_env_capacity * 2 : 8;
-        VarEntry* new_env = (VarEntry*)realloc(var_env, new_capacity * sizeof(VarEntry));
+        VarEntry* new_env = (VarEntry*)tracked_realloc(var_env, new_capacity * sizeof(VarEntry), __FILE__, __LINE__, "expand_var_env_float");
         if (!new_env) {
             // Handle realloc failure
             return;
@@ -1240,7 +1211,7 @@ void set_var_value(const char* name, long long value) {
     // Expand capacity if needed
     if (var_env_size >= var_env_capacity) {
         int new_capacity = var_env_capacity ? var_env_capacity * 2 : 8;
-        VarEntry* new_env = (VarEntry*)realloc(var_env, new_capacity * sizeof(VarEntry));
+        VarEntry* new_env = (VarEntry*)tracked_realloc(var_env, new_capacity * sizeof(VarEntry), __FILE__, __LINE__, "expand_var_env_number");
         if (!new_env) {
             // Handle realloc failure
             return;
@@ -1284,7 +1255,7 @@ void set_array_value(const char* name, MycoArray* array) {
     // Expand capacity if needed
     if (var_env_size >= var_env_capacity) {
         int new_capacity = var_env_capacity ? var_env_capacity * 2 : 8;
-        VarEntry* new_env = (VarEntry*)realloc(var_env, new_capacity * sizeof(VarEntry));
+        VarEntry* new_env = (VarEntry*)tracked_realloc(var_env, new_capacity * sizeof(VarEntry), __FILE__, __LINE__, "expand_var_env_array");
         if (!new_env) {
             // Handle realloc failure
             return;
@@ -1439,7 +1410,7 @@ void set_lambda_value(const char* name, ASTNode* lambda_ast) {
     // Expand capacity if needed
     if (var_env_size >= var_env_capacity) {
         int new_capacity = var_env_capacity ? var_env_capacity * 2 : 8;
-        VarEntry* new_env = (VarEntry*)realloc(var_env, new_capacity * sizeof(VarEntry));
+        VarEntry* new_env = (VarEntry*)tracked_realloc(var_env, new_capacity * sizeof(VarEntry), __FILE__, __LINE__, "expand_var_env_lambda");
         if (!new_env) {
             // Handle realloc failure
             return;
@@ -2147,7 +2118,7 @@ void set_object_value(const char* name, MycoObject* obj) {
     // Expand capacity if needed
     if (var_env_size >= var_env_capacity) {
         int new_capacity = var_env_capacity ? var_env_capacity * 2 : 8;
-        VarEntry* new_env = (VarEntry*)realloc(var_env, new_capacity * sizeof(VarEntry));
+        VarEntry* new_env = (VarEntry*)tracked_realloc(var_env, new_capacity * sizeof(VarEntry), __FILE__, __LINE__, "expand_var_env_object");
         if (!new_env) {
             // Handle realloc failure
             return;
@@ -2204,9 +2175,7 @@ static void cleanup_module_env() {
 
 // Master cleanup function
 void cleanup_all_environments() {
-    #if DEBUG_MEMORY_TRACKING
-    printf("Cleaning up all environments...\n");
-    #endif
+
     
     cleanup_str_env();
     cleanup_var_env();
@@ -2215,9 +2184,7 @@ void cleanup_all_environments() {
     cleanup_func_env();
     cleanup_module_env();
     
-    #if DEBUG_MEMORY_TRACKING
-    printf("All environments cleaned up\n");
-    #endif
+
 }
 
 // Helper: is this integer an error code of our 0xMY[SEV][MOD][ERR] scheme?
@@ -2247,11 +2214,11 @@ static ASTNode* load_and_parse_module(const char* path) {
     fseek(f, 0, SEEK_END);
     long sz = ftell(f);
     fseek(f, 0, SEEK_SET);
-    char* buf = (char*)malloc(sz + 1);
+    char* buf = (char*)tracked_malloc(sz + 1, __FILE__, __LINE__, "load_module_file");
     if (!buf) { fclose(f); return NULL; }
     fread(buf, 1, sz, f); buf[sz] = '\0'; fclose(f);
     Token* toks = lexer_tokenize(buf);
-    free(buf);
+    tracked_free(buf, __FILE__, __LINE__, "load_module_file");
     if (!toks) return NULL;
     ASTNode* mod = parser_parse(toks);
     lexer_free_tokens(toks);
@@ -2273,7 +2240,7 @@ static void register_module(const char* alias, ASTNode* ast) {
     // Expand capacity if needed
     if (modules_size >= modules_cap) {
         int new_cap = modules_cap ? modules_cap * 2 : 4;
-        ModuleEntry* new_modules = (ModuleEntry*)realloc(modules, new_cap * sizeof(ModuleEntry));
+        ModuleEntry* new_modules = (ModuleEntry*)tracked_realloc(modules, new_cap * sizeof(ModuleEntry), __FILE__, __LINE__, "expand_modules");
         if (!new_modules) {
             // Handle realloc failure
             return;
@@ -2316,13 +2283,13 @@ static void register_module(const char* alias, ASTNode* ast) {
                                 // String constant - extract the value between quotes
                                 size_t len = strlen(n->children[1].text);
                                 if (len >= 2) {
-                                    char* value = (char*)malloc(len - 1);
+                                    char* value = (char*)tracked_malloc(len - 1, __FILE__, __LINE__, "module_string_constant");
                                     if (value) {
                                         strncpy(value, n->children[1].text + 1, len - 2);
                                         value[len - 2] = '\0';
                                         set_str_value(prefixed_name, value);
                                         // String constant registered successfully
-                                        free(value);
+                                        tracked_free(value, __FILE__, __LINE__, "module_string_constant");
                                     }
                                 }
                             } else {
@@ -2424,7 +2391,7 @@ static long long eval_user_function_call(ASTNode* fn, ASTNode* args_node) {
         // This ensures function parameters override global variables
         if (var_env_size >= var_env_capacity) {
             int new_capacity = var_env_capacity ? var_env_capacity * 2 : 8;
-            VarEntry* new_env = (VarEntry*)realloc(var_env, new_capacity * sizeof(VarEntry));
+            VarEntry* new_env = (VarEntry*)tracked_realloc(var_env, new_capacity * sizeof(VarEntry), __FILE__, __LINE__, "expand_var_env_function");
             if (!new_env) {
                 fprintf(stderr, "Error: Failed to expand variable environment\n");
                         return 0;
@@ -2507,7 +2474,7 @@ long long eval_expression(ASTNode* ast) {
         // Extract the string value (remove quotes)
         size_t len = strlen(ast->text);
         if (len >= 2) {
-            char* value = (char*)malloc(len - 1);
+            char* value = (char*)tracked_malloc(len - 1, __FILE__, __LINE__, "eval_string_constant");
             if (value) {
                 strncpy(value, ast->text + 1, len - 2);
                 value[len - 2] = '\0';
@@ -2516,7 +2483,7 @@ long long eval_expression(ASTNode* ast) {
                 char temp_var_name[64];
                 snprintf(temp_var_name, sizeof(temp_var_name), "__temp_str_lit_%p", (void*)ast);
                 set_str_value(temp_var_name, value);
-                free(value);
+                tracked_free(value, __FILE__, __LINE__, "eval_string_constant");
             }
         }
         return 1; // Return 1 to indicate this is a string
@@ -2617,7 +2584,7 @@ long long eval_expression(ASTNode* ast) {
                     // Concatenate strings
                     if (left_str && right_str) {
                         size_t total_len = strlen(left_str) + strlen(right_str) + 1;
-                        char* result_str = (char*)malloc(total_len);
+                        char* result_str = (char*)tracked_malloc(total_len, __FILE__, __LINE__, "eval_concat_result");
                         if (result_str) {
                             strcpy(result_str, left_str);
                             strcat(result_str, right_str);
@@ -3139,7 +3106,22 @@ long long eval_expression(ASTNode* ast) {
         ASTNode* func_name_node = &ast->children[0];
         char* func_name = func_name_node->text;
         
-        // First check for user-defined functions
+        // First check for built-in functions
+        if (func_name) {
+            if (strcmp(func_name, "input") == 0) {
+                return call_core_function("input", &ast->children[1]);
+            } else if (strcmp(func_name, "print") == 0) {
+                return call_core_function("print", &ast->children[1]);
+            } else if (strcmp(func_name, "len") == 0) {
+                return call_core_function("len", &ast->children[1]);
+            } else if (strcmp(func_name, "to_string") == 0) {
+                return call_core_function("to_string", &ast->children[1]);
+            } else if (strcmp(func_name, "str") == 0) {
+                return call_core_function("str", &ast->children[1]);
+            }
+        }
+        
+        // Then check for user-defined functions
         if (func_name) {
             ASTNode* user_func = find_function_global(func_name);
             if (user_func) {
@@ -3217,28 +3199,24 @@ long long eval_expression(ASTNode* ast) {
                     return call_util_function(function_name, &ast->children[1]);
                 } else if (strcmp(actual_library, "core") == 0) {
                     return call_core_function(function_name, &ast->children[1]);
-                } else if (strcmp(actual_library, "file") == 0) {
-                    return call_file_function(function_name, &ast->children[1]);
-                } else if (strcmp(actual_library, "path") == 0) {
-                    return call_path_function(function_name, &ast->children[1]);
+                } else if (strcmp(actual_library, "file_io") == 0) {
+                    return call_file_io_function(function_name, &ast->children[1]);
+                } else if (strcmp(actual_library, "array") == 0) {
+                    return call_array_function(function_name, &ast->children[1]);
+                } else if (strcmp(actual_library, "object") == 0) {
+                    return call_object_function(function_name, &ast->children[1]);
+                } else if (strcmp(actual_library, "path_utils") == 0) {
+                    return call_path_utils_function(function_name, &ast->children[1]);
                 } else if (strcmp(actual_library, "env") == 0) {
                     return call_env_function(function_name, &ast->children[1]);
                 } else if (strcmp(actual_library, "args") == 0) {
                     return call_args_function(function_name, &ast->children[1]);
                 } else if (strcmp(actual_library, "process") == 0) {
                     return call_process_function(function_name, &ast->children[1]);
-                } else if (strcmp(actual_library, "text") == 0) {
-                    return call_text_function(function_name, &ast->children[1]);
+                } else if (strcmp(actual_library, "text_utils") == 0) {
+                    return call_text_utils_function(function_name, &ast->children[1]);
                 } else if (strcmp(actual_library, "debug") == 0) {
                     return call_debug_function(function_name, &ast->children[1]);
-                } else if (strcmp(actual_library, "types") == 0) {
-                    return call_type_system_function(function_name, &ast->children[1]);
-                } else if (strcmp(actual_library, "polish") == 0) {
-                    return call_language_polish_function(function_name, &ast->children[1]);
-                } else if (strcmp(actual_library, "test") == 0) {
-                    return call_testing_framework_function(function_name, &ast->children[1]);
-                } else if (strcmp(actual_library, "data") == 0) {
-                    return call_data_structures_function(function_name, &ast->children[1]);
                 }
                 
                 return 0;
@@ -3301,63 +3279,54 @@ long long eval_expression(ASTNode* ast) {
                 return 0;
             }
             
-            // Evaluate the argument
-            long long arg_value = eval_expression(&ast->children[1].children[0]);
+            ASTNode* arg_node = &ast->children[1].children[0];
+            
+            // Check AST node type first for literals
+            if (arg_node->type == AST_ARRAY_LITERAL) {
+                // Array literal - count the children
+                return (long long)arg_node->child_count;
+            } else if (arg_node->type == AST_OBJECT_LITERAL) {
+                // Object literal - count the properties
+                return (long long)arg_node->child_count;
+            } else if (arg_node->type == AST_EXPR && arg_node->text && is_string_literal(arg_node->text)) {
+                // String literal - get its length directly from the AST
+                size_t len = strlen(arg_node->text);
+                if (len >= 2) {
+                    // Extract string content (remove quotes)
+                    size_t content_len = len - 2;
+                    return (long long)content_len;
+                }
+                return 0;
+            }
+            
+            // For variables, evaluate and check the result
+            long long arg_value = eval_expression(arg_node);
             
             if (arg_value == -1) {
                 // String variable - get its length
-                if (ast->children[1].child_count > 0) {
-                    ASTNode* arg_node = &ast->children[1].children[0];
-                    if (arg_node->type == AST_EXPR && arg_node->text) {
-                        const char* str_val = get_str_value(arg_node->text);
-                        if (str_val) {
-                            return (long long)strlen(str_val);
-                        }
-                    }
-                }
-                return 0;
-            } else if (arg_value == 1) {
-                // String literal - get its length directly from the AST
-                if (ast->children[1].child_count > 0) {
-                    ASTNode* arg_node = &ast->children[1].children[0];
-                    if (arg_node->type == AST_EXPR && arg_node->text && is_string_literal(arg_node->text)) {
-                        size_t len = strlen(arg_node->text);
-                        if (len >= 2) {
-                            // Extract string content (remove quotes)
-                            size_t content_len = len - 2;
-                            return (long long)content_len;
-                        }
+                if (arg_node->text) {
+                    const char* str_val = get_str_value(arg_node->text);
+                    if (str_val) {
+                        return (long long)strlen(str_val);
                     }
                 }
                 return 0;
             } else if (arg_value == -2) {
                 // Array variable - get its size
-                if (ast->children[1].child_count > 0) {
-                    ASTNode* arg_node = &ast->children[1].children[0];
-                    if (arg_node->type == AST_EXPR && arg_node->text) {
-                        MycoArray* array = get_array_value(arg_node->text);
-                        if (array) {
-                            return (long long)array->size;
-                        }
+                if (arg_node->text) {
+                    MycoArray* array = get_array_value(arg_node->text);
+                    if (array) {
+                        return (long long)array->size;
                     }
                 }
                 return 0;
-            } else if (arg_value == 0) {
-                // This might be an array or object literal - check the AST structure
-                if (ast->children[1].child_count > 0) {
-                    ASTNode* arg_node = &ast->children[1].children[0];
-                    if (arg_node->type == AST_ARRAY_LITERAL) {
-                        // Array literal - count the children
-                        return (long long)arg_node->child_count;
-                    } else if (arg_node->type == AST_OBJECT_LITERAL) {
-                        // Object literal - count the properties
-                        return (long long)arg_node->child_count;
-                    }
-                }
-                return 0;
-            } else {
+            } else if (arg_value >= 0) {
                 // Numeric value - return 1 (length of a single number)
                 return 1;
+            } else {
+                // Unknown type
+                fprintf(stderr, "Error: core.len() argument must be an array or string\n");
+                return 0;
             }
         } else if (func_name && strcmp(func_name, "push") == 0) {
             // push(array, value) - add element to array
@@ -5965,29 +5934,21 @@ void eval_evaluate(ASTNode* ast) {
                 char* library_name = ast->children[0].text;
                 char* alias = ast->children[1].text;
                 
-                printf("DEBUG: Processing use statement: library='%s', alias='%s'\n", library_name, alias);
+        
                 
                 // Check if this is a built-in library
                 if (strcmp(library_name, "math") == 0 || 
                     strcmp(library_name, "util") == 0 || 
                     strcmp(library_name, "core") == 0 ||
-                    strcmp(library_name, "file") == 0 ||
-                    strcmp(library_name, "path") == 0 ||
+                    strcmp(library_name, "file_io") == 0 ||
+                    strcmp(library_name, "path_utils") == 0 ||
                     strcmp(library_name, "env") == 0 ||
                     strcmp(library_name, "args") == 0 ||
                     strcmp(library_name, "process") == 0 ||
-                    strcmp(library_name, "text") == 0 ||
-                    strcmp(library_name, "debug") == 0 ||
-                    strcmp(library_name, "types") == 0 ||
-                    strcmp(library_name, "array") == 0 ||
-                    strcmp(library_name, "object") == 0 ||
-                    strcmp(library_name, "string") == 0 ||
-                    strcmp(library_name, "set") == 0 ||
-                    strcmp(library_name, "polish") == 0 ||
-                    strcmp(library_name, "test") == 0 ||
-                    strcmp(library_name, "data") == 0) {
+                    strcmp(library_name, "text_utils") == 0 ||
+                    strcmp(library_name, "debug") == 0) {
                     // Import built-in library
-                    printf("DEBUG: Importing built-in library '%s' as '%s'\n", library_name, alias);
+        
                     add_library_import(library_name, alias);
                 } else {
                     // Load and parse the module
@@ -6014,6 +5975,9 @@ void eval_evaluate(ASTNode* ast) {
         }
 
         case AST_PRINT: {
+            // Reset float flag to prevent interference from previous operations
+            last_result_is_float = 0;
+            
             if (ast->child_count == 0) {
                 printf("\n");
                 return;
@@ -6173,7 +6137,7 @@ void eval_evaluate(ASTNode* ast) {
                             } else {
                                 printf("(null)");
                             }
-                        } else if (value != -999) {
+                        } else {
                             // Check if this value might be a scaled float
                             if (arg->text && strchr(arg->text, '.') != NULL) {
                                 // This is a float literal, unscale and display as float
@@ -6201,6 +6165,7 @@ void eval_evaluate(ASTNode* ast) {
                                     }
                                 }
                                 if (!is_float_var) {
+                                    // This is a normal numeric value - print it directly
                                     printf("%lld", (long long)value);
                                 }
                             }
@@ -6240,12 +6205,13 @@ void eval_evaluate(ASTNode* ast) {
                     PropertyType prop_type;
                     void* prop_value = evaluate_chained_property_for_print(arg, &prop_type);
                     
-                                if (prop_value) {
+                    if (prop_value) {
                         print_property_value(prop_value, prop_type);
-                                        } else {
+                    } else {
                         printf("0"); // Property not found or evaluation failed
-                                        }
-                                    } else {
+                    }
+                } else {
+                    // Handle other node types by evaluating them
                     int64_t value = eval_expression(arg);
                     if (value == -1) {
                         // This is a string variable or concatenation result - get and print the actual string value
@@ -6259,8 +6225,8 @@ void eval_evaluate(ASTNode* ast) {
                                 printf("%s", str_val);
                             } else {
                                 printf("(null)");
-                                    }
-                                } else {
+                            }
+                        } else {
                             printf("(null)");
                         }
                     } else if (value == -2) {
@@ -6275,10 +6241,10 @@ void eval_evaluate(ASTNode* ast) {
                                         char* str_elem = (char*)array_get(array, j);
                                         if (str_elem) {
                                             printf("\"%s\"", str_elem);
-                            } else {
+                                        } else {
                                             printf("(null)");
-                            }
-                        } else {
+                                        }
+                                    } else {
                                         long long* num_elem = (long long*)array_get(array, j);
                                         if (num_elem) {
                                             printf("%lld", *num_elem);
@@ -6288,16 +6254,69 @@ void eval_evaluate(ASTNode* ast) {
                                     }
                                 }
                                 printf("]");
-                    } else {
+                            } else {
                                 printf("(null)");
-                    }
-                } else {
+                            }
+                        } else {
                             printf("(null)");
                         }
-                    } else if (value == -999) {
-                    printf("%lld", (long long)value);
+                    } else if (value == -3) {
+                        // This is an object variable - get and print the object contents
+                        if (arg->text) {
+                            MycoObject* obj = get_object_value(arg->text);
+                            if (obj) {
+                                printf("{");
+                                for (int j = 0; j < obj->property_count; j++) {
+                                    if (j > 0) printf(", ");
+                                    printf("%s: ", obj->property_names[j]);
+                                    
+                                    // Use type-based printing instead of heuristics
+                                    void* prop_value = obj->property_values[j];
+                                    PropertyType prop_type = obj->property_types[j];
+                                    print_property_value(prop_value, prop_type);
+                                }
+                                printf("}");
+                            } else {
+                                printf("(null)");
+                            }
+                        } else {
+                            printf("(null)");
+                        }
+                    } else if (value != -999) {
+                        // Check if this value might be a scaled float
+                        if (arg->text && strchr(arg->text, '.') != NULL) {
+                            // This is a float literal, unscale and display as float
+                            double float_val = (double)value / 1000000.0;
+                            printf("%.6g", float_val);
+                        } else if (last_result_is_float) {
+                            // This is the result of a float arithmetic operation
+                            double float_val = (double)value / 1000000.0;
+                            printf("%.6g", float_val);
+                            last_result_is_float = 0; // Reset flag after use
+                        } else {
+                            // Check if this is a variable containing a float
+                            const char* var_name = arg->text;
+                            int is_float_var = 0;
+                            if (var_name) {
+                                // Check if this variable is stored as a float
+                                for (int i = var_env_size - 1; i >= 0; i--) {
+                                    if (var_env[i].name && strcmp(var_env[i].name, var_name) == 0) {
+                                        if (var_env[i].type == VAR_TYPE_FLOAT) {
+                                            printf("%.6g", var_env[i].float_value);
+                                            is_float_var = 1;
+                                            break;
+                                        }
+                                    }
+                                }
+                            }
+                            if (!is_float_var) {
+                                // This is a normal numeric value - print it directly
+                                printf("%lld", (long long)value);
+                            }
+                        }
                     }
                 }
+            }
             printf("\n");
             return;
         }
@@ -6481,7 +6500,7 @@ void eval_evaluate(ASTNode* ast) {
                             // Extract string value (remove quotes)
                             size_t len = strlen(ast->children[1].children[i].text);
                             if (len >= 2) {
-                                char* value = (char*)malloc(len - 1);
+                                char* value = (char*)tracked_malloc(len - 1, __FILE__, __LINE__, "eval_remaining_malloc");
                                 if (value) {
                                     strncpy(value, ast->children[1].children[i].text + 1, len - 2);
                                     value[len - 2] = '\0';
@@ -7235,7 +7254,6 @@ void eval_evaluate(ASTNode* ast) {
 }
 
 // Main evaluation function ends here
-}
 
 // Function to clear module AST references to prevent double-free
 void eval_clear_module_asts() {
@@ -7258,7 +7276,7 @@ void eval_clear_function_asts() {
 
 
 // Function to reset all environments for fresh execution
-void eval_resetironments() {
+void eval_reset_environments() {
     cleanup_all_environments();
     
     // Reset scope stack
@@ -7528,8 +7546,150 @@ static long long call_math_function(const char* func_name, ASTNode* args_node) {
     } else if (strcmp(func_name, "NAN") == 0) {
         return -999999999;
         
+    } else if (strcmp(func_name, "floor") == 0) {
+        if (args_node->child_count < 1) {
+            fprintf(stderr, "Error: math.floor() requires one argument\n");
+            return 0;
+        }
+        
+        long long value = eval_expression(&args_node->children[0]);
+        return (long long)floor((double)value);
+        
+    } else if (strcmp(func_name, "ceil") == 0) {
+        if (args_node->child_count < 1) {
+            fprintf(stderr, "Error: math.ceil() requires one argument\n");
+            return 0;
+        }
+        
+        long long value = eval_expression(&args_node->children[0]);
+        return (long long)ceil((double)value);
+        
+    } else if (strcmp(func_name, "choice") == 0) {
+        if (args_node->child_count < 1) {
+            fprintf(stderr, "Error: math.choice() requires at least one argument\n");
+            return 0;
+        }
+        
+        // For now, just return the first argument
+        // In a full implementation, this would randomly select from the arguments
+        return eval_expression(&args_node->children[0]);
+        
     } else {
         fprintf(stderr, "Error: Unknown math function '%s'\n", func_name);
+        return 0;
+    }
+}
+
+// Array Library Functions
+static long long call_array_function(const char* func_name, ASTNode* args_node) {
+    if (strcmp(func_name, "push") == 0) {
+        if (args_node->child_count < 2) {
+            fprintf(stderr, "Error: array.push() requires two arguments (array, value)\n");
+            return 0;
+        }
+        
+        // For now, just return success
+        // Full implementation would require modifying the array
+        return 1;
+        
+    } else if (strcmp(func_name, "pop") == 0) {
+        if (args_node->child_count < 1) {
+            fprintf(stderr, "Error: array.pop() requires one argument (array)\n");
+            return 0;
+        }
+        
+        // For now, just return 0
+        // Full implementation would require modifying the array
+        return 0;
+        
+    } else if (strcmp(func_name, "length") == 0) {
+        if (args_node->child_count < 1) {
+            fprintf(stderr, "Error: array.length() requires one argument (array)\n");
+            return 0;
+        }
+        
+        // This is the same as len() function
+        return call_core_function("len", args_node);
+        
+    } else if (strcmp(func_name, "get") == 0) {
+        if (args_node->child_count < 2) {
+            fprintf(stderr, "Error: array.get() requires two arguments (array, index)\n");
+            return 0;
+        }
+        
+        // For now, just return 0
+        // Full implementation would require array access
+        return 0;
+        
+    } else if (strcmp(func_name, "set") == 0) {
+        if (args_node->child_count < 3) {
+            fprintf(stderr, "Error: array.set() requires three arguments (array, index, value)\n");
+            return 0;
+        }
+        
+        // For now, just return success
+        // Full implementation would require modifying the array
+        return 1;
+        
+    } else {
+        fprintf(stderr, "Error: Unknown array function '%s'\n", func_name);
+        return 0;
+    }
+}
+
+// Object Library Functions
+static long long call_object_function(const char* func_name, ASTNode* args_node) {
+    if (strcmp(func_name, "keys") == 0) {
+        if (args_node->child_count < 1) {
+            fprintf(stderr, "Error: object.keys() requires one argument (object)\n");
+            return 0;
+        }
+        
+        // For now, just return 0
+        // Full implementation would require extracting object keys
+        return 0;
+        
+    } else if (strcmp(func_name, "values") == 0) {
+        if (args_node->child_count < 1) {
+            fprintf(stderr, "Error: object.values() requires one argument (object)\n");
+            return 0;
+        }
+        
+        // For now, just return 0
+        // Full implementation would require extracting object values
+        return 0;
+        
+    } else if (strcmp(func_name, "has") == 0) {
+        if (args_node->child_count < 2) {
+            fprintf(stderr, "Error: object.has() requires two arguments (object, property)\n");
+            return 0;
+        }
+        
+        // This is the same as util.has() function
+        return call_util_function("has", args_node);
+        
+    } else if (strcmp(func_name, "get") == 0) {
+        if (args_node->child_count < 2) {
+            fprintf(stderr, "Error: object.get() requires two arguments (object, property)\n");
+            return 0;
+        }
+        
+        // For now, just return 0
+        // Full implementation would require object property access
+        return 0;
+        
+    } else if (strcmp(func_name, "set") == 0) {
+        if (args_node->child_count < 3) {
+            fprintf(stderr, "Error: object.set() requires three arguments (object, property, value)\n");
+            return 0;
+        }
+        
+        // For now, just return success
+        // Full implementation would require modifying the object
+        return 1;
+        
+    } else {
+        fprintf(stderr, "Error: Unknown object function '%s'\n", func_name);
         return 0;
     }
 }
@@ -7553,9 +7713,16 @@ static long long call_util_function(const char* func_name, ASTNode* args_node) {
         }
         
         ASTNode* arg = &args_node->children[0];
-        if (arg->type == AST_EXPR && arg->text) {
+        
+        if (arg->type == AST_ARRAY_LITERAL) {
+            printf("Array");
+        } else if (arg->type == AST_OBJECT_LITERAL) {
+            printf("Object");
+        } else if (arg->type == AST_EXPR && arg->text) {
             if (arg->text[0] == '"') {
                 printf("String");
+            } else if (strchr(arg->text, '.') != NULL) {
+                printf("Float");
             } else {
                 printf("Integer");
             }
@@ -7585,6 +7752,184 @@ static long long call_util_function(const char* func_name, ASTNode* args_node) {
         }
         return 0;
         
+    } else if (strcmp(func_name, "is_arr") == 0) {
+        if (args_node->child_count < 1) {
+            fprintf(stderr, "Error: util.is_arr() requires one argument\n");
+            return 0;
+        }
+        
+        ASTNode* arg = &args_node->children[0];
+        if (arg->type == AST_ARRAY_LITERAL) {
+            return 1;
+        }
+        
+        // Check if it's an array variable
+        if (arg->type == AST_EXPR && arg->text) {
+            MycoArray* array = get_array_value(arg->text);
+            if (array) {
+                return 1;
+            }
+        }
+        return 0;
+        
+    } else if (strcmp(func_name, "is_obj") == 0) {
+        if (args_node->child_count < 1) {
+            fprintf(stderr, "Error: util.is_obj() requires one argument\n");
+            return 0;
+        }
+        
+        ASTNode* arg = &args_node->children[0];
+        if (arg->type == AST_OBJECT_LITERAL) {
+            return 1;
+        }
+        
+        // Check if it's an object variable
+        if (arg->type == AST_EXPR && arg->text) {
+            MycoObject* obj = get_object_value(arg->text);
+            if (obj) {
+                return 1;
+            }
+        }
+        return 0;
+        
+    } else if (strcmp(func_name, "find") == 0) {
+        if (args_node->child_count < 2) {
+            fprintf(stderr, "Error: util.find() requires two arguments (string, substring)\n");
+            return 0;
+        }
+        
+        // Get the string to search in
+        ASTNode* str_node = &args_node->children[0];
+        const char* str_val = NULL;
+        
+        if (str_node->type == AST_EXPR && str_node->text) {
+            if (str_node->text[0] == '"') {
+                // String literal
+                size_t len = strlen(str_node->text);
+                if (len > 2) {
+                    char* temp = tracked_malloc(len - 1, __FILE__, __LINE__, "find_str_literal");
+                    strncpy(temp, str_node->text + 1, len - 2);
+                    temp[len - 2] = '\0';
+                    str_val = temp;
+                }
+            } else {
+                // String variable
+                str_val = get_str_value(str_node->text);
+            }
+        }
+        
+        if (!str_val) {
+            fprintf(stderr, "Error: util.find() first argument must be a string\n");
+            return -1;
+        }
+        
+        // Get the substring to search for
+        ASTNode* substr_node = &args_node->children[1];
+        const char* substr_val = NULL;
+        
+        if (substr_node->type == AST_EXPR && substr_node->text) {
+            if (substr_node->text[0] == '"') {
+                // String literal
+                size_t len = strlen(substr_node->text);
+                if (len > 2) {
+                    char* temp = tracked_malloc(len - 1, __FILE__, __LINE__, "find_substr_literal");
+                    strncpy(temp, substr_node->text + 1, len - 2);
+                    temp[len - 2] = '\0';
+                    substr_val = temp;
+                }
+            } else {
+                // String variable
+                substr_val = get_str_value(substr_node->text);
+            }
+        }
+        
+        if (!substr_val) {
+            fprintf(stderr, "Error: util.find() second argument must be a string\n");
+            return -1;
+        }
+        
+        // Find the substring
+        char* found = strstr(str_val, substr_val);
+        if (found) {
+            return (long long)(found - str_val);
+        } else {
+            return -1; // Not found
+        }
+        
+    } else if (strcmp(func_name, "copy") == 0) {
+        if (args_node->child_count < 1) {
+            fprintf(stderr, "Error: util.copy() requires one argument\n");
+            return 0;
+        }
+        
+        long long value = eval_expression(&args_node->children[0]);
+        return value; // For now, just return the value (deep copy would need more complex logic)
+        
+    } else if (strcmp(func_name, "has") == 0) {
+        if (args_node->child_count < 2) {
+            fprintf(stderr, "Error: util.has() requires two arguments (object, property)\n");
+            return 0;
+        }
+        
+        // Get the object
+        ASTNode* obj_node = &args_node->children[0];
+        MycoObject* obj = NULL;
+        
+        if (obj_node->type == AST_OBJECT_LITERAL) {
+            // Object literal - check if it has the property
+            ASTNode* prop_node = &args_node->children[1];
+            if (prop_node->type == AST_EXPR && prop_node->text) {
+                const char* prop_name = prop_node->text;
+                if (prop_name[0] == '"') {
+                    // Remove quotes
+                    size_t len = strlen(prop_name);
+                    if (len > 2) {
+                        char temp_name[256];
+                        strncpy(temp_name, prop_name + 1, len - 2);
+                        temp_name[len - 2] = '\0';
+                        prop_name = temp_name;
+                    }
+                }
+                
+                // Check if property exists in object literal
+                for (int i = 0; i < obj_node->child_count; i += 2) {
+                    if (i + 1 < obj_node->child_count) {
+                        if (strcmp(obj_node->children[i].text, prop_name) == 0) {
+                            return 1; // Property found
+                        }
+                    }
+                }
+            }
+        } else if (obj_node->type == AST_EXPR && obj_node->text) {
+            // Object variable
+            obj = get_object_value(obj_node->text);
+            if (obj) {
+                ASTNode* prop_node = &args_node->children[1];
+                if (prop_node->type == AST_EXPR && prop_node->text) {
+                    const char* prop_name = prop_node->text;
+                    if (prop_name[0] == '"') {
+                        // Remove quotes
+                        size_t len = strlen(prop_name);
+                        if (len > 2) {
+                            char temp_name[256];
+                            strncpy(temp_name, prop_name + 1, len - 2);
+                            temp_name[len - 2] = '\0';
+                            prop_name = temp_name;
+                        }
+                    }
+                    
+                    // Check if property exists in object
+                    for (int i = 0; i < obj->property_count; i++) {
+                        if (strcmp(obj->properties[i].name, prop_name) == 0) {
+                            return 1; // Property found
+                        }
+                    }
+                }
+            }
+        }
+        
+        return 0; // Property not found
+        
     } else {
         fprintf(stderr, "Error: Unknown utility function '%s'\n", func_name);
         return 0;
@@ -7599,12 +7944,55 @@ static long long call_core_function(const char* func_name, ASTNode* args_node) {
             return 0;
         }
         
-        long long value = eval_expression(&args_node->children[0]);
-        if (value == -1) {
-            // String value - this would need more complex handling
-            printf("[String]");
-        } else {
-            printf("%lld", value);
+        // Handle multiple arguments for print
+        for (int i = 0; i < args_node->child_count; i++) {
+            if (i > 0) printf(" "); // Add space between arguments
+            
+            ASTNode* arg = &args_node->children[i];
+            
+            if (arg->type == AST_ARRAY_LITERAL) {
+                // Print array literal
+                printf("[");
+                for (int j = 0; j < arg->child_count; j++) {
+                    if (j > 0) printf(", ");
+                    long long val = eval_expression(&arg->children[j]);
+                    if (val == -1) {
+                        printf("[String]");
+                    } else {
+                        printf("%lld", val);
+                    }
+                }
+                printf("]");
+            } else if (arg->type == AST_OBJECT_LITERAL) {
+                // Print object literal
+                printf("{");
+                for (int j = 0; j < arg->child_count; j += 2) {
+                    if (j > 0) printf(", ");
+                    if (j + 1 < arg->child_count) {
+                        printf("%s: ", arg->children[j].text);
+                        long long val = eval_expression(&arg->children[j + 1]);
+                        if (val == -1) {
+                            printf("[String]");
+                        } else {
+                            printf("%lld", val);
+                        }
+                    }
+                }
+                printf("}");
+            } else {
+                // Print regular expression
+                long long value = eval_expression(arg);
+                if (value == -1) {
+                    // String value
+                    if (last_concat_result) {
+                        printf("%s", last_concat_result);
+                    } else {
+                        printf("[String]");
+                    }
+                } else {
+                    printf("%lld", value);
+                }
+            }
         }
         return 1;
         
@@ -7615,14 +8003,140 @@ static long long call_core_function(const char* func_name, ASTNode* args_node) {
         }
         
         ASTNode* arg = &args_node->children[0];
+        
+        // Handle array literals
         if (arg->type == AST_ARRAY_LITERAL) {
             return arg->child_count;
-        } else if (arg->type == AST_EXPR && arg->text && arg->text[0] == '"') {
+        }
+        
+        // Handle string literals
+        if (arg->type == AST_EXPR && arg->text && arg->text[0] == '"') {
             return (long long)(strlen(arg->text) - 2); // Remove quotes
         }
         
-        fprintf(stderr, "Error: core.len() argument must be an array or string\n");
+        // Handle variables (array and string variables)
+        if (arg->type == AST_EXPR && arg->text) {
+            // Check if it's a string variable
+            const char* str_val = get_str_value(arg->text);
+            if (str_val) {
+                return (long long)strlen(str_val);
+            }
+            
+            // Check if it's an array variable
+            MycoArray* array = get_array_value(arg->text);
+            if (array) {
+                return (long long)array->size;
+            }
+            
+            // Check if it's an object variable
+            MycoObject* obj = get_object_value(arg->text);
+            if (obj) {
+                return (long long)obj->property_count;
+            }
+        }
+        
+        fprintf(stderr, "Error: core.len() argument must be an array, string, or object\n");
         return 0;
+        
+    } else if (strcmp(func_name, "input") == 0) {
+        if (args_node->child_count < 1) {
+            fprintf(stderr, "Error: core.input() requires one argument (prompt)\n");
+            return 0;
+        }
+        
+        // Get prompt from argument
+        ASTNode* prompt_node = &args_node->children[0];
+        if (prompt_node->type != AST_EXPR || !prompt_node->text) {
+            fprintf(stderr, "Error: core.input() prompt must be a string\n");
+            return 0;
+        }
+        
+        // Extract prompt (remove quotes)
+        char prompt[1024];
+        if (is_string_literal(prompt_node->text)) {
+            size_t len = strlen(prompt_node->text);
+            if (len > 2) {
+                strncpy(prompt, prompt_node->text + 1, len - 2);
+                prompt[len - 2] = '\0';
+            } else {
+                prompt[0] = '\0';
+            }
+        } else {
+            strncpy(prompt, prompt_node->text, sizeof(prompt) - 1);
+            prompt[sizeof(prompt) - 1] = '\0';
+        }
+        
+        // Print the prompt
+        printf("%s", prompt);
+        fflush(stdout); // Ensure prompt is displayed immediately
+        
+        // Read user input
+        char input_buffer[1024];
+        if (fgets(input_buffer, sizeof(input_buffer), stdin) != NULL) {
+            // Remove newline character
+            size_t len = strlen(input_buffer);
+            if (len > 0 && input_buffer[len - 1] == '\n') {
+                input_buffer[len - 1] = '\0';
+            }
+            
+            // Store input in the global string result variable
+            if (last_concat_result) {
+                tracked_free(last_concat_result, __FILE__, __LINE__, "input_cleanup");
+            }
+            last_concat_result = tracked_strdup(input_buffer, __FILE__, __LINE__, "input_result");
+            
+            // Return -1 to indicate this is a string result
+            return -1;
+        } else {
+            fprintf(stderr, "Error: Failed to read input\n");
+            return 0;
+        }
+        
+    } else if (strcmp(func_name, "to_string") == 0) {
+        if (args_node->child_count < 1) {
+            fprintf(stderr, "Error: core.to_string() requires one argument\n");
+            return 0;
+        }
+        
+        long long value = eval_expression(&args_node->children[0]);
+        if (value == -1) {
+            // String value - return as is
+            return -1;
+        } else {
+            // Convert number to string
+            char num_str[64];
+            snprintf(num_str, sizeof(num_str), "%lld", value);
+            
+            // Store in global string result
+            if (last_concat_result) {
+                tracked_free(last_concat_result, __FILE__, __LINE__, "to_string_cleanup");
+            }
+            last_concat_result = tracked_strdup(num_str, __FILE__, __LINE__, "to_string_result");
+            return -1;
+        }
+        
+    } else if (strcmp(func_name, "str") == 0) {
+        if (args_node->child_count < 1) {
+            fprintf(stderr, "Error: core.str() requires one argument\n");
+            return 0;
+        }
+        
+        long long value = eval_expression(&args_node->children[0]);
+        if (value == -1) {
+            // String value - return as is
+            return -1;
+        } else {
+            // Convert number to string
+            char num_str[64];
+            snprintf(num_str, sizeof(num_str), "%lld", value);
+            
+            // Store in global string result
+            if (last_concat_result) {
+                tracked_free(last_concat_result, __FILE__, __LINE__, "str_cleanup");
+            }
+            last_concat_result = tracked_strdup(num_str, __FILE__, __LINE__, "str_result");
+            return -1;
+        }
         
     } else {
         fprintf(stderr, "Error: Unknown core function '%s'\n", func_name);
@@ -7630,18 +8144,356 @@ static long long call_core_function(const char* func_name, ASTNode* args_node) {
     }
 }
 
+// Path Utilities Library Functions
+static long long call_path_utils_function(const char* func_name, ASTNode* args_node) {
+    if (strcmp(func_name, "join_path") == 0) {
+        if (args_node->child_count < 2) {
+            fprintf(stderr, "Error: path_utils.join_path() requires at least two arguments\n");
+            return 0;
+        }
+        
+        // For now, just return success
+        // Full implementation would require path joining logic
+        return 1;
+        
+    } else if (strcmp(func_name, "dirname") == 0) {
+        if (args_node->child_count < 1) {
+            fprintf(stderr, "Error: path_utils.dirname() requires one argument (path)\n");
+            return 0;
+        }
+        
+        // For now, just return success
+        // Full implementation would require path parsing
+        return 1;
+        
+    } else if (strcmp(func_name, "basename") == 0) {
+        if (args_node->child_count < 1) {
+            fprintf(stderr, "Error: path_utils.basename() requires one argument (path)\n");
+            return 0;
+        }
+        
+        // For now, just return success
+        // Full implementation would require path parsing
+        return 1;
+        
+    } else if (strcmp(func_name, "is_absolute") == 0) {
+        if (args_node->child_count < 1) {
+            fprintf(stderr, "Error: path_utils.is_absolute() requires one argument (path)\n");
+            return 0;
+        }
+        
+        // For now, just return 0 (false)
+        // Full implementation would require path analysis
+        return 0;
+        
+    } else if (strcmp(func_name, "normalize_path") == 0) {
+        if (args_node->child_count < 1) {
+            fprintf(stderr, "Error: path_utils.normalize_path() requires one argument (path)\n");
+            return 0;
+        }
+        
+        // For now, just return success
+        // Full implementation would require path normalization
+        return 1;
+        
+    } else if (strcmp(func_name, "relative_path") == 0) {
+        if (args_node->child_count < 2) {
+            fprintf(stderr, "Error: path_utils.relative_path() requires two arguments (from, to)\n");
+            return 0;
+        }
+        
+        // For now, just return success
+        // Full implementation would require path calculation
+        return 1;
+        
+    } else {
+        fprintf(stderr, "Error: Unknown path_utils function '%s'\n", func_name);
+        return 0;
+    }
+}
+
+// Environment Library Functions
+static long long call_env_function(const char* func_name, ASTNode* args_node) {
+    if (strcmp(func_name, "get_env") == 0) {
+        if (args_node->child_count < 1) {
+            fprintf(stderr, "Error: env.get_env() requires one argument (variable_name)\n");
+            return 0;
+        }
+        
+        // For now, just return 0
+        // Full implementation would require environment variable access
+        return 0;
+        
+    } else if (strcmp(func_name, "set_env") == 0) {
+        if (args_node->child_count < 2) {
+            fprintf(stderr, "Error: env.set_env() requires two arguments (variable_name, value)\n");
+            return 0;
+        }
+        
+        // For now, just return success
+        // Full implementation would require environment variable setting
+        return 1;
+        
+    } else if (strcmp(func_name, "list_env") == 0) {
+        if (args_node->child_count < 0) {
+            fprintf(stderr, "Error: env.list_env() takes no arguments\n");
+            return 0;
+        }
+        
+        // For now, just return 0
+        // Full implementation would require environment variable listing
+        return 0;
+        
+    } else if (strcmp(func_name, "has_env") == 0) {
+        if (args_node->child_count < 1) {
+            fprintf(stderr, "Error: env.has_env() requires one argument (variable_name)\n");
+            return 0;
+        }
+        
+        // For now, just return 0 (false)
+        // Full implementation would require environment variable checking
+        return 0;
+        
+    } else {
+        fprintf(stderr, "Error: Unknown env function '%s'\n", func_name);
+        return 0;
+    }
+}
+
+// Arguments Library Functions
+static long long call_args_function(const char* func_name, ASTNode* args_node) {
+    if (strcmp(func_name, "get_args") == 0) {
+        if (args_node->child_count < 0) {
+            fprintf(stderr, "Error: args.get_args() takes no arguments\n");
+            return 0;
+        }
+        
+        // For now, just return 0
+        // Full implementation would require command line argument access
+        return 0;
+        
+    } else if (strcmp(func_name, "get_arg") == 0) {
+        if (args_node->child_count < 1) {
+            fprintf(stderr, "Error: args.get_arg() requires one argument (index)\n");
+            return 0;
+        }
+        
+        // For now, just return 0
+        // Full implementation would require command line argument access
+        return 0;
+        
+    } else if (strcmp(func_name, "arg_count") == 0) {
+        if (args_node->child_count < 0) {
+            fprintf(stderr, "Error: args.arg_count() takes no arguments\n");
+            return 0;
+        }
+        
+        // For now, just return 0
+        // Full implementation would require command line argument counting
+        return 0;
+        
+    } else if (strcmp(func_name, "parse_flags") == 0) {
+        if (args_node->child_count < 0) {
+            fprintf(stderr, "Error: args.parse_flags() takes no arguments\n");
+            return 0;
+        }
+        
+        // For now, just return 0
+        // Full implementation would require flag parsing
+        return 0;
+        
+    } else {
+        fprintf(stderr, "Error: Unknown args function '%s'\n", func_name);
+        return 0;
+    }
+}
+
+// Process Library Functions
+static long long call_process_function(const char* func_name, ASTNode* args_node) {
+    if (strcmp(func_name, "execute") == 0) {
+        if (args_node->child_count < 1) {
+            fprintf(stderr, "Error: process.execute() requires one argument (command)\n");
+            return 0;
+        }
+        
+        // For now, just return success
+        // Full implementation would require command execution
+        return 1;
+        
+    } else if (strcmp(func_name, "get_pid") == 0) {
+        if (args_node->child_count < 0) {
+            fprintf(stderr, "Error: process.get_pid() takes no arguments\n");
+            return 0;
+        }
+        
+        // For now, just return 0
+        // Full implementation would require process ID access
+        return 0;
+        
+    } else if (strcmp(func_name, "get_cwd") == 0) {
+        if (args_node->child_count < 0) {
+            fprintf(stderr, "Error: process.get_cwd() takes no arguments\n");
+            return 0;
+        }
+        
+        // For now, just return 0
+        // Full implementation would require current directory access
+        return 0;
+        
+    } else if (strcmp(func_name, "change_dir") == 0) {
+        if (args_node->child_count < 1) {
+            fprintf(stderr, "Error: process.change_dir() requires one argument (directory)\n");
+            return 0;
+        }
+        
+        // For now, just return success
+        // Full implementation would require directory changing
+        return 1;
+        
+    } else {
+        fprintf(stderr, "Error: Unknown process function '%s'\n", func_name);
+        return 0;
+    }
+}
+
+// Text Utilities Library Functions
+static long long call_text_utils_function(const char* func_name, ASTNode* args_node) {
+    if (strcmp(func_name, "read_lines") == 0) {
+        if (args_node->child_count < 1) {
+            fprintf(stderr, "Error: text_utils.read_lines() requires one argument (filename)\n");
+            return 0;
+        }
+        
+        // For now, just return 0
+        // Full implementation would require file reading
+        return 0;
+        
+    } else if (strcmp(func_name, "write_lines") == 0) {
+        if (args_node->child_count < 2) {
+            fprintf(stderr, "Error: text_utils.write_lines() requires two arguments (filename, lines)\n");
+            return 0;
+        }
+        
+        // For now, just return success
+        // Full implementation would require file writing
+        return 1;
+        
+    } else if (strcmp(func_name, "read_csv") == 0) {
+        if (args_node->child_count < 1) {
+            fprintf(stderr, "Error: text_utils.read_csv() requires one argument (filename)\n");
+            return 0;
+        }
+        
+        // For now, just return 0
+        // Full implementation would require CSV parsing
+        return 0;
+        
+    } else if (strcmp(func_name, "write_csv") == 0) {
+        if (args_node->child_count < 2) {
+            fprintf(stderr, "Error: text_utils.write_csv() requires two arguments (filename, data)\n");
+            return 0;
+        }
+        
+        // For now, just return success
+        // Full implementation would require CSV writing
+        return 1;
+        
+    } else {
+        fprintf(stderr, "Error: Unknown text_utils function '%s'\n", func_name);
+        return 0;
+    }
+}
+
+// Debug Library Functions
+static long long call_debug_function(const char* func_name, ASTNode* args_node) {
+    if (strcmp(func_name, "warn") == 0) {
+        if (args_node->child_count < 1) {
+            fprintf(stderr, "Error: debug.warn() requires one argument (message)\n");
+            return 0;
+        }
+        
+        // For now, just return success
+        // Full implementation would require warning output
+        return 1;
+        
+    } else if (strcmp(func_name, "error") == 0) {
+        if (args_node->child_count < 1) {
+            fprintf(stderr, "Error: debug.error() requires one argument (message)\n");
+            return 0;
+        }
+        
+        // For now, just return success
+        // Full implementation would require error output
+        return 1;
+        
+    } else if (strcmp(func_name, "assert") == 0) {
+        if (args_node->child_count < 1) {
+            fprintf(stderr, "Error: debug.assert() requires one argument (condition)\n");
+            return 0;
+        }
+        
+        // For now, just return success
+        // Full implementation would require assertion checking
+        return 1;
+        
+    } else if (strcmp(func_name, "start_timer") == 0) {
+        if (args_node->child_count < 0) {
+            fprintf(stderr, "Error: debug.start_timer() takes no arguments\n");
+            return 0;
+        }
+        
+        // For now, just return success
+        // Full implementation would require timer functionality
+        return 1;
+        
+    } else if (strcmp(func_name, "end_timer") == 0) {
+        if (args_node->child_count < 0) {
+            fprintf(stderr, "Error: debug.end_timer() takes no arguments\n");
+            return 0;
+        }
+        
+        // For now, just return 0
+        // Full implementation would require timer functionality
+        return 0;
+        
+    } else if (strcmp(func_name, "get_stats") == 0) {
+        if (args_node->child_count < 0) {
+            fprintf(stderr, "Error: debug.get_stats() takes no arguments\n");
+            return 0;
+        }
+        
+        // For now, just return 0
+        // Full implementation would require statistics gathering
+        return 0;
+        
+    } else if (strcmp(func_name, "set_debug_mode") == 0) {
+        if (args_node->child_count < 1) {
+            fprintf(stderr, "Error: debug.set_debug_mode() requires one argument (enabled)\n");
+            return 0;
+        }
+        
+        // For now, just return success
+        // Full implementation would require debug mode setting
+        return 1;
+        
+    } else {
+        fprintf(stderr, "Error: Unknown debug function '%s'\n", func_name);
+        return 0;
+    }
+}
+
 // File I/O Library Functions
-static long long call_file_function(const char* func_name, ASTNode* args_node) {
+static long long call_file_io_function(const char* func_name, ASTNode* args_node) {
     if (strcmp(func_name, "read_file") == 0) {
         if (args_node->child_count < 1) {
-            fprintf(stderr, "Error: file.read_file() requires one argument (filename)\n");
+            fprintf(stderr, "Error: file_io.read_file() requires one argument (filename)\n");
             return 0;
         }
         
         // Get filename from argument
         ASTNode* filename_node = &args_node->children[0];
         if (filename_node->type != AST_EXPR || !filename_node->text) {
-            fprintf(stderr, "Error: file.read_file() filename must be a string\n");
+            fprintf(stderr, "Error: file_io.read_file() filename must be a string\n");
             return 0;
         }
         
@@ -7662,7 +8514,7 @@ static long long call_file_function(const char* func_name, ASTNode* args_node) {
         
         // Validate filename
         if (strlen(filename) == 0) {
-            fprintf(stderr, "Error: file.read_file() filename cannot be empty\n");
+            fprintf(stderr, "Error: file_io.read_file() filename cannot be empty\n");
             return 0;
         }
         
@@ -7706,14 +8558,14 @@ static long long call_file_function(const char* func_name, ASTNode* args_node) {
         
     } else if (strcmp(func_name, "write_file") == 0) {
         if (args_node->child_count < 2) {
-            fprintf(stderr, "Error: file.write_file() requires two arguments (filename, content)\n");
+            fprintf(stderr, "Error: file_io.write_file() requires two arguments (filename, content)\n");
             return 0;
         }
         
         // Get filename from first argument
         ASTNode* filename_node = &args_node->children[0];
         if (filename_node->type != AST_EXPR || !filename_node->text) {
-            fprintf(stderr, "Error: file.write_file() filename must be a string\n");
+            fprintf(stderr, "Error: file_io.write_file() filename must be a string\n");
             return 0;
         }
         
@@ -7734,7 +8586,7 @@ static long long call_file_function(const char* func_name, ASTNode* args_node) {
         
         // Validate filename
         if (strlen(filename) == 0) {
-            fprintf(stderr, "Error: file.write_file() filename cannot be empty\n");
+            fprintf(stderr, "Error: file_io.write_file() filename cannot be empty\n");
             return 0;
         }
         
@@ -7778,7 +8630,7 @@ static long long call_file_function(const char* func_name, ASTNode* args_node) {
         }
         
         if (!content) {
-            fprintf(stderr, "Error: file.write_file() content must be a string\n");
+            fprintf(stderr, "Error: file_io.write_file() content must be a string\n");
             return 0;
         }
         
@@ -7799,14 +8651,14 @@ static long long call_file_function(const char* func_name, ASTNode* args_node) {
         
     } else if (strcmp(func_name, "list_dir") == 0) {
         if (args_node->child_count < 1) {
-            fprintf(stderr, "Error: file.list_dir() requires one argument (directory path)\n");
+            fprintf(stderr, "Error: file_io.list_dir() requires one argument (directory path)\n");
             return 0;
         }
         
         // Get directory path from argument
         ASTNode* path_node = &args_node->children[0];
         if (path_node->type != AST_EXPR || !path_node->text) {
-            fprintf(stderr, "Error: file.list_dir() path must be a string\n");
+            fprintf(stderr, "Error: file_io.list_dir() path must be a string\n");
             return 0;
         }
         
@@ -7827,7 +8679,7 @@ static long long call_file_function(const char* func_name, ASTNode* args_node) {
         
         // Validate path
         if (strlen(path) == 0) {
-            fprintf(stderr, "Error: file.list_dir() path cannot be empty\n");
+            fprintf(stderr, "Error: file_io.list_dir() path cannot be empty\n");
             return 0;
         }
         
@@ -7865,14 +8717,14 @@ static long long call_file_function(const char* func_name, ASTNode* args_node) {
         
     } else if (strcmp(func_name, "exists") == 0) {
         if (args_node->child_count < 1) {
-            fprintf(stderr, "Error: file.exists() requires one argument (path)\n");
+            fprintf(stderr, "Error: file_io.exists() requires one argument (path)\n");
             return 0;
         }
         
         // Get path from argument
         ASTNode* path_node = &args_node->children[0];
         if (path_node->type != AST_EXPR || !path_node->text) {
-            fprintf(stderr, "Error: file.exists() path must be a string\n");
+            fprintf(stderr, "Error: file_io.exists() path must be a string\n");
             return 0;
         }
         
@@ -7893,7 +8745,7 @@ static long long call_file_function(const char* func_name, ASTNode* args_node) {
         
         // Validate path
         if (strlen(path) == 0) {
-            fprintf(stderr, "Error: file.exists() path cannot be empty\n");
+            fprintf(stderr, "Error: file_io.exists() path cannot be empty\n");
             return 0;
         }
         
@@ -7920,10 +8772,10 @@ static long long call_file_function(const char* func_name, ASTNode* args_node) {
 }
 
 // Path Utilities Library Functions
-static long long call_path_function(const char* func_name, ASTNode* args_node) {
-    if (strcmp(func_name, "join") == 0) {
+static long long call_path_utils_function(const char* func_name, ASTNode* args_node) {
+    if (strcmp(func_name, "join_path") == 0) {
         if (args_node->child_count < 2) {
-            fprintf(stderr, "Error: path.join() requires at least two arguments\n");
+            fprintf(stderr, "Error: path_utils.join_path() requires at least two arguments\n");
             return 0;
         }
         
@@ -7934,7 +8786,7 @@ static long long call_path_function(const char* func_name, ASTNode* args_node) {
         for (int i = 0; i < args_node->child_count; i++) {
             ASTNode* path_node = &args_node->children[i];
             if (path_node->type != AST_EXPR || !path_node->text) {
-                fprintf(stderr, "Error: path.join() argument %d must be a string\n", i + 1);
+                fprintf(stderr, "Error: path_utils.join_path() argument %d must be a string\n", i + 1);
                 return 0;
             }
             
@@ -7971,22 +8823,22 @@ static long long call_path_function(const char* func_name, ASTNode* args_node) {
         
         // Store result in a temporary variable
         char temp_var_name[64];
-        snprintf(temp_var_name, sizeof(temp_var_name), "__join_result_%p", (void*)args_node);
-        set_str_value(temp_var_name, tracked_strdup(combined_path, __FILE__, __LINE__, "join_result"));
+        snprintf(temp_var_name, sizeof(temp_var_name), "__join_path_result_%p", (void*)args_node);
+        set_str_value(temp_var_name, tracked_strdup(combined_path, __FILE__, __LINE__, "join_path_result"));
         
         printf("Joined path: %s\n", combined_path);
         return 1;
         
     } else if (strcmp(func_name, "dirname") == 0) {
         if (args_node->child_count < 1) {
-            fprintf(stderr, "Error: path.dirname() requires one argument (path)\n");
+            fprintf(stderr, "Error: path_utils.dirname() requires one argument (path)\n");
             return 0;
         }
         
         // Get path from argument
         ASTNode* path_node = &args_node->children[0];
         if (path_node->type != AST_EXPR || !path_node->text) {
-            fprintf(stderr, "Error: path.dirname() path must be a string\n");
+            fprintf(stderr, "Error: path_utils.dirname() path must be a string\n");
             return 0;
         }
         
@@ -8007,7 +8859,7 @@ static long long call_path_function(const char* func_name, ASTNode* args_node) {
         
         // Validate path
         if (strlen(path) == 0) {
-            fprintf(stderr, "Error: path.dirname() path cannot be empty\n");
+            fprintf(stderr, "Error: path_utils.dirname() path cannot be empty\n");
             return 0;
         }
         
@@ -8044,14 +8896,14 @@ static long long call_path_function(const char* func_name, ASTNode* args_node) {
         
     } else if (strcmp(func_name, "basename") == 0) {
         if (args_node->child_count < 1) {
-            fprintf(stderr, "Error: path.basename() requires one argument (path)\n");
+            fprintf(stderr, "Error: path_utils.basename() requires one argument (path)\n");
             return 0;
         }
         
         // Get path from argument
         ASTNode* path_node = &args_node->children[0];
         if (path_node->type != AST_EXPR || !path_node->text) {
-            fprintf(stderr, "Error: path.basename() path must be a string\n");
+            fprintf(stderr, "Error: path_utils.basename() path must be a string\n");
             return 0;
         }
         
@@ -8072,7 +8924,7 @@ static long long call_path_function(const char* func_name, ASTNode* args_node) {
         
         // Validate path
         if (strlen(path) == 0) {
-            fprintf(stderr, "Error: path.basename() path cannot be empty\n");
+            fprintf(stderr, "Error: path_utils.basename() path cannot be empty\n");
             return 0;
         }
         
@@ -8102,16 +8954,16 @@ static long long call_path_function(const char* func_name, ASTNode* args_node) {
         printf("Base name: %s\n", basename_result);
         return 1;
         
-    } else if (strcmp(func_name, "absolute") == 0) {
+    } else if (strcmp(func_name, "is_absolute") == 0) {
         if (args_node->child_count < 1) {
-            fprintf(stderr, "Error: path.absolute() requires one argument (path)\n");
+            fprintf(stderr, "Error: path_utils.is_absolute() requires one argument (path)\n");
             return 0;
         }
         
         // Get path from argument
         ASTNode* path_node = &args_node->children[0];
         if (path_node->type != AST_EXPR || !path_node->text) {
-            fprintf(stderr, "Error: path.absolute() path must be a string\n");
+            fprintf(stderr, "Error: path_utils.is_absolute() path must be a string\n");
             return 0;
         }
         
@@ -8132,36 +8984,36 @@ static long long call_path_function(const char* func_name, ASTNode* args_node) {
         
         // Validate path
         if (strlen(path) == 0) {
-            fprintf(stderr, "Error: path.absolute() path cannot be empty\n");
+            fprintf(stderr, "Error: path_utils.is_absolute() path cannot be empty\n");
             return 0;
         }
         
         // Check if path is absolute (cross-platform)
-        int absolute = 0;
+        int is_absolute = 0;
         
         // Unix-like: check if path starts with '/'
         if (path[0] == '/') {
-            absolute = 1;
+            is_absolute = 1;
         }
         // Windows: check for drive letter (C:\) or UNC path (\\server\share)
         else if ((strlen(path) >= 2 && path[1] == ':') || 
                  (strlen(path) >= 2 && path[0] == '\\' && path[1] == '\\')) {
-            absolute = 1;
+            is_absolute = 1;
         }
         
-        printf("Path '%s' is %s\n", path, absolute ? "absolute" : "relative");
-        return absolute ? 1 : 0;
+        printf("Path '%s' is %s\n", path, is_absolute ? "absolute" : "relative");
+        return is_absolute ? 1 : 0;
         
     } else if (strcmp(func_name, "normalize_path") == 0) {
         if (args_node->child_count < 1) {
-            fprintf(stderr, "Error: path.normalize_path() requires one argument (path)\n");
+            fprintf(stderr, "Error: path_utils.normalize_path() requires one argument (path)\n");
             return 0;
         }
         
         // Get path from argument
         ASTNode* path_node = &args_node->children[0];
         if (path_node->type != AST_EXPR || !path_node->text) {
-            fprintf(stderr, "Error: path.normalize_path() path must be a string\n");
+            fprintf(stderr, "Error: path_utils.normalize_path() path must be a string\n");
             return 0;
         }
         
@@ -8182,7 +9034,7 @@ static long long call_path_function(const char* func_name, ASTNode* args_node) {
         
         // Validate path
         if (strlen(path) == 0) {
-            fprintf(stderr, "Error: path.normalize_path() path cannot be empty\n");
+            fprintf(stderr, "Error: path_utils.normalize_path() path cannot be empty\n");
             return 0;
         }
         
@@ -8207,21 +9059,21 @@ static long long call_path_function(const char* func_name, ASTNode* args_node) {
         
     } else if (strcmp(func_name, "relative_path") == 0) {
         if (args_node->child_count < 2) {
-            fprintf(stderr, "Error: path.relative_path() requires two arguments (from_path, to_path)\n");
+            fprintf(stderr, "Error: path_utils.relative_path() requires two arguments (from_path, to_path)\n");
             return 0;
         }
         
         // Get from_path from first argument
         ASTNode* from_node = &args_node->children[0];
         if (from_node->type != AST_EXPR || !from_node->text) {
-            fprintf(stderr, "Error: path.relative_path() from_path must be a string\n");
+            fprintf(stderr, "Error: path_utils.relative_path() from_path must be a string\n");
             return 0;
         }
         
         // Get to_path from second argument
         ASTNode* to_node = &args_node->children[1];
         if (to_node->type != AST_EXPR || !to_node->text) {
-            fprintf(stderr, "Error: path.relative_path() to_path must be a string\n");
+            fprintf(stderr, "Error: path_utils.relative_path() to_path must be a string\n");
             return 0;
         }
         
@@ -8256,7 +9108,7 @@ static long long call_path_function(const char* func_name, ASTNode* args_node) {
         
         // Validate paths
         if (strlen(from_path) == 0 || strlen(to_path) == 0) {
-            fprintf(stderr, "Error: path.relative_path() paths cannot be empty\n");
+            fprintf(stderr, "Error: path_utils.relative_path() paths cannot be empty\n");
             return 0;
         }
         
@@ -8280,23 +9132,23 @@ static long long call_path_function(const char* func_name, ASTNode* args_node) {
         return 1;
         
     } else {
-        fprintf(stderr, "Error: Unknown path function '%s'\n", func_name);
+        fprintf(stderr, "Error: Unknown path_utils function '%s'\n", func_name);
         return 0;
     }
 }
 
 // Environment Variables Library Functions
 static long long call_env_function(const char* func_name, ASTNode* args_node) {
-    if (strcmp(func_name, "get") == 0) {
+    if (strcmp(func_name, "get_env") == 0) {
         if (args_node->child_count < 1) {
-            fprintf(stderr, "Error: env.get() requires one argument (variable_name)\n");
+            fprintf(stderr, "Error: env.get_env() requires one argument (variable_name)\n");
             return 0;
         }
         
         // Get variable name from argument
         ASTNode* var_node = &args_node->children[0];
         if (var_node->type != AST_EXPR || !var_node->text) {
-            fprintf(stderr, "Error: env.get() variable name must be a string\n");
+            fprintf(stderr, "Error: env.get_env() variable name must be a string\n");
             return 0;
         }
         
@@ -8317,7 +9169,7 @@ static long long call_env_function(const char* func_name, ASTNode* args_node) {
         
         // Validate variable name
         if (strlen(var_name) == 0) {
-            fprintf(stderr, "Error: env.get() variable name cannot be empty\n");
+            fprintf(stderr, "Error: env.get_env() variable name cannot be empty\n");
             return 0;
         }
         
@@ -8336,23 +9188,23 @@ static long long call_env_function(const char* func_name, ASTNode* args_node) {
             return 0;
         }
         
-    } else if (strcmp(func_name, "set") == 0) {
+    } else if (strcmp(func_name, "set_env") == 0) {
         if (args_node->child_count < 2) {
-            fprintf(stderr, "Error: env.set() requires two arguments (variable_name, value)\n");
+            fprintf(stderr, "Error: env.set_env() requires two arguments (variable_name, value)\n");
             return 0;
         }
         
         // Get variable name from first argument
         ASTNode* var_node = &args_node->children[0];
         if (var_node->type != AST_EXPR || !var_node->text) {
-            fprintf(stderr, "Error: env.set() variable name must be a string\n");
+            fprintf(stderr, "Error: env.set_env() variable name must be a string\n");
             return 0;
         }
         
         // Get value from second argument
         ASTNode* val_node = &args_node->children[1];
         if (val_node->type != AST_EXPR || !val_node->text) {
-            fprintf(stderr, "Error: env.set() value must be a string\n");
+            fprintf(stderr, "Error: env.set_env() value must be a string\n");
             return 0;
         }
         
@@ -8388,7 +9240,7 @@ static long long call_env_function(const char* func_name, ASTNode* args_node) {
         
         // Validate inputs
         if (strlen(var_name) == 0) {
-            fprintf(stderr, "Error: env.set() variable name cannot be empty\n");
+            fprintf(stderr, "Error: env.set_env() variable name cannot be empty\n");
             return 0;
         }
         
@@ -8402,16 +9254,16 @@ static long long call_env_function(const char* func_name, ASTNode* args_node) {
             return 0;
         }
         
-    } else if (strcmp(func_name, "has") == 0) {
+    } else if (strcmp(func_name, "has_env") == 0) {
         if (args_node->child_count < 1) {
-            fprintf(stderr, "Error: env.has() requires one argument (variable_name)\n");
+            fprintf(stderr, "Error: env.has_env() requires one argument (variable_name)\n");
             return 0;
         }
         
         // Get variable name from argument
         ASTNode* var_node = &args_node->children[0];
         if (var_node->type != AST_EXPR || !var_node->text) {
-            fprintf(stderr, "Error: env.has() variable name must be a string\n");
+            fprintf(stderr, "Error: env.has_env() variable name must be a string\n");
             return 0;
         }
         
@@ -8432,7 +9284,7 @@ static long long call_env_function(const char* func_name, ASTNode* args_node) {
         
         // Validate variable name
         if (strlen(var_name) == 0) {
-            fprintf(stderr, "Error: env.has() variable name cannot be empty\n");
+            fprintf(stderr, "Error: env.has_env() variable name cannot be empty\n");
             return 0;
         }
         
@@ -8443,9 +9295,9 @@ static long long call_env_function(const char* func_name, ASTNode* args_node) {
         printf("Environment variable '%s' %s\n", var_name, exists ? "exists" : "does not exist");
         return exists ? 1 : 0;
         
-    } else if (strcmp(func_name, "list") == 0) {
+    } else if (strcmp(func_name, "list_env") == 0) {
         if (args_node->child_count != 0) {
-            fprintf(stderr, "Error: env.list() takes no arguments\n");
+            fprintf(stderr, "Error: env.list_env() takes no arguments\n");
             return 0;
         }
         
@@ -8735,17 +9587,17 @@ static long long call_process_function(const char* func_name, ASTNode* args_node
 }
 
 // Text Processing Utilities Library Functions
-static long long call_text_function(const char* func_name, ASTNode* args_node) {
-    if (strcmp(func_name, "read") == 0) {
+static long long call_text_utils_function(const char* func_name, ASTNode* args_node) {
+    if (strcmp(func_name, "read_lines") == 0) {
         if (args_node->child_count < 1) {
-            fprintf(stderr, "Error: text.read() requires one argument (filename)\n");
+            fprintf(stderr, "Error: text_utils.read_lines() requires one argument (filename)\n");
             return 0;
         }
         
         // Get filename from argument
         ASTNode* file_node = &args_node->children[0];
         if (file_node->type != AST_EXPR || !file_node->text) {
-            fprintf(stderr, "Error: text.read() filename must be a string\n");
+            fprintf(stderr, "Error: text_utils.read_lines() filename must be a string\n");
             return 0;
         }
         
@@ -8766,7 +9618,7 @@ static long long call_text_function(const char* func_name, ASTNode* args_node) {
         
         // Validate filename
         if (strlen(filename) == 0) {
-            fprintf(stderr, "Error: text.read() filename cannot be empty\n");
+            fprintf(stderr, "Error: text_utils.read_lines() filename cannot be empty\n");
             return 0;
         }
         
@@ -8798,23 +9650,23 @@ static long long call_text_function(const char* func_name, ASTNode* args_node) {
         
         return line_count;
         
-    } else if (strcmp(func_name, "write") == 0) {
+    } else if (strcmp(func_name, "write_lines") == 0) {
         if (args_node->child_count < 2) {
-            fprintf(stderr, "Error: text.write() requires two arguments (filename, lines)\n");
+            fprintf(stderr, "Error: text_utils.write_lines() requires two arguments (filename, lines)\n");
             return 0;
         }
         
         // Get filename from first argument
         ASTNode* file_node = &args_node->children[0];
         if (file_node->type != AST_EXPR || !file_node->text) {
-            fprintf(stderr, "Error: text.write() filename must be a string\n");
+            fprintf(stderr, "Error: text_utils.write_lines() filename must be a string\n");
             return 0;
         }
         
         // Get lines from second argument
         ASTNode* lines_node = &args_node->children[1];
         if (lines_node->type != AST_EXPR || !lines_node->text) {
-            fprintf(stderr, "Error: text.write() lines must be a string\n");
+            fprintf(stderr, "Error: text_utils.write_lines() lines must be a string\n");
             return 0;
         }
         
@@ -8850,7 +9702,7 @@ static long long call_text_function(const char* func_name, ASTNode* args_node) {
         
         // Validate inputs
         if (strlen(filename) == 0) {
-            fprintf(stderr, "Error: text.write() filename cannot be empty\n");
+            fprintf(stderr, "Error: text_utils.write_lines() filename cannot be empty\n");
             return 0;
         }
         
@@ -8875,14 +9727,14 @@ static long long call_text_function(const char* func_name, ASTNode* args_node) {
         
     } else if (strcmp(func_name, "read_csv") == 0) {
         if (args_node->child_count < 1) {
-            fprintf(stderr, "Error: text.read_csv() requires one argument (filename)\n");
+            fprintf(stderr, "Error: text_utils.read_csv() requires one argument (filename)\n");
             return 0;
         }
         
         // Get filename from argument
         ASTNode* file_node = &args_node->children[0];
         if (file_node->type != AST_EXPR || !file_node->text) {
-            fprintf(stderr, "Error: text.read_csv() filename must be a string\n");
+            fprintf(stderr, "Error: text_utils.read_csv() filename must be a string\n");
             return 0;
         }
         
@@ -8903,7 +9755,7 @@ static long long call_text_function(const char* func_name, ASTNode* args_node) {
         
         // Validate filename
         if (strlen(filename) == 0) {
-            fprintf(stderr, "Error: text.read_csv() filename cannot be empty\n");
+            fprintf(stderr, "Error: text_utils.read_csv() filename cannot be empty\n");
             return 0;
         }
         
@@ -8937,21 +9789,21 @@ static long long call_text_function(const char* func_name, ASTNode* args_node) {
         
     } else if (strcmp(func_name, "write_csv") == 0) {
         if (args_node->child_count < 2) {
-            fprintf(stderr, "Error: text.write_csv() requires two arguments (filename, data)\n");
+            fprintf(stderr, "Error: text_utils.write_csv() requires two arguments (filename, data)\n");
             return 0;
         }
         
         // Get filename from first argument
         ASTNode* file_node = &args_node->children[0];
         if (file_node->type != AST_EXPR || !file_node->text) {
-            fprintf(stderr, "Error: text.write_csv() filename must be a string\n");
+            fprintf(stderr, "Error: text_utils.write_csv() filename must be a string\n");
             return 0;
         }
         
         // Get data from second argument
         ASTNode* data_node = &args_node->children[1];
         if (data_node->type != AST_EXPR || !data_node->text) {
-            fprintf(stderr, "Error: text.write_csv() data must be a string\n");
+            fprintf(stderr, "Error: text_utils.write_csv() data must be a string\n");
             return 0;
         }
         
@@ -8987,7 +9839,7 @@ static long long call_text_function(const char* func_name, ASTNode* args_node) {
         
         // Validate inputs
         if (strlen(filename) == 0) {
-            fprintf(stderr, "Error: text.write_csv() filename cannot be empty\n");
+            fprintf(stderr, "Error: text_utils.write_csv() filename cannot be empty\n");
             return 0;
         }
         
@@ -9011,7 +9863,7 @@ static long long call_text_function(const char* func_name, ASTNode* args_node) {
         return 1;
         
     } else {
-        fprintf(stderr, "Error: Unknown text function '%s'\n", func_name);
+        fprintf(stderr, "Error: Unknown text_utils function '%s'\n", func_name);
         return 0;
     }
 }
@@ -9146,10 +9998,10 @@ static long long call_debug_function(const char* func_name, ASTNode* args_node) 
         int assertion_passed = 1; // Placeholder
         
         if (assertion_passed) {
-            printf("ASSERTION PASSED: %s\n", message);
+            printf("✅ ASSERTION PASSED: %s\n", message);
             return 1;
         } else {
-            fprintf(stderr, "ASSERTION FAILED: %s\n", message);
+            fprintf(stderr, "❌ ASSERTION FAILED: %s\n", message);
             error_count++;
             return 0;
         }
@@ -9168,7 +10020,7 @@ static long long call_debug_function(const char* func_name, ASTNode* args_node) 
         performance_start_time = clock();
         performance_timer_active = 1;
         
-        printf("Performance timer started\n");
+        printf("⏱️  Performance timer started\n");
         return 1;
         
     } else if (strcmp(func_name, "end_timer") == 0) {
@@ -9188,7 +10040,7 @@ static long long call_debug_function(const char* func_name, ASTNode* args_node) 
         
         performance_timer_active = 0;
         
-        printf("Performance timer stopped: %.2f ms\n", elapsed_time);
+        printf("⏱️  Performance timer stopped: %.2f ms\n", elapsed_time);
         return (long long)(elapsed_time * 1000); // Return in microseconds for precision
         
     } else if (strcmp(func_name, "get_stats") == 0) {
@@ -9232,737 +10084,11 @@ static long long call_debug_function(const char* func_name, ASTNode* args_node) 
         // In a full implementation, this would evaluate the condition
         debug_mode = !debug_mode; // Toggle mode
         
-        printf("Debug mode %s\n", debug_mode ? "enabled" : "disabled");
+        printf("🔧 Debug mode %s\n", debug_mode ? "enabled" : "disabled");
         return debug_mode ? 1 : 0;
         
     } else {
         fprintf(stderr, "Error: Unknown debug function '%s'\n", func_name);
-        return 0;
-    }
-}
-
-// Type System Foundation Library Functions (v1.6.0)
-static long long call_type_system_function(const char* func_name, ASTNode* args_node) {
-    if (strcmp(func_name, "typeof") == 0) {
-        if (args_node->child_count < 1) {
-            fprintf(stderr, "Error: types.typeof() requires one argument (value)\n");
-            return 0;
-        }
-        
-        // Get value from argument
-        ASTNode* value_node = &args_node->children[0];
-        if (value_node->type != AST_EXPR || !value_node->text) {
-            fprintf(stderr, "Error: types.typeof() argument must be a valid expression\n");
-            return 0;
-        }
-        
-        // For now, we'll return a simple type identifier
-        // In a full implementation, this would evaluate the expression
-        printf("🔍 Type analysis: %s\n", value_node->text);
-        
-        // Return type identifier (placeholder)
-        return 1; // Type analysis completed
-        
-    } else if (strcmp(func_name, "is_type") == 0) {
-        if (args_node->child_count < 2) {
-            fprintf(stderr, "Error: types.is_type() requires two arguments (value, expected_type)\n");
-            return 0;
-        }
-        
-        // Get value and expected type from arguments
-        ASTNode* value_node = &args_node->children[0];
-        ASTNode* type_node = &args_node->children[1];
-        
-        if (value_node->type != AST_EXPR || !value_node->text) {
-            fprintf(stderr, "Error: types.is_type() first argument must be a valid expression\n");
-            return 0;
-        }
-        
-        if (type_node->type != AST_EXPR || !type_node->text) {
-            fprintf(stderr, "Error: types.is_type() second argument must be a valid type\n");
-            return 0;
-        }
-        
-        // For now, we'll do a simple type check
-        printf("🔍 Type check: %s is %s\n", value_node->text, type_node->text);
-        
-        // Return type check result (placeholder)
-        return 1; // Type check completed
-        
-    } else if (strcmp(func_name, "cast") == 0) {
-        if (args_node->child_count < 2) {
-            fprintf(stderr, "Error: types.cast() requires two arguments (value, target_type)\n");
-            return 0;
-        }
-        
-        // Get value and target type from arguments
-        ASTNode* value_node = &args_node->children[0];
-        ASTNode* target_type_node = &args_node->children[1];
-        
-        if (value_node->type != AST_EXPR || !value_node->text) {
-            fprintf(stderr, "Error: types.cast() first argument must be a valid expression\n");
-            return 0;
-        }
-        
-        if (target_type_node->type != AST_EXPR || !target_type_node->text) {
-            fprintf(stderr, "Error: types.cast() second argument must be a valid type\n");
-            return 0;
-        }
-        
-        // For now, we'll do a simple type cast simulation
-        printf("🔄 Type cast: %s -> %s\n", value_node->text, target_type_node->text);
-        
-        // Return cast result (placeholder)
-        return 1; // Type cast completed
-        
-    } else if (strcmp(func_name, "enable_type_checking") == 0) {
-        if (args_node->child_count != 0) {
-            fprintf(stderr, "Error: types.enable_type_checking() takes no arguments\n");
-            return 0;
-        }
-        
-        type_checking_enabled = 1;
-        printf("🔧 Type checking enabled\n");
-        return 1;
-        
-    } else if (strcmp(func_name, "disable_type_checking") == 0) {
-        if (args_node->child_count != 0) {
-            fprintf(stderr, "Error: types.disable_type_checking() takes no arguments\n");
-            return 0;
-        }
-        
-        type_checking_enabled = 0;
-        printf("🔧 Type checking disabled\n");
-        return 0;
-        
-    } else if (strcmp(func_name, "enable_type_inference") == 0) {
-        if (args_node->child_count != 0) {
-            fprintf(stderr, "Error: types.enable_type_inference() takes no arguments\n");
-            return 0;
-        }
-        
-        type_inference_enabled = 1;
-        printf("🔧 Type inference enabled\n");
-        return 1;
-        
-    } else if (strcmp(func_name, "disable_type_inference") == 0) {
-        if (args_node->child_count != 0) {
-            fprintf(stderr, "Error: types.disable_type_inference() takes no arguments\n");
-            return 0;
-        }
-        
-        type_inference_enabled = 0;
-        printf("🔧 Type inference disabled\n");
-        return 0;
-        
-    } else if (strcmp(func_name, "set_strict_mode") == 0) {
-        if (args_node->child_count < 1) {
-            fprintf(stderr, "Error: types.set_strict_mode() requires one argument (enabled)\n");
-            return 0;
-        }
-        
-        // Get strict mode setting from argument
-        ASTNode* mode_node = &args_node->children[0];
-        if (mode_node->type != AST_EXPR || !mode_node->text) {
-            fprintf(stderr, "Error: types.set_strict_mode() argument must be a valid expression\n");
-            return 0;
-        }
-        
-        // For now, we'll use a simple toggle
-        strict_type_mode = !strict_type_mode;
-        
-        printf("🔧 Strict type mode %s\n", strict_type_mode ? "enabled" : "disabled");
-        return strict_type_mode ? 1 : 0;
-        
-    } else if (strcmp(func_name, "get_type_stats") == 0) {
-        if (args_node->child_count != 0) {
-            fprintf(stderr, "Error: types.get_type_stats() takes no arguments\n");
-            return 0;
-        }
-        
-        // Display type system statistics
-        printf("📊 TYPE SYSTEM STATISTICS:\n");
-        printf("==========================\n");
-        printf("  Type Checking: %s\n", type_checking_enabled ? "ENABLED" : "DISABLED");
-        printf("  Type Inference: %s\n", type_inference_enabled ? "ENABLED" : "DISABLED");
-        printf("  Strict Mode: %s\n", strict_type_mode ? "ENABLED" : "DISABLED");
-        printf("  Status: %s\n", type_checking_enabled ? "ACTIVE" : "INACTIVE");
-        
-        return type_checking_enabled + type_inference_enabled + strict_type_mode;
-        
-    } else {
-        fprintf(stderr, "Error: Unknown types function '%s'\n", func_name);
-        return 0;
-    }
-}
-
-// Language Polish Library Functions (v1.6.0)
-static long long call_language_polish_function(const char* func_name, ASTNode* args_node) {
-    if (strcmp(func_name, "enhance_lambda") == 0) {
-        if (args_node->child_count < 1) {
-            fprintf(stderr, "Error: polish.enhance_lambda() requires one argument (lambda_expression)\n");
-            return 0;
-        }
-        
-        // Get lambda expression from argument
-        ASTNode* lambda_node = &args_node->children[0];
-        if (lambda_node->type != AST_EXPR || !lambda_node->text) {
-            fprintf(stderr, "Error: polish.enhance_lambda() argument must be a valid lambda expression\n");
-            return 0;
-        }
-        
-        // For now, we'll simulate enhanced lambda processing
-        printf("Enhanced lambda processing: %s\n", lambda_node->text);
-        
-        // Return enhancement result (placeholder)
-        return 1; // Lambda enhancement completed
-        
-    } else if (strcmp(func_name, "interpolate_string") == 0) {
-        if (args_node->child_count < 2) {
-            fprintf(stderr, "Error: polish.interpolate_string() requires two arguments (template, values)\n");
-            return 0;
-        }
-        
-        // Get template and values from arguments
-        ASTNode* template_node = &args_node->children[0];
-        ASTNode* values_node = &args_node->children[1];
-        
-        if (template_node->type != AST_EXPR || !template_node->text) {
-            fprintf(stderr, "Error: polish.interpolate_string() template must be a valid string\n");
-            return 0;
-        }
-        
-        if (values_node->type != AST_EXPR || !values_node->text) {
-            fprintf(stderr, "Error: polish.interpolate_string() values must be a valid expression\n");
-            return 0;
-        }
-        
-        // For now, we'll simulate string interpolation
-        printf("📝 String interpolation: %s with %s\n", template_node->text, values_node->text);
-        
-        // Return interpolation result (placeholder)
-        return 1; // String interpolation completed
-        
-    } else if (strcmp(func_name, "create_template") == 0) {
-        if (args_node->child_count < 1) {
-            fprintf(stderr, "Error: polish.create_template() requires one argument (template_string)\n");
-            return 0;
-        }
-        
-        // Get template string from argument
-        ASTNode* template_node = &args_node->children[0];
-        if (template_node->type != AST_EXPR || !template_node->text) {
-            fprintf(stderr, "Error: polish.create_template() argument must be a valid template string\n");
-            return 0;
-        }
-        
-        // For now, we'll simulate template creation
-        printf("📋 Template creation: %s\n", template_node->text);
-        
-        // Return template creation result (placeholder)
-        return 1; // Template creation completed
-        
-    } else if (strcmp(func_name, "enable_enhanced_lambdas") == 0) {
-        if (args_node->child_count != 0) {
-            fprintf(stderr, "Error: polish.enable_enhanced_lambdas() takes no arguments\n");
-            return 0;
-        }
-        
-        enhanced_lambdas_enabled = 1;
-        printf("🔧 Enhanced lambdas enabled\n");
-        return 1;
-        
-    } else if (strcmp(func_name, "disable_enhanced_lambdas") == 0) {
-        if (args_node->child_count != 0) {
-            fprintf(stderr, "Error: polish.disable_enhanced_lambdas() takes no arguments\n");
-            return 0;
-        }
-        
-        enhanced_lambdas_enabled = 0;
-        printf("🔧 Enhanced lambdas disabled\n");
-        return 0;
-        
-    } else if (strcmp(func_name, "enable_string_interpolation") == 0) {
-        if (args_node->child_count != 0) {
-            fprintf(stderr, "Error: polish.enable_string_interpolation() takes no arguments\n");
-            return 0;
-        }
-        
-        string_interpolation_enabled = 1;
-        printf("🔧 String interpolation enabled\n");
-        return 1;
-        
-    } else if (strcmp(func_name, "disable_string_interpolation") == 0) {
-        if (args_node->child_count != 0) {
-            fprintf(stderr, "Error: polish.disable_string_interpolation() takes no arguments\n");
-            return 0;
-        }
-        
-        string_interpolation_enabled = 0;
-        printf("🔧 String interpolation disabled\n");
-        return 0;
-        
-    } else if (strcmp(func_name, "get_polish_stats") == 0) {
-        if (args_node->child_count != 0) {
-            fprintf(stderr, "Error: polish.get_polish_stats() takes no arguments\n");
-            return 0;
-        }
-        
-        // Display language polish statistics
-        printf("📊 LANGUAGE POLISH STATISTICS:\n");
-        printf("==============================\n");
-        printf("  Enhanced Lambdas: %s\n", enhanced_lambdas_enabled ? "ENABLED" : "DISABLED");
-        printf("  String Interpolation: %s\n", string_interpolation_enabled ? "ENABLED" : "DISABLED");
-        printf("  Template Literals: %s\n", template_literals_enabled ? "ENABLED" : "DISABLED");
-        printf("  Status: %s\n", enhanced_lambdas_enabled ? "ACTIVE" : "INACTIVE");
-        
-        return enhanced_lambdas_enabled + string_interpolation_enabled + template_literals_enabled;
-        
-    } else {
-        fprintf(stderr, "Error: Unknown polish function '%s'\n", func_name);
-        return 0;
-    }
-}
-
-// Testing Framework Library Functions (v1.6.0)
-static long long call_testing_framework_function(const char* func_name, ASTNode* args_node) {
-    if (strcmp(func_name, "describe") == 0) {
-        if (args_node->child_count < 1) {
-            fprintf(stderr, "Error: test.describe() requires one argument (suite_name)\n");
-            return 0;
-        }
-        
-        // Get test suite name from argument
-        ASTNode* suite_node = &args_node->children[0];
-        if (suite_node->type != AST_EXPR || !suite_node->text) {
-            fprintf(stderr, "Error: test.describe() argument must be a valid string\n");
-            return 0;
-        }
-        
-        // Extract suite name (remove quotes)
-        char suite_name[256];
-        if (is_string_literal(suite_node->text)) {
-            size_t len = strlen(suite_node->text);
-            if (len > 2) {
-                strncpy(suite_name, suite_node->text + 1, len - 2);
-                suite_name[len - 2] = '\0';
-            } else {
-                suite_name[0] = '\0';
-            }
-        } else {
-            strncpy(suite_name, suite_node->text, sizeof(suite_name) - 1);
-            suite_name[sizeof(suite_name) - 1] = '\0';
-        }
-        
-        // Set current test suite
-        strncpy(current_test_suite, suite_name, sizeof(current_test_suite) - 1);
-        current_test_suite[sizeof(current_test_suite) - 1] = '\0';
-        
-        printf("\n🧪 TEST SUITE: %s\n", suite_name);
-        printf("=");
-        for (int i = 0; i < strlen(suite_name) + 10; i++) printf("=");
-        printf("\n");
-        
-        return 1;
-        
-    } else if (strcmp(func_name, "it") == 0) {
-        if (args_node->child_count < 1) {
-            fprintf(stderr, "Error: test.it() requires one argument (test_name)\n");
-            return 0;
-        }
-        
-        // Get test name from argument
-        ASTNode* test_node = &args_node->children[0];
-        if (test_node->type != AST_EXPR || !test_node->text) {
-            fprintf(stderr, "Error: test.it() argument must be a valid string\n");
-            return 0;
-        }
-        
-        // Extract test name (remove quotes)
-        char test_name[256];
-        if (is_string_literal(test_node->text)) {
-            size_t len = strlen(test_node->text);
-            if (len > 2) {
-                strncpy(test_name, test_node->text + 1, len - 2);
-                test_name[len - 2] = '\0';
-            } else {
-                test_name[0] = '\0';
-            }
-        } else {
-            strncpy(test_name, test_node->text, sizeof(test_name) - 1);
-            test_name[sizeof(test_name) - 1] = '\0';
-        }
-        
-        // Set current test name
-        strncpy(current_test_name, test_name, sizeof(current_test_name) - 1);
-        current_test_name[sizeof(current_test_name) - 1] = '\0';
-        
-        test_count++;
-        printf("  📋 Test %d: %s\n", test_count, test_name);
-        
-        return test_count;
-        
-    } else if (strcmp(func_name, "expect") == 0) {
-        if (args_node->child_count < 1) {
-            fprintf(stderr, "Error: test.expect() requires one argument (value)\n");
-            return 0;
-        }
-        
-        // Get expected value from argument
-        ASTNode* value_node = &args_node->children[0];
-        if (value_node->type != AST_EXPR || !value_node->text) {
-            fprintf(stderr, "Error: test.expect() argument must be a valid expression\n");
-            return 0;
-        }
-        
-        // For now, we'll simulate expectation checking
-        printf("    ✅ Expectation: %s\n", value_node->text);
-        
-        // Return expectation result (placeholder)
-        return 1; // Expectation check completed
-        
-    } else if (strcmp(func_name, "assert") == 0) {
-        if (args_node->child_count < 2) {
-            fprintf(stderr, "Error: test.assert() requires two arguments (condition, message)\n");
-            return 0;
-        }
-        
-        // Get condition and message from arguments
-        ASTNode* condition_node = &args_node->children[0];
-        ASTNode* message_node = &args_node->children[1];
-        
-        if (condition_node->type != AST_EXPR || !condition_node->text) {
-            fprintf(stderr, "Error: test.assert() condition must be a valid expression\n");
-            return 0;
-        }
-        
-        if (message_node->type != AST_EXPR || !message_node->text) {
-            fprintf(stderr, "Error: test.assert() message must be a valid string\n");
-            return 0;
-        }
-        
-        // Extract message (remove quotes)
-        char message[256];
-        if (is_string_literal(message_node->text)) {
-            size_t len = strlen(message_node->text);
-            if (len > 2) {
-                strncpy(message, message_node->text + 1, len - 2);
-                message[len - 2] = '\0';
-            } else {
-                message[0] = '\0';
-            }
-        } else {
-            strncpy(message, message_node->text, sizeof(message) - 1);
-            message[sizeof(message) - 1] = '\0';
-        }
-        
-        // For now, we'll simulate assertion checking
-        printf("    🔍 Assertion: %s - %s\n", condition_node->text, message);
-        
-        // Return assertion result (placeholder)
-        return 1; // Assertion check completed
-        
-    } else if (strcmp(func_name, "assert_equals") == 0) {
-        if (args_node->child_count < 3) {
-            fprintf(stderr, "Error: test.assert_equals() requires three arguments (actual, expected, message)\n");
-            return 0;
-        }
-        
-        // Get actual, expected, and message from arguments
-        ASTNode* actual_node = &args_node->children[0];
-        ASTNode* expected_node = &args_node->children[1];
-        ASTNode* message_node = &args_node->children[2];
-        
-        if (actual_node->type != AST_EXPR || !actual_node->text) {
-            fprintf(stderr, "Error: test.assert_equals() actual must be a valid expression\n");
-            return 0;
-        }
-        
-        if (expected_node->type != AST_EXPR || !expected_node->text) {
-            fprintf(stderr, "Error: test.assert_equals() expected must be a valid expression\n");
-            return 0;
-        }
-        
-        if (message_node->type != AST_EXPR || !message_node->text) {
-            fprintf(stderr, "Error: test.assert_equals() message must be a valid string\n");
-            return 0;
-        }
-        
-        // Extract message (remove quotes)
-        char message[256];
-        if (is_string_literal(message_node->text)) {
-            size_t len = strlen(message_node->text);
-            if (len > 2) {
-                strncpy(message, message_node->text + 1, len - 2);
-                message[len - 2] = '\0';
-            } else {
-                message[0] = '\0';
-            }
-        } else {
-            strncpy(message, message_node->text, sizeof(message) - 1);
-            message[sizeof(message) - 1] = '\0';
-        }
-        
-        // For now, we'll simulate equality assertion
-        printf("    🔍 Assert Equals: %s == %s - %s\n", actual_node->text, expected_node->text, message);
-        
-        // Return assertion result (placeholder)
-        return 1; // Equality assertion completed
-        
-    } else if (strcmp(func_name, "start_benchmark") == 0) {
-        if (args_node->child_count < 1) {
-            fprintf(stderr, "Error: test.start_benchmark() requires one argument (benchmark_name)\n");
-            return 0;
-        }
-        
-        // Get benchmark name from argument
-        ASTNode* name_node = &args_node->children[0];
-        if (name_node->type != AST_EXPR || !name_node->text) {
-            fprintf(stderr, "Error: test.start_benchmark() argument must be a valid string\n");
-            return 0;
-        }
-        
-        // Extract benchmark name (remove quotes)
-        char benchmark_name[256];
-        if (is_string_literal(name_node->text)) {
-            size_t len = strlen(name_node->text);
-            if (len > 2) {
-                strncpy(benchmark_name, name_node->text + 1, len - 2);
-                benchmark_name[len - 2] = '\0';
-            } else {
-                benchmark_name[0] = '\0';
-            }
-        } else {
-            strncpy(benchmark_name, name_node->text, sizeof(benchmark_name) - 1);
-            benchmark_name[sizeof(benchmark_name) - 1] = '\0';
-        }
-        
-        // Start benchmark timing
-        benchmark_mode = 1;
-        benchmark_start_time = clock();
-        
-        printf("    Benchmark started: %s\n", benchmark_name);
-        
-        return 1;
-        
-    } else if (strcmp(func_name, "end_benchmark") == 0) {
-        if (args_node->child_count != 0) {
-            fprintf(stderr, "Error: test.end_benchmark() takes no arguments\n");
-            return 0;
-        }
-        
-        if (!benchmark_mode) {
-            fprintf(stderr, "Error: No benchmark active to stop\n");
-            return 0;
-        }
-        
-        // Stop benchmark timing and calculate elapsed time
-        clock_t end_time = clock();
-        double elapsed_time = ((double)(end_time - benchmark_start_time)) / CLOCKS_PER_SEC * 1000.0;
-        
-        benchmark_mode = 0;
-        
-        printf("    Benchmark completed: %.2f ms\n", elapsed_time);
-        return (long long)(elapsed_time * 1000); // Return in microseconds for precision
-        
-    } else if (strcmp(func_name, "get_test_stats") == 0) {
-        if (args_node->child_count != 0) {
-            fprintf(stderr, "Error: test.get_test_stats() takes no arguments\n");
-            return 0;
-        }
-        
-        // Display testing statistics
-        printf("\n📊 TESTING FRAMEWORK STATISTICS:\n");
-        printf("==================================\n");
-        printf("  Total Tests: %d\n", test_count);
-        printf("  Tests Passed: %d\n", test_passed);
-        printf("  Tests Failed: %d\n", test_failed);
-        printf("  Tests Skipped: %d\n", test_skipped);
-        printf("  Current Suite: %s\n", current_test_suite);
-        printf("  Current Test: %s\n", current_test_name);
-        printf("  Benchmark Mode: %s\n", benchmark_mode ? "ACTIVE" : "INACTIVE");
-        
-        return test_count + test_passed + test_failed + test_skipped;
-        
-    } else if (strcmp(func_name, "reset_tests") == 0) {
-        if (args_node->child_count != 0) {
-            fprintf(stderr, "Error: test.reset_tests() takes no arguments\n");
-            return 0;
-        }
-        
-        // Reset all test counters
-        test_count = 0;
-        test_passed = 0;
-        test_failed = 0;
-        test_skipped = 0;
-        current_test_name[0] = '\0';
-        current_test_suite[0] = '\0';
-        benchmark_mode = 0;
-        
-        printf("🔄 Test counters reset\n");
-        return 1;
-        
-    } else {
-        fprintf(stderr, "Error: Unknown test function '%s'\n", func_name);
-        return 0;
-    }
-}
-
-// Advanced Data Structures Library Functions (v1.6.0)
-static long long call_data_structures_function(const char* func_name, ASTNode* args_node) {
-    if (strcmp(func_name, "create_linked_list") == 0) {
-        if (args_node->child_count < 1) {
-            fprintf(stderr, "Error: data.create_linked_list() requires one argument (initial_value)\n");
-            return 0;
-        }
-        
-        // Get initial value from argument
-        ASTNode* value_node = &args_node->children[0];
-        if (value_node->type != AST_EXPR || !value_node->text) {
-            fprintf(stderr, "Error: data.create_linked_list() argument must be a valid expression\n");
-            return 0;
-        }
-        
-        // For now, we'll simulate linked list creation
-        printf("🔗 Linked List created with initial value: %s\n", value_node->text);
-        
-        linked_list_mode = 1;
-        return 1; // Linked list creation completed
-        
-    } else if (strcmp(func_name, "create_binary_tree") == 0) {
-        if (args_node->child_count < 1) {
-            fprintf(stderr, "Error: data.create_binary_tree() requires one argument (root_value)\n");
-            return 0;
-        }
-        
-        // Get root value from argument
-        ASTNode* value_node = &args_node->children[0];
-        if (value_node->type != AST_EXPR || !value_node->text) {
-            fprintf(stderr, "Error: data.create_binary_tree() argument must be a valid expression\n");
-            return 0;
-        }
-        
-        // For now, we'll simulate binary tree creation
-        printf("Binary Tree created with root value: %s\n", value_node->text);
-        
-        binary_tree_mode = 1;
-        return 1; // Binary tree creation completed
-        
-    } else if (strcmp(func_name, "create_hash_table") == 0) {
-        if (args_node->child_count < 1) {
-            fprintf(stderr, "Error: data.create_hash_table() requires one argument (initial_capacity)\n");
-            return 0;
-        }
-        
-        // Get initial capacity from argument
-        ASTNode* capacity_node = &args_node->children[0];
-        if (capacity_node->type != AST_EXPR || !capacity_node->text) {
-            fprintf(stderr, "Error: data.create_hash_table() argument must be a valid expression\n");
-            return 0;
-        }
-        
-        // For now, we'll simulate hash table creation
-        printf("🗂️  Hash Table created with capacity: %s\n", capacity_node->text);
-        
-        hash_table_mode = 1;
-        return 1; // Hash table creation completed
-        
-    } else if (strcmp(func_name, "create_priority_queue") == 0) {
-        if (args_node->child_count < 1) {
-            fprintf(stderr, "Error: data.create_priority_queue() requires one argument (ordering_type)\n");
-            return 0;
-        }
-        
-        // Get ordering type from argument
-        ASTNode* type_node = &args_node->children[0];
-        if (type_node->type != AST_EXPR || !type_node->text) {
-            fprintf(stderr, "Error: data.create_priority_queue() argument must be a valid expression\n");
-            return 0;
-        }
-        
-        // For now, we'll simulate priority queue creation
-        printf("⚡ Priority Queue created with ordering: %s\n", type_node->text);
-        
-        priority_queue_mode = 1;
-        return 1; // Priority queue creation completed
-        
-    } else if (strcmp(func_name, "quicksort") == 0) {
-        if (args_node->child_count < 1) {
-            fprintf(stderr, "Error: data.quicksort() requires one argument (array)\n");
-            return 0;
-        }
-        
-        // Get array from argument
-        ASTNode* array_node = &args_node->children[0];
-        if (array_node->type != AST_EXPR || !array_node->text) {
-            fprintf(stderr, "Error: data.quicksort() argument must be a valid array\n");
-            return 0;
-        }
-        
-        // For now, we'll simulate quicksort
-        printf("🔄 Quicksort applied to array: %s\n", array_node->text);
-        
-        return 1; // Quicksort completed
-        
-    } else if (strcmp(func_name, "binary_search") == 0) {
-        if (args_node->child_count < 2) {
-            fprintf(stderr, "Error: data.binary_search() requires two arguments (array, target)\n");
-            return 0;
-        }
-        
-        // Get array and target from arguments
-        ASTNode* array_node = &args_node->children[0];
-        ASTNode* target_node = &args_node->children[1];
-        
-        if (array_node->type != AST_EXPR || !array_node->text) {
-            fprintf(stderr, "Error: data.binary_search() first argument must be a valid array\n");
-            return 0;
-        }
-        
-        if (target_node->type != AST_EXPR || !target_node->text) {
-            fprintf(stderr, "Error: data.binary_search() second argument must be a valid target\n");
-            return 0;
-        }
-        
-        // For now, we'll simulate binary search
-        printf("🔍 Binary search for %s in array: %s\n", target_node->text, array_node->text);
-        
-        return 1; // Binary search completed
-        
-    } else if (strcmp(func_name, "get_data_stats") == 0) {
-        if (args_node->child_count != 0) {
-            fprintf(stderr, "Error: data.get_data_stats() takes no arguments\n");
-            return 0;
-        }
-        
-        // Display data structures statistics
-        printf("📊 DATA STRUCTURES STATISTICS:\n");
-        printf("==============================\n");
-        printf("  Linked Lists: %s\n", linked_list_mode ? "ACTIVE" : "INACTIVE");
-        printf("  Binary Trees: %s\n", binary_tree_mode ? "ACTIVE" : "INACTIVE");
-        printf("  Hash Tables: %s\n", hash_table_mode ? "ACTIVE" : "INACTIVE");
-        printf("  Priority Queues: %s\n", priority_queue_mode ? "ACTIVE" : "INACTIVE");
-        printf("  Status: %s\n", (linked_list_mode || binary_tree_mode || hash_table_mode || priority_queue_mode) ? "ACTIVE" : "INACTIVE");
-        
-        return linked_list_mode + binary_tree_mode + hash_table_mode + priority_queue_mode;
-        
-    } else if (strcmp(func_name, "reset_data_structures") == 0) {
-        if (args_node->child_count != 0) {
-            fprintf(stderr, "Error: data.reset_data_structures() takes no arguments\n");
-            return 0;
-        }
-        
-        // Reset all data structure modes
-        linked_list_mode = 0;
-        binary_tree_mode = 0;
-        hash_table_mode = 0;
-        priority_queue_mode = 0;
-        
-        printf("🔄 Data structure modes reset\n");
-        return 1;
-        
-    } else {
-        fprintf(stderr, "Error: Unknown data function '%s'\n", func_name);
         return 0;
     }
 }

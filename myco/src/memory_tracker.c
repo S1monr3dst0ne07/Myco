@@ -87,7 +87,7 @@ void memory_tracker_init(void) {
     memset(&stats, 0, sizeof(MemoryStats));
     next_allocation_id = 1;
     
-    printf("Memory tracker initialized with capacity for %zu allocations\n", allocations_capacity);
+
 }
 
 /**
@@ -104,7 +104,7 @@ void memory_tracker_init(void) {
  */
 void memory_tracker_cleanup(void) {
     #if DEBUG_MEMORY_TRACKING
-    printf("Memory tracker cleaned up\n");
+
     #endif
     
     if (allocations) {
@@ -150,7 +150,7 @@ static void expand_allocations_array(void) {
     allocations = new_allocations;
     allocations_capacity = new_capacity;
     
-    printf("Memory tracker expanded to capacity %zu\n", new_capacity);
+
 }
 
 /**
@@ -233,6 +233,10 @@ static void mark_allocation_freed(void* ptr, size_t size) {
 
 // Memory allocation wrappers
 void* tracked_malloc(size_t size, const char* file, int line, const char* function) {
+    if (!tracking_enabled) {
+        return malloc(size);
+    }
+    
     void* ptr = malloc(size);
     if (ptr) {
         add_allocation(ptr, size, file, line, function);
@@ -305,6 +309,8 @@ void tracked_free(void* ptr, const char* file, int line, const char* function) {
     // If we get here, the pointer wasn't tracked (ruh roh)
     #if DEBUG_MEMORY_TRACKING
     fprintf(stderr, "Warning: Attempting to free untracked pointer %p\n", ptr);
+    fprintf(stderr, "  Called from: %s:%d (%s)\n", file, line, function);
+    fprintf(stderr, "  Current allocations count: %zu\n", allocations_count);
     #endif
     
     free(ptr);

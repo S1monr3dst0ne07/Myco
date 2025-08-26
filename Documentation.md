@@ -21,11 +21,11 @@
 
 Myco is a modern, lightweight programming language designed for simplicity and expressiveness. It features dynamic typing, object-oriented capabilities, functional programming with lambda functions, and a clean syntax inspired by Lua and Python.
 
-**Version**: 1.6.0 - Language Maturity & Developer Experience  
+**Version**: 1.5.0 - Enhanced System Integration & Error Handling  
 **License**: MIT  
 **Repository**: https://github.com/IvyMycelia/myco
 
-**Latest Features**: Comprehensive float support, enhanced math functions, clear type system, comprehensive utility library, arrow syntax for functions, switch/case statements, try/catch error handling, system integration libraries, language maturity features
+**Latest Features**: Comprehensive float support, enhanced math functions, clear type system, comprehensive utility library, arrow syntax for functions, switch/case statements, try/catch error handling
 
 ## Installation
 
@@ -78,6 +78,21 @@ let pi = 3.14159;
 let small = 0.001;
 let negative_float = -2.5;
 let leading_decimal = .25;
+```
+
+### Boolean Constants
+```myco
+let is_true = True;      # Evaluates to 1
+let is_false = False;    # Evaluates to 0
+
+# Use in conditions
+if True:
+    print("This will always execute");
+end
+
+if False:
+    print("This will never execute");
+end
 ```
 
 ### Floating-Point Numbers ⭐ **NEW in v1.4.0**
@@ -579,7 +594,7 @@ end
 
 # With mixed types
 func process(x: int, y) -> string:
-    return "Result: " + to_string(x + y);
+    return "Result: " + str(x + y);
 end
 
 # No types (implicit)
@@ -886,7 +901,7 @@ let newText = replace(text, "World", "Universe");  # "Hello Universe"
 Returns an array of object property names.
 ```myco
 let person = {name: "Alice", age: 30};
-let keys = object_keys(person);  # ["name", "age"]
+let keys = object.keys(person);  # ["name", "age"]
 ```
 
 #### `values(object)`
@@ -929,26 +944,26 @@ let failed = remove(person, "missing");  # 0 (false)
 
 ### Utility Functions
 
-#### `to_string(value)`
+#### `str(value)`
 Converts a value to its string representation.
 ```myco
 let number = 42;
-let text = to_string(number);  # "42"
+let text = str(number);  # "42"
 ```
 
 ### Set Functions
 
-#### `set_has(set, element)`
+#### `set.has(set, element)`
 Checks if a set contains a specific element.
 ```myco
-# Returns 1 (true) if element exists, 0 (false) otherwise
+# Returns True (1) if element exists, False (0) otherwise
 # Supports both numeric and string elements
 ```
 
-#### `set_add(set, element)`
+#### `set.add(set, element)`
 Adds an element to a set (only if not already present).
 ```myco
-# Returns 1 on success (including if element already exists)
+# Returns True (1) on success (including if element already exists)
 # Automatically maintains uniqueness constraint
 ```
 
@@ -1070,7 +1085,7 @@ let min_val = min(data[0], data[1], data[2], data[3]);
 let max_val = max(data[0], data[1], data[2], data[3]);
 ```
 
-#### `set_size(set)`
+#### `set.size(set)`
 Returns the number of unique elements in a set.
 ```myco
 # Returns integer count of elements
@@ -1103,7 +1118,7 @@ let is_object = is_obj({x: 1}); # 1 (true)
 #### String Utilities
 ```myco
 # String conversion alias
-let str_value = str(42);     # Same as to_string(42)
+let str_value = str(42);     # String conversion function
 
 # Substring search
 let pos = find("Hello World", "World");  # 6 (position of "World")
@@ -1273,6 +1288,38 @@ f.write_file(long_name, "Long filename test");
 - Clean up temporary files after use
 ```
 
+## Library System
+
+Myco uses a modern library system with simple, descriptive names and no aliases:
+
+### Core Libraries
+- **`array`** - Array manipulation functions (first, last, reverse, slice, join)
+- **`object`** - Object property management (keys, values, has_key, size, remove)
+- **`str`** - String utilities (split, trim, replace)
+- **`set`** - Set operations (has, add, size)
+- **`math`** - Mathematical functions and constants
+- **`util`** - Utility functions (type, is_num, is_str, is_arr, is_obj, find, copy, has)
+
+### System Integration Libraries
+- **`path`** - Path manipulation (join, dirname, basename, absolute)
+- **`env`** - Environment variables (has, set, list, get)
+- **`process`** - Process management (get_pid, get_cwd, execute, change_dir)
+- **`text`** - File I/O and CSV handling (write, read, write_csv, read_csv)
+- **`debug`** - Debugging tools (warn, error, assert, start_timer, end_timer, get_stats, set_debug_mode)
+
+### Library Usage
+```myco
+# Import libraries
+use array as arr;
+use object as obj;
+use str as string;
+
+# Use library functions
+let first = arr.first([1, 2, 3]);
+let keys = obj.keys(my_object);
+let trimmed = string.trim("  hello  ");
+```
+
 ## Standard Library
 
 Myco includes a comprehensive standard library with functions for common programming tasks:
@@ -1280,39 +1327,35 @@ Myco includes a comprehensive standard library with functions for common program
 - **Array manipulation**: push, pop, slice, reverse, join
 - **String processing**: split, trim, replace
 - **Object operations**: keys, values, property checking
-- **Set operations**: set_has, set_add, set_size
-- **Type conversion**: to_string
+- **Set operations**: set.has, set.add, set.size
+- **Type conversion**: str (converts values to strings)
 - **Utility functions**: len for size checking
 
 ## System Integration Libraries (v1.5.0) ⭐ **NEW**
 
 Myco v1.5.0 introduces comprehensive system integration capabilities through specialized libraries:
 
-### Path Utilities Library (`path_utils`)
+### Path Utilities Library (`path`)
 
 **Cross-platform path manipulation and validation:**
 
 ```myco
-use path_utils as p;
+use path as p;
 
 # Path combination and manipulation
-let full_path = p.join_path("home", "user", "documents", "file.txt");
+let full_path = p.join("home", "user", "documents", "file.txt");
 let dir = p.dirname("/home/user/documents/file.txt");        # "/home/user/documents"
 let file = p.basename("/home/user/documents/file.txt");      # "file.txt"
 
 # Path analysis
-let is_abs = p.is_absolute("/home/user");                   # True
-let normalized = p.normalize_path("./.././file.txt");       # "../file.txt"
-let relative = p.relative_path("/home/user", "/home/user/documents"); # "documents"
+let is_abs = p.absolute("/home/user");                      # True
 ```
 
 **Functions:**
-- `p.join_path(path1, path2, ...)` - Combine path components safely
+- `p.join(path1, path2, ...)` - Combine path components safely
 - `p.dirname(path)` - Extract directory name from full path
 - `p.basename(path)` - Extract filename from full path
-- `p.is_absolute(path)` - Check if path is absolute (cross-platform)
-- `p.normalize_path(path)` - Normalize path separators and format
-- `p.relative_path(from, to)` - Calculate relative path between locations
+- `p.absolute(path)` - Check if path is absolute (cross-platform)
 
 ### Environment Variables Library (`env`)
 
@@ -1322,22 +1365,16 @@ let relative = p.relative_path("/home/user", "/home/user/documents"); # "documen
 use env as e;
 
 # Environment variable access
-let home_dir = e.get_env("HOME");
-let path_var = e.get_env("PATH");
-
-# Environment variable management
-e.set_env("MYCO_DEBUG", "1");
-let has_debug = e.has_env("MYCO_DEBUG");
-
-# Environment inspection
-let all_vars = e.list_env();
+let has_path = e.has("PATH");           # Check if PATH exists
+let set_result = e.set("MYCO_DEBUG", "1"); # Set environment variable
+let var_count = e.list();               # Count environment variables
 ```
 
 **Functions:**
-- `e.get_env(name)` - Get environment variable value
-- `e.set_env(name, value)` - Set environment variable
-- `e.list_env()` - List all environment variables
-- `e.has_env(name)` - Check if environment variable exists
+- `e.has(name)` - Check if environment variable exists (returns True/False)
+- `e.set(name, value)` - Set environment variable (returns True on success)
+- `e.list()` - Count total environment variables (returns integer count)
+- `e.get(name)` - Get environment variable value (returns True if found)
 
 ### Command-Line Arguments Library (`args`)
 
@@ -1346,20 +1383,20 @@ let all_vars = e.list_env();
 ```myco
 use args as a;
 
-# Command-line argument access
-let total_args = a.arg_count();
-let first_arg = a.get_arg(0);
-let second_arg = a.get_arg(1);
-
-# Flag parsing
-a.parse_flags();  # Identifies and displays flags (-, --)
+# Command-line argument access (placeholder implementation)
+let total_args = a.arg_count();    # Returns 0 (not yet implemented)
+let first_arg = a.get_arg(0);      # Returns 0 (not yet implemented)
+let all_args = a.get_args();       # Returns 0 (not yet implemented)
+let flags = a.parse_flags();       # Returns 0 (not yet implemented)
 ```
 
 **Functions:**
-- `a.get_args()` - Get all command-line arguments
-- `a.get_arg(index)` - Get argument at specific position
-- `a.arg_count()` - Get total number of arguments
-- `a.parse_flags()` - Parse command-line flags and options
+- `a.arg_count()` - Get total number of arguments (returns 0 for now)
+- `a.get_arg(index)` - Get argument at specific position (returns 0 for now)
+- `a.get_args()` - Get all command-line arguments (returns 0 for now)
+- `a.parse_flags()` - Parse command-line flags and options (returns 0 for now)
+
+**Note:** Command-line argument functionality is planned for future versions.
 
 ### Process Execution Library (`process`)
 
@@ -1369,47 +1406,43 @@ a.parse_flags();  # Identifies and displays flags (-, --)
 use process as proc;
 
 # Process information
-let current_pid = proc.get_pid();
-let current_dir = proc.get_cwd();
+let current_pid = proc.get_pid();           # Get current process ID
+let current_dir = proc.get_cwd();           # Get current working directory
 
 # Shell command execution
-proc.execute("ls -la");
-proc.execute("echo 'Hello from Myco'");
+let result = proc.execute("ls -la");        # Execute shell command
 
 # Directory management
-proc.change_dir("/home/user/documents");
+let changed = proc.change_dir("/tmp");      # Change working directory
 ```
 
 **Functions:**
-- `proc.execute(command)` - Execute shell command and return output
-- `proc.get_pid()` - Get current process ID
-- `proc.get_cwd()` - Get current working directory
-- `proc.change_dir(path)` - Change current working directory
+- `proc.get_pid()` - Get current process ID (returns actual PID number)
+- `proc.get_cwd()` - Get current working directory (returns True on success)
+- `proc.execute(command)` - Execute shell command (returns True on success)
+- `proc.change_dir(path)` - Change current working directory (returns True on success)
 
-### Text Processing Library (`text_utils`)
+### Text Processing Library (`text`)
 
 **Advanced file and data processing:**
 
 ```myco
-use text_utils as t;
+use text as t;
 
 # Line-by-line file operations
-t.write_lines("data.txt", "Hello World");
-let lines = t.read_lines("data.txt");
+let write_result = t.write("data.txt", "Hello World");    # Write content to file
+let read_result = t.read("data.txt");                     # Read file content
 
 # CSV file handling
-t.write_csv("data.csv", "Name,Age,City");
-t.write_csv("data.csv", "Alice,25,New York");
-t.write_csv("data.csv", "Bob,30,San Francisco");
-
-let csv_lines = t.read_csv("data.csv");
+let csv_write = t.write_csv("data.csv", "Name,Age,City"); # Write CSV data
+let csv_read = t.read_csv("data.csv");                    # Read CSV file
 ```
 
 **Functions:**
-- `t.read_lines(filename)` - Read file as array of lines
-- `t.write_lines(filename, content)` - Write content as line to file
-- `t.read_csv(filename)` - Read CSV file line by line
-- `t.write_csv(filename, content)` - Write content as line to CSV file
+- `t.write(filename, content)` - Write content to file (returns True on success)
+- `t.read(filename)` - Read file content (returns True on success)
+- `t.write_csv(filename, data)` - Write CSV data to file (returns True on success)
+- `t.read_csv(filename)` - Read CSV file (returns True on success)
 
 ### Enhanced Debugging Library (`debug`)
 
@@ -1419,207 +1452,36 @@ let csv_lines = t.read_csv("data.csv");
 use debug as d;
 
 # Warning and error system
-d.warn("This is a warning message");
-d.error("This is an error message");
+d.warn("This is a warning message");        # Outputs: WARNING: message
+d.error("This is an error message");        # Outputs: ERROR: message
 
 # Performance profiling
-d.start_timer();
+d.start_timer();                            # Start timing
 # ... perform operations ...
-let elapsed = d.end_timer();  # Returns elapsed time in microseconds
+let elapsed = d.end_timer();                # Stop timing, returns microseconds
 
 # Debug mode control
-d.set_debug_mode("enabled");
-let debug_stats = d.get_stats();
+d.set_debug_mode(1);                        # Enable debug mode
+let debug_stats = d.get_stats();            # Get debug statistics
+
+# Assertions
+d.assert(1 == 1, "Basic assertion");       # Outputs: ASSERTION PASSED: message
+d.assert(1 == 2, "Failing assertion");     # Outputs: ASSERTION FAILED: message
 ```
 
 **Functions:**
-- `d.warn(message)` - Generate formatted warnings with emojis and counters
-- `d.error(message)` - Generate formatted errors with emojis and counters
+- `d.warn(message)` - Generate formatted warnings (returns True)
+- `d.error(message)` - Generate formatted errors (returns True)
 - `d.assert(condition, message)` - Handle assertions with pass/fail reporting
-- `d.start_timer()` - Start performance timing with validation
-- `d.end_timer()` - Stop timing and report elapsed time in milliseconds
-- `d.get_stats()` - Comprehensive statistics with formatted output
-- `d.set_debug_mode()` - Toggle debug mode on/off
+- `d.start_timer()` - Start performance timing (returns True on success)
+- `d.end_timer()` - Stop timing and return elapsed time in microseconds
+- `d.get_stats()` - Display comprehensive debug statistics (returns True)
+- `d.set_debug_mode(enabled)` - Toggle debug mode on/off (returns True)
 
 **Professional Features:**
-- **Emoji formatting** - ⚠️ for warnings, ❌ for errors, ✅ for assertions, ⏱️ for timing
-- **Counter tracking** - Automatic warning and error counting
-- **Message storage** - Last warning and error messages preserved
+- **Clean output** - No emojis, professional formatting
 - **Timer validation** - Prevents invalid timer operations
 - **Comprehensive reporting** - Detailed statistics and status information
-
-## Language Maturity Libraries (v1.6.0)
-
-### Type System Foundation Library (`types`)
-
-**Enterprise-grade type safety and validation:**
-
-```myco
-use types as t;
-
-# Type analysis and identification
-let type_info = t.typeof("Hello World");
-let is_string = t.is_type("Hello", "string");
-
-# Type casting and conversion
-let converted = t.cast("42", "number");
-
-# Type system control
-t.enable_type_checking();
-t.enable_type_inference();
-t.set_strict_mode();
-
-# Type system statistics
-let type_stats = t.get_type_stats();
-```
-
-**Functions:**
-- `t.typeof(value)` - Analyze and identify value types
-- `t.is_type(value, expected_type)` - Type checking and validation
-- `t.cast(value, target_type)` - Type casting and conversion
-- `t.enable_type_checking()` - Enable type checking system
-- `t.disable_type_checking()` - Disable type checking system
-- `t.enable_type_inference()` - Enable type inference
-- `t.disable_type_inference()` - Disable type inference
-- `t.set_strict_mode()` - Enable strict type enforcement
-- `t.get_type_stats()` - Comprehensive type system statistics
-
-**Enterprise Features:**
-- **Type Analysis** - Automatic type identification and validation
-- **Type Casting** - Safe type conversion between compatible types
-- **System Control** - Enable/disable type checking and inference
-- **Strict Mode** - Enhanced type safety for production applications
-- **Statistics** - Comprehensive reporting on type system usage
-
-### Language Polish Library (`polish`)
-
-**Modern syntax enhancements and developer experience:**
-
-```myco
-use polish as p;
-
-# Enhanced lambda functions
-let enhanced_lambda = p.enhance_lambda("(x) => x * 2");
-
-# String interpolation
-let interpolated = p.interpolate_string("Hello ${name}!", "name=Alice");
-
-# Template creation
-let template = p.create_template("Template: ${value}");
-
-# Feature control
-p.enable_enhanced_lambdas();
-p.enable_string_interpolation();
-
-# Statistics
-let polish_stats = p.get_polish_stats();
-```
-
-**Functions:**
-- `p.enhance_lambda(lambda_expression)` - Enhanced lambda function support
-- `p.interpolate_string(template, values)` - String interpolation with variables
-- `p.create_template(template_string)` - Template literal creation
-- `p.enable_enhanced_lambdas()` - Enable enhanced lambda features
-- `p.disable_enhanced_lambdas()` - Disable enhanced lambda features
-- `p.enable_string_interpolation()` - Enable string interpolation
-- `p.disable_string_interpolation()` - Disable string interpolation
-- `p.get_polish_stats()` - Language polish statistics and reporting
-
-**Modern Features:**
-- **Enhanced Lambdas** - Advanced lambda function capabilities
-- **String Interpolation** - Dynamic string construction with variables
-- **Template Literals** - Reusable string templates
-- **Feature Control** - Enable/disable specific language features
-- **Statistics** - Usage and performance metrics
-
-### Testing Framework Library (`test`)
-
-**Professional testing and quality assurance:**
-
-```myco
-use test as t;
-
-# Test suite management
-t.describe("My Test Suite");
-
-# Individual test cases
-t.it("should work correctly");
-t.expect("Test expectation");
-
-# Assertions and validation
-t.assert("2 + 2 == 4", "Basic arithmetic");
-t.assert_equals("actual", "expected", "Equality test");
-
-# Performance benchmarking
-t.start_benchmark("Performance Test");
-# ... perform operations ...
-let elapsed = t.end_benchmark();
-
-# Test statistics
-let test_stats = t.get_test_stats();
-t.reset_tests();
-```
-
-**Functions:**
-- `t.describe(suite_name)` - Create and manage test suites
-- `t.it(test_name)` - Create individual test cases
-- `t.expect(value)` - Set test expectations
-- `t.assert(condition, message)` - Basic assertion testing
-- `t.assert_equals(actual, expected, message)` - Equality assertion
-- `t.start_benchmark(name)` - Start performance benchmarking
-- `t.end_benchmark()` - Stop benchmarking and report results
-- `t.get_test_stats()` - Comprehensive testing statistics
-- `t.reset_tests()` - Reset test counters and cleanup
-
-**Professional Features:**
-- **Test Suites** - Organized test organization and management
-- **Individual Tests** - Granular test case creation and tracking
-- **Assertions** - Multiple assertion types for comprehensive testing
-- **Benchmarking** - Performance measurement and timing
-- **Statistics** - Detailed test execution reporting
-- **Cleanup** - Test state management and reset capabilities
-
-### Advanced Data Structures Library (`data`)
-
-**Enterprise-grade algorithms and data structures:**
-
-```myco
-use data as d;
-
-# Data structure creation
-let linked_list = d.create_linked_list("42");
-let binary_tree = d.create_binary_tree("100");
-let hash_table = d.create_hash_table("16");
-let priority_queue = d.create_priority_queue("min");
-
-# Algorithm operations
-let sorted_array = d.quicksort("[5, 2, 8, 1, 9]");
-let search_result = d.binary_search("[1, 2, 3, 4, 5]", "3");
-
-# Statistics and management
-let data_stats = d.get_data_stats();
-d.reset_data_structures();
-```
-
-**Functions:**
-- `d.create_linked_list(initial_value)` - Create linked list data structure
-- `d.create_binary_tree(root_value)` - Create binary tree data structure
-- `d.create_hash_table(initial_capacity)` - Create hash table data structure
-- `d.create_priority_queue(ordering_type)` - Create priority queue data structure
-- `d.quicksort(array)` - Apply quicksort algorithm to array
-- `d.binary_search(array, target)` - Perform binary search on sorted array
-- `d.get_data_stats()` - Data structures statistics and status
-- `d.reset_data_structures()` - Reset all data structure modes
-
-**Enterprise Features:**
-- **Linked Lists** - Dynamic linear data structure
-- **Binary Trees** - Hierarchical data organization
-- **Hash Tables** - Fast key-value storage and retrieval
-- **Priority Queues** - Ordered element processing
-- **Sorting Algorithms** - Efficient array sorting with quicksort
-- **Search Algorithms** - Fast binary search on sorted data
-- **Statistics** - Comprehensive data structure usage reporting
-- **Management** - State control and cleanup capabilities
 
 ## Examples
 
@@ -1630,7 +1492,7 @@ let name = "Alice";
 let age = 30;
 
 print("Hello, " + name + "!");
-print("You are " + to_string(age) + " years old.");
+print("You are " + str(age) + " years old.");
 ```
 
 ### Working with Arrays
@@ -1668,10 +1530,10 @@ print("Person:", person);
 print("Name:", person.name);
 print("Age:", person["age"]);
 
-let keys = object_keys(person);
+let keys = object.keys(person);
 print("Properties:", keys);
 
-let vals = values(person);
+let vals = object.values(person);
 print("Values:", vals);
 
 print("Has email?", has_key(person, "email"));
@@ -1732,8 +1594,8 @@ end
 
 func displayRectangle(length, width):
     let area = calculateArea(length, width);
-    print("Rectangle: " + to_string(length) + " x " + to_string(width));
-    print("Area: " + to_string(area));
+    print("Rectangle: " + str(length) + " x " + str(width));
+    print("Area: " + str(area));
 end
 
 displayRectangle(5, 3);
@@ -1777,7 +1639,7 @@ displayRectangle(8, 4);
 
 ## Language Features Summary
 
-**Current Version**: 1.6.0 - Language Maturity & Developer Experience
+**Current Version**: 1.1.9
 
 **Completed Features**:
 - Variables and basic data types (numbers, strings, booleans)
@@ -1795,20 +1657,16 @@ displayRectangle(8, 4);
 - **Comprehensive error handling**: try/catch blocks
 - **Memory management**: tracked allocations preventing leaks
 - **Professional testing**: 100% unit test success rate
-- **Float Support (v1.4.0)**: Floating-point arithmetic and math functions
-- **Library Import System (v1.4.0)**: Namespace protection and organized access
-- **Boolean Keywords (v1.4.0)**: True/False keywords with full compatibility
-- **File I/O (v1.4.0)**: File reading, writing, and directory operations
-- **System Integration (v1.5.0)**: Path utilities, environment variables, command-line args, process execution, text processing, enhanced debugging
-- **Language Maturity (v1.6.0)**: Type system foundation, language polish, testing framework, advanced data structures
 
-**Upcoming Features** (v1.7.0+ roadmap):
-- **Package Management**: Package manager with dependency resolution
-- **Package Registry**: Community library ecosystem
-- **Development Tools**: IDE support and enhanced tooling
-- **Async Programming**: Asynchronous operations and concurrency
-- **Networking**: HTTP, WebSocket, and network protocols
-- **Database Integration**: Database connectivity and ORM features
+**Upcoming Features** (v2.0.0 roadmap):
+- **Set literal syntax**: `{1, 2, 3}`
+- **Set operations**: `union()`, `intersection()`, `difference()`
+- Enhanced error handling
+- Module system
+- Advanced array operations (filter, map, reduce)
+- Performance optimizations
+- Extended standard library
+- IDE integration tools
 
 ---
 
