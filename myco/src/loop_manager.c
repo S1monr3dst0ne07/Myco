@@ -35,7 +35,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "memory_tracker.h"
 #include <inttypes.h>
 
 /*******************************************************************************
@@ -75,14 +74,14 @@ static LoopStatistics global_loop_stats = {0};
  * - Loop will terminate naturally
  */
 LoopContext* create_loop_context(const char* var_name, int64_t start, int64_t end, int64_t step, int line) {
-    LoopContext* context = (LoopContext*)tracked_malloc(sizeof(LoopContext), __FILE__, __LINE__, "loop_manager_context");
+    LoopContext* context = (LoopContext*)malloc(sizeof(LoopContext));
     if (!context) {
         fprintf(stderr, "Error: Failed to allocate loop context\n");
         return NULL;
     }
     
     // Initialize context
-    context->loop_var_name = var_name ? tracked_strdup(var_name, __FILE__, __LINE__, "loop_manager_var_name") : NULL;
+    context->loop_var_name = var_name ? strdup(var_name) : NULL;
     context->current_value = start;
     context->start_value = start;
     context->end_value = end;
@@ -117,9 +116,9 @@ void destroy_loop_context(LoopContext* context) {
     if (!context) return;
     
     if (context->loop_var_name) {
-        tracked_free((void*)context->loop_var_name, __FILE__, __LINE__, "loop_manager_cleanup_var_name");
+        free((void*)context->loop_var_name);
     }
-    tracked_free(context, __FILE__, __LINE__, "loop_manager_cleanup_context");
+    free(context);
 }
 
 /**
@@ -172,16 +171,16 @@ int validate_loop_range(int64_t start, int64_t end, int64_t step) {
  * and ensures proper loop flow control.
  */
 LoopExecutionState* create_loop_execution_state(void) {
-    LoopExecutionState* state = (LoopExecutionState*)tracked_malloc(sizeof(LoopExecutionState), __FILE__, __LINE__, "loop_manager_state");
+    LoopExecutionState* state = (LoopExecutionState*)malloc(sizeof(LoopExecutionState));
     if (!state) {
         fprintf(stderr, "Error: Failed to allocate loop execution state\n");
         return NULL;
     }
     
     // Initialize state
-    state->active_loops = (LoopContext*)tracked_malloc(MAX_LOOP_DEPTH * sizeof(LoopContext*), __FILE__, __LINE__, "loop_manager_active_loops");
+    state->active_loops = (LoopContext*)malloc(MAX_LOOP_DEPTH * sizeof(LoopContext*));
     if (!state->active_loops) {
-        tracked_free(state, __FILE__, __LINE__, "loop_manager_error_cleanup");
+        free(state);
         return NULL;
     }
     
@@ -206,9 +205,9 @@ void destroy_loop_execution_state(LoopExecutionState* state) {
     }
     
     if (state->active_loops) {
-        tracked_free(state->active_loops, __FILE__, __LINE__, "loop_manager_cleanup_active_loops");
+        free(state->active_loops);
     }
-    tracked_free(state, __FILE__, __LINE__, "loop_manager_cleanup_state");
+    free(state);
 }
 
 // Push a loop context onto the stack

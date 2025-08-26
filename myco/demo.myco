@@ -1,0 +1,347 @@
+# ============================================================================
+# MYCO LANGUAGE DEMONSTRATION PROGRAM
+# ============================================================================
+# This program showcases the key features of Myco v1.6.0
+# ============================================================================
+
+print("MYCO LANGUAGE DEMONSTRATION");
+print("============================");
+print("Version: v1.6.0 - Language Maturity & Developer Experience");
+print("");
+
+# ============================================================================
+# BASIC SYNTAX AND VARIABLES
+# ============================================================================
+print("1. BASIC SYNTAX AND VARIABLES");
+print("===============================");
+
+let name = "Alice";
+let age = 30;
+let is_active = True;
+let pi = 3.14159;
+
+print("Name:", name);
+print("Age:", age);
+print("Active:", is_active);
+print("Pi:", pi);
+print("");
+
+# ============================================================================
+# ARITHMETIC AND OPERATORS
+# ============================================================================
+print("2. ARITHMETIC AND OPERATORS");
+print("=============================");
+
+let a = 10;
+let b = 3;
+
+print("Addition:", a, "+", b, "=", a + b);
+print("Subtraction:", a, "-", b, "=", a - b);
+print("Multiplication:", a, "*", b, "=", a * b);
+print("Division:", a, "/", b, "=", a / b);
+print("Modulo:", a, "%", b, "=", a % b);
+print("");
+
+# ============================================================================
+# ARRAYS AND ARRAY OPERATIONS
+# ============================================================================
+print("3. ARRAYS AND ARRAY OPERATIONS");
+print("=================================");
+
+let numbers = [1, 2, 3, 4, 5];
+print("Original array:", numbers);
+print("Array length:", len(numbers));
+print("First element:", first(numbers));
+print("Last element:", last(numbers));
+
+# Array manipulation
+push(numbers, 6);
+print("After push:", numbers);
+
+let popped = pop(numbers);
+print("Popped element:", popped);
+print("After pop:", numbers);
+
+# Functional array operations with lambdas
+let is_even = x => x % 2 == 0;
+let evens = filter(numbers, is_even);
+print("Even numbers:", evens);
+
+let double = x => x * 2;
+let doubled = map(numbers, double);
+print("Doubled numbers:", doubled);
+
+let add = (acc, x) => acc + x;
+let sum = reduce(numbers, 0, add);
+print("Sum of all numbers:", sum);
+print("");
+
+# ============================================================================
+# OBJECTS AND PROPERTIES
+# ============================================================================
+print("4. OBJECTS AND PROPERTIES");
+print("===========================");
+
+let person = {
+    name: "Bob",
+    age: 25,
+    city: "San Francisco",
+    contact: {
+        email: "bob@example.com",
+        phone: "555-1234"
+    }
+};
+
+print("Person object:", person);
+print("Name:", person.name);
+print("Age:", person["age"]);
+print("Email:", person.contact.email);
+
+# Dynamic property access
+let property_name = "city";
+print("Dynamic access -", property_name + ":", person[property_name]);
+print("");
+
+# ============================================================================
+# FUNCTIONS AND LAMBDA EXPRESSIONS
+# ============================================================================
+print("5. FUNCTIONS AND LAMBDA EXPRESSIONS");
+print("=====================================");
+
+# Traditional function
+func calculate_area(length, width):
+    return length * width;
+end
+
+# Arrow syntax function
+func greet(name: string) -> string:
+    return "Hello, " + name + "!";
+end
+
+# Lambda functions
+let square = x => x * x;
+let is_positive = x => x > 0;
+
+print("Area of 5x3 rectangle:", calculate_area(5, 3));
+print("Greeting:", greet("World"));
+print("Square of 7:", square(7));
+print("Is 10 positive?", is_positive(10));
+print("");
+
+# ============================================================================
+# CONTROL FLOW
+# ============================================================================
+print("6. CONTROL FLOW");
+print("=================");
+
+# If-else statements
+let score = 85;
+if score >= 90:
+    print("Grade: A");
+else:
+    if score >= 80:
+        print("Grade: B");
+    else:
+        if score >= 70:
+            print("Grade: C");
+        else:
+            print("Grade: F");
+        end
+    end
+end
+
+# Switch statement
+let day = 3;
+switch day:
+    case 1:
+        print("Monday");
+    case 2:
+        print("Tuesday");
+    case 3:
+        print("Wednesday");
+    case 4:
+        print("Thursday");
+    case 5:
+        print("Friday");
+    default:
+        print("Weekend");
+end
+
+# Loops
+print("Counting from 1 to 5:");
+for i in 1:6:
+    print("  Number:", i);
+end
+
+print("While loop countdown:");
+let count = 3;
+while count > 0:
+    print("  Countdown:", count);
+    count = count - 1;
+end
+print("");
+
+# ============================================================================
+# ERROR HANDLING
+# ============================================================================
+print("7. ERROR HANDLING");
+print("===================");
+
+try:
+    let result = 10 / 0;
+    print("This won't print");
+catch error:
+    print("Caught error:", error);
+    print("Continuing execution...");
+end
+
+print("Program continues after error handling");
+print("");
+
+# ============================================================================
+# LIBRARY SYSTEM
+# ============================================================================
+print("8. LIBRARY SYSTEM");
+print("===================");
+
+use math as m;
+use util as u;
+
+print("Math constants:");
+print("  PI:", m.PI);
+print("  E:", m.E);
+
+print("Math functions:");
+print("  abs(-5):", m.abs(-5));
+print("  pow(2, 3):", m.pow(2, 3));
+print("  sqrt(16):", m.sqrt(16));
+
+print("Utility functions:");
+print("  Type of 42:", u.type(42));
+print("  Is 42 a number?", u.is_num(42));
+print("  Is 'hello' a string?", u.is_str("hello"));
+print("");
+
+# ============================================================================
+# TYPE SYSTEM AND POLISH
+# ============================================================================
+print("9. TYPE SYSTEM AND POLISH");
+print("===========================");
+
+use types as t;
+use polish as p;
+
+print("Type analysis:");
+print("  typeof(42):", t.typeof(42));
+print("  typeof('hello'):", t.typeof("hello"));
+print("  typeof([1,2,3]):", t.typeof([1,2,3]));
+
+print("Type checking:");
+print("  is_type(42, 'number'):", t.is_type(42, "number"));
+print("  is_type('hello', 'string'):", t.is_type("hello", "string"));
+
+print("Language polish:");
+let enhanced_lambda = p.enhance_lambda("(x) => x * 2");
+print("  Enhanced lambda:", enhanced_lambda);
+
+let interpolated = p.interpolate_string("Hello ${name}!", "name=World");
+print("  String interpolation:", interpolated);
+print("");
+
+# ============================================================================
+# TESTING FRAMEWORK
+# ============================================================================
+print("10. TESTING FRAMEWORK");
+print("======================");
+
+use test as test_framework;
+
+test_framework.describe("Demo Test Suite");
+test_framework.it("should demonstrate basic arithmetic");
+test_framework.expect("2 + 2 == 4");
+test_framework.assert("2 + 2 == 4", "Basic arithmetic");
+
+test_framework.start_benchmark("Demo Benchmark");
+# Simulate some work
+let temp = 0;
+for i in 1:1000:
+    temp = temp + i;
+end
+let benchmark_time = test_framework.end_benchmark();
+
+print("  Benchmark completed in:", benchmark_time, "ms");
+print("  Test statistics:", test_framework.get_test_stats());
+print("");
+
+# ============================================================================
+# ADVANCED DATA STRUCTURES
+# ============================================================================
+print("11. ADVANCED DATA STRUCTURES");
+print("=============================");
+
+use data as d;
+
+print("Creating data structures:");
+let linked_list = d.create_linked_list("42");
+let binary_tree = d.create_binary_tree("100");
+let hash_table = d.create_hash_table("16");
+let priority_queue = d.create_priority_queue("min");
+
+print("  Linked list created:", linked_list);
+print("  Binary tree created:", binary_tree);
+print("  Hash table created:", hash_table);
+print("  Priority queue created:", priority_queue);
+
+print("Algorithm operations:");
+let quicksort_result = d.quicksort("[5, 2, 8, 1, 9]");
+let search_result = d.binary_search("[1, 2, 3, 4, 5]", "3");
+
+print("  Quicksort result:", quicksort_result);
+print("  Binary search result:", search_result);
+
+print("Data structure statistics:", d.get_data_stats());
+print("");
+
+# ============================================================================
+# SYSTEM INTEGRATION
+# ============================================================================
+print("12. SYSTEM INTEGRATION");
+print("=======================");
+
+use path_utils as p;
+use env as e;
+use args as a;
+
+print("Path utilities:");
+let joined_path = p.join_path("home", "user", "documents");
+print("  Joined path:", joined_path);
+
+print("Environment variables:");
+let home_dir = e.get_env("HOME");
+print("  HOME directory:", home_dir);
+
+print("Command-line arguments:");
+let arg_count = a.arg_count();
+print("  Number of arguments:", arg_count);
+print("");
+
+# ============================================================================
+# SUMMARY
+# ============================================================================
+print("DEMONSTRATION COMPLETE");
+print("======================");
+print("Myco v1.6.0 demonstrates:");
+print("  ✅ Basic syntax and variables");
+print("  ✅ Arithmetic and operators");
+print("  ✅ Arrays with functional operations");
+print("  ✅ Objects with nested properties");
+print("  ✅ Functions with lambda support");
+print("  ✅ Control flow (if/else, switch, loops)");
+print("  ✅ Error handling with try/catch");
+print("  ✅ Library import system");
+print("  ✅ Type system and language polish");
+print("  ✅ Testing framework");
+print("  ✅ Advanced data structures");
+print("  ✅ System integration");
+print("");
+print("Myco is ready for production use!");

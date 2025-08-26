@@ -39,7 +39,6 @@
 #include <string.h>
 #include "parser.h"
 #include "lexer.h"
-#include "memory_tracker.h"
 
 /*******************************************************************************
  * MODULE MANAGEMENT
@@ -72,9 +71,9 @@ static int cg_modules_cap = 0;
 static void cg_register_module(const char* alias, ASTNode* ast) {
     if (cg_modules_size >= cg_modules_cap) {
         cg_modules_cap = cg_modules_cap ? cg_modules_cap * 2 : 4;
-        cg_modules = (CGModule*)tracked_realloc(cg_modules, cg_modules_cap * sizeof(CGModule), __FILE__, __LINE__, "codegen_expand_modules");
+        cg_modules = (CGModule*)realloc(cg_modules, cg_modules_cap * sizeof(CGModule));
     }
-            cg_modules[cg_modules_size].alias = tracked_strdup(alias, __FILE__, __LINE__, "codegen_module_alias");
+    cg_modules[cg_modules_size].alias = strdup(alias);
     cg_modules[cg_modules_size].module_ast = ast;
     cg_modules_size++;
 }
@@ -90,7 +89,7 @@ static ASTNode* cg_load_module(const char* path) {
     const char* p = path;
     if (p[0] == '"') { p++; }
     int plen = (int)strlen(p);
-            char* fixed = (char*)tracked_malloc(plen + 1, __FILE__, __LINE__, "codegen_fixed");
+    char* fixed = (char*)malloc(plen + 1);
     strcpy(fixed, p);
     // strip trailing quote if from string token
     if (fixed[plen-1] == '"') fixed[plen-1] = '\0';
@@ -101,7 +100,7 @@ static ASTNode* cg_load_module(const char* path) {
     if (!f) { free(fixed); return NULL; }
     fseek(f, 0, SEEK_END);
     long sz = ftell(f); fseek(f, 0, SEEK_SET);
-            char* buf = (char*)tracked_malloc(sz + 1, __FILE__, __LINE__, "codegen_buf");
+    char* buf = (char*)malloc(sz + 1);
     fread(buf, 1, sz, f); buf[sz] = '\0'; fclose(f);
     Token* toks = lexer_tokenize(buf);
     free(buf);
@@ -338,7 +337,7 @@ int codegen_generate(ASTNode* ast, const char* input_file, int keep_output) {
     fprintf(file, "    return 0;\n}\n");
     fclose(file);
 
-            char* base_name = tracked_strdup(input_file, __FILE__, __LINE__, "codegen_base_name");
+    char* base_name = strdup(input_file);
     char* ext = strrchr(base_name, '.');
     if (ext) *ext = '\0';
 

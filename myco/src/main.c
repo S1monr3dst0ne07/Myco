@@ -37,8 +37,8 @@
 #include "lexer.h"
 #include "parser.h"
 #include "eval.h"
-#include "memory_tracker.h"
 #include "codegen.h"
+#include "memory_tracker.h"
 #include "config.h"
 
 /*******************************************************************************
@@ -105,7 +105,7 @@ int main(int argc, char* argv[]) {
     fseek(file, 0, SEEK_SET);
     
     // Allocate buffer and read file
-            char* source_code = tracked_malloc(file_size + 1, __FILE__, __LINE__, "main_source_code");
+    char* source_code = malloc(file_size + 1);
     if (!source_code) {
         fprintf(stderr, "Error: Memory allocation failed\n");
         fclose(file);
@@ -120,7 +120,7 @@ int main(int argc, char* argv[]) {
     if (build_mode) {
         printf("Building executable from %s...\n", input_file);
     } else {
-
+        printf("Interpreting %s...\n", input_file);
     }
     #endif
     
@@ -193,13 +193,6 @@ int main(int argc, char* argv[]) {
         cleanup_libraries();
     }
     
-    // Cleanup implicit function system
-    cleanup_implicit_functions();
-    
-    // Cleanup loop execution state
-    extern void cleanup_loop_execution_state(void);
-    cleanup_loop_execution_state();
-    
     // Cleanup
     parser_free_ast(ast);
     free(tokens);
@@ -209,6 +202,13 @@ int main(int argc, char* argv[]) {
     cleanup_all_environments();
     memory_tracker_cleanup();
     #endif
+    
+    // Cleanup implicit function system
+    cleanup_implicit_functions();
+    
+    // Cleanup loop execution state
+    extern void cleanup_loop_execution_state(void);
+    cleanup_loop_execution_state();
     
     return 0;
 } 
