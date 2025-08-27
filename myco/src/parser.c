@@ -1273,14 +1273,29 @@ static ASTNode* parse_statement(Token* tokens, int* current, int token_count) {
                     
                     // Check if the next token is a dot (forming ..)
                     if (tokens[*current].type == TOKEN_DOT) {
-
                         (*current)++; // Skip the second dot
                     }
                     
-
+                    // Declare range_end variable
+                    ASTNode* range_end = NULL;
                     
-                    // Parse range end
-                    ASTNode* range_end = parse_expression(tokens, current);
+                    // Check if the next token is a float starting with '.'
+                    if (tokens[*current].type == TOKEN_FLOAT && tokens[*current].text[0] == '.') {
+                        // Extract the numeric part after the dot
+                        char* end_text = strdup(tokens[*current].text + 1); // Skip the leading '.'
+                        
+                        range_end = (ASTNode*)tracked_malloc(sizeof(ASTNode), __FILE__, __LINE__, "parse_statement_for");
+                        range_end->type = AST_EXPR;
+                        range_end->text = end_text;
+                        range_end->children = NULL;
+                        range_end->child_count = 0;
+                        range_end->next = NULL;
+                        
+                        (*current)++; // Skip the second float token
+                    } else {
+                        // Parse range end normally
+                        range_end = parse_expression(tokens, current);
+                    }
                     if (!range_end) {
                         fprintf(stderr, "DEBUG: Failed to parse range end\n");
                         parser_free_ast(node);
