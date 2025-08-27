@@ -1,6 +1,7 @@
 # Myco Programming Language Documentation
 
 ## Table of Contents
+
 1. [Overview](#overview)
 2. [Installation](#installation)
 3. [Basic Syntax](#basic-syntax)
@@ -23,18 +24,20 @@ Myco is a modern, lightweight programming language designed for simplicity and e
 
 **Version**: 1.6.0 - Language Maturity & Developer Experience  
 **License**: MIT  
-**Repository**: https://github.com/IvyMycelia/myco
+**Repository**: <https://github.com/IvyMycelia/myco>
 
 **Latest Features**: Comprehensive float support, enhanced math functions, clear type system, comprehensive utility library, arrow syntax for functions, switch/case statements, try/catch error handling, system integration libraries, language maturity features
 
 ## Installation
 
 ### Prerequisites
+
 - GCC compiler
 - Make build system
 - Git (for source installation)
 
 ### Building from Source
+
 ```bash
 git clone https://github.com/TrendyBananaYT/myco.git
 cd myco/myco
@@ -42,6 +45,7 @@ make
 ```
 
 ### Running Programs
+
 ```bash
 ./myco filename.myco
 ```
@@ -49,18 +53,22 @@ make
 ## Basic Syntax
 
 ### Comments
+
 ```myco
 # Single-line comment
 ```
 
 ### Statements
+
 All statements end with a semicolon:
+
 ```myco
 print("Hello, World!");
 let x = 42;
 ```
 
 ### Printing
+
 ```myco
 print("Hello");
 print("Value:", 42);
@@ -70,6 +78,7 @@ print(variable);
 ## Data Types
 
 ### Numbers
+
 ```myco
 let integer = 42;
 let negative = -17;
@@ -80,7 +89,8 @@ let negative_float = -2.5;
 let leading_decimal = .25;
 ```
 
-### Floating-Point Numbers ⭐ **NEW in v1.4.0**
+### Floating-Point Numbers
+
 Myco now supports floating-point numbers with full arithmetic operations:
 
 ```myco
@@ -109,7 +119,8 @@ let mixed = 10 + 3.14;       # 13.14
 let scaled = 5 * 2.5;        # 12.5
 ```
 
-### Type System ⭐ **NEW in v1.3.2**
+### Type System
+
 Myco features a clear, descriptive type system that returns meaningful names instead of cryptic codes:
 
 ```myco
@@ -127,6 +138,7 @@ let is_object = is_obj({x:1});  # Returns: 1 (True)
 ```
 
 ### Strings
+
 ```myco
 let name = "Alice";
 let message = "Hello, World!";
@@ -134,6 +146,7 @@ let empty = "";
 ```
 
 ### Booleans
+
 ```myco
 # Boolean keywords (recommended)
 let isTrue = True;     # True
@@ -145,6 +158,7 @@ let isInvalid = 0;     # False (0)
 ```
 
 ### Arrays
+
 ```myco
 let numbers = [1, 2, 3, 4, 5];
 let strings = ["apple", "banana", "cherry"];
@@ -152,6 +166,7 @@ let mixed = [1, "hello", 42];
 ```
 
 ### Objects
+
 ```myco
 let person = {
     name: "Alice",
@@ -161,7 +176,9 @@ let person = {
 ```
 
 ### Sets
+
 Sets are collections of unique elements. Currently, Sets are created and manipulated using built-in functions.
+
 ```myco
 # Sets are created programmatically using set functions
 # Note: Set literal syntax {1, 2, 3} coming in future version
@@ -170,11 +187,13 @@ Sets are collections of unique elements. Currently, Sets are created and manipul
 ## Variables
 
 ### Declaration and Assignment
+
 ```myco
 let variableName = value;
 ```
 
 ### Examples
+
 ```myco
 let name = "Bob";
 let age = 25;
@@ -183,6 +202,7 @@ let scores = [95, 87, 92];
 ```
 
 ### Variable Naming Rules
+
 - Must start with a letter (a-z, A-Z)
 - Can contain letters, numbers, and underscores
 - Case-sensitive
@@ -191,6 +211,7 @@ let scores = [95, 87, 92];
 ## Operators
 
 ### Arithmetic Operators
+
 ```myco
 let a = 10;
 let b = 3;
@@ -203,6 +224,7 @@ let remainder = a % b;  # Modulo: 1
 ```
 
 ### String Concatenation
+
 ```myco
 let firstName = "John";
 let lastName = "Doe";
@@ -210,6 +232,7 @@ let fullName = firstName + " " + lastName;  # "John Doe"
 ```
 
 ### Comparison Operators
+
 ```myco
 let x = 10;
 let y = 20;
@@ -223,6 +246,7 @@ let greaterEqual = x >= y;  # Greater than or equal
 ```
 
 ### Logical Operators
+
 ```myco
 let a = 1;  # True
 let b = 0;  # False
@@ -233,6 +257,7 @@ let not = !a;       # Logical NOT
 ```
 
 ### Ternary Operator
+
 ```myco
 let age = 18;
 let status = age >= 18 ? "adult" : "minor";  # "adult"
@@ -243,9 +268,10 @@ let grade = score >= 90 ? "A" :
             score >= 70 ? "C" : "F";  # "B"
 ```
 
-## Objects
+## Objects Details
 
 ### Object Creation
+
 ```myco
 let person = {
     name: "Alice",
@@ -257,12 +283,14 @@ let person = {
 ### Property Access
 
 #### Dot Notation
+
 ```myco
 let name = person.name;
 let age = person.age;
 ```
 
 #### Bracket Notation
+
 ```myco
 let name = person["name"];
 let age = person["age"];
@@ -275,12 +303,14 @@ let value = person[property];
 ### Property Assignment
 
 #### Dot Notation Assignment
+
 ```myco
 person.name = "Bob";
 person.age = 25;
 ```
 
 #### Bracket Notation Assignment
+
 ```myco
 # String literal keys
 person["email"] = "bob@example.com";
@@ -296,6 +326,7 @@ person["rank"] = 1;
 ```
 
 ### Nested Objects
+
 ```myco
 let user = {
     name: "Alice",
@@ -310,9 +341,10 @@ let city = user.address.city;
 let street = user["address"]["street"];
 ```
 
-## Arrays
+## Arrays Details
 
 ### Array Creation
+
 ```myco
 let numbers = [1, 2, 3, 4, 5];
 let fruits = ["apple", "banana", "orange"];
@@ -320,6 +352,7 @@ let empty = [];
 ```
 
 ### Array Access
+
 ```myco
 let first = numbers[0];    # First element
 let second = numbers[1];   # Second element
@@ -327,15 +360,18 @@ let last = numbers[4];     # Last element
 ```
 
 ### Array Assignment
+
 ```myco
 numbers[0] = 10;
 fruits[1] = "grape";
 ```
 
 ### Functional Array Operations ⭐ **NEW in v1.2.1**
+
 Myco now supports functional programming operations on arrays using lambda functions:
 
 #### Filtering Arrays
+
 ```myco
 let numbers = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
 
@@ -349,6 +385,7 @@ let longWords = filter(words, word => len(word) > 4);
 ```
 
 #### Transforming Arrays
+
 ```myco
 # Double all numbers
 let double = x => x * 2;
@@ -359,6 +396,7 @@ let wordLengths = map(words, word => len(word));
 ```
 
 #### Reducing Arrays
+
 ```myco
 # Sum all numbers
 let add = (acc, x) => acc + x;
@@ -370,44 +408,53 @@ let max = reduce(numbers, numbers[0], (acc, x) => acc > x ? acc : x);
 
 **Note**: These functions maintain backward compatibility with numeric operation codes while adding powerful lambda support.
 
-## Sets
+## Sets Details
 
 Sets are collections that automatically maintain unique elements. Myco's Set data type provides efficient operations for mathematical set operations and data deduplication.
 
 ### Set Creation
+
 Currently, Sets are created programmatically using the `create_set()` function and manipulated with built-in Set functions:
+
 ```myco
 # Sets are created and managed using built-in functions
 # Future versions will support Set literal syntax: {1, 2, 3}
 ```
 
 ### Set Operations
+
 Sets automatically ensure all elements are unique and provide efficient membership testing.
 
 #### Adding Elements
+
 ```myco
 # Note: Sets must be created programmatically in current version
 # set_add(setName, element) - adds element if not already present
 ```
 
 #### Checking Membership
+
 ```myco
 # set_has(setName, element) - returns 1 if element exists, 0 otherwise
 ```
 
 #### Getting Set Size
+
 ```myco
 # set_size(setName) - returns number of unique elements in the set
 ```
 
 ### Set Characteristics
+
 - **Unique Elements**: Automatically prevents duplicate values
 - **Efficient Lookup**: Fast membership testing
 - **Type Support**: Supports both numeric and string sets
 - **Memory Managed**: Automatic allocation and cleanup
 
 ### Future Enhancements
+
 Upcoming versions will include:
+
 - Set literal syntax: `{1, 2, 3}`
 - Set operations: `union()`, `intersection()`, `difference()`
 - Set iteration and advanced manipulation
@@ -417,6 +464,7 @@ Upcoming versions will include:
 ### Conditional Statements
 
 #### If Statement
+
 ```myco
 if condition:
     # code block
@@ -424,6 +472,7 @@ end
 ```
 
 #### If-Else Statement
+
 ```myco
 if condition:
     # code if true
@@ -454,6 +503,7 @@ end
 ```
 
 #### If-Else If Statement
+
 ```myco
 if condition1:
     # code block 1
@@ -467,6 +517,7 @@ end
 ### Loops
 
 #### While Loop
+
 ```myco
 while condition:
     # code block
@@ -474,6 +525,7 @@ end
 ```
 
 #### For Loop
+
 ```myco
 for i in start..end:
     # code block
@@ -481,6 +533,7 @@ end
 ```
 
 ### Switch Statement ⭐ **NEW in v1.3.2**
+
 ```myco
 switch expression:
     case value1:
@@ -493,6 +546,7 @@ end
 ```
 
 **Features:**
+
 - **Expression-based switching**: Evaluate any expression for case matching
 - **Multiple cases**: Support for multiple case values
 - **Default case**: Optional default case for unmatched values
@@ -500,6 +554,7 @@ end
 - **Type flexibility**: Works with integers, strings, and expressions
 
 **Example:**
+
 ```myco
 let day = 3;
 switch day:
@@ -519,6 +574,7 @@ end
 ```
 
 ### Try-Catch Error Handling ⭐ **NEW in v1.3.2**
+
 ```myco
 try:
     # code that might cause an error
@@ -528,12 +584,14 @@ end
 ```
 
 **Features:**
+
 - **Error catching**: Automatically catches runtime errors
 - **Error variable**: Access error information in catch block
 - **Graceful handling**: Program continues after error handling
 - **Built-in error types**: Handles division by zero, invalid operations, etc.
 
 **Example:**
+
 ```myco
 try:
     let result = 10 / 0;  # This will cause an error
@@ -547,7 +605,8 @@ end
 print("After error handling");
 ```
 
-### Examples
+### Example Loops
+
 ```myco
 let count = 0;
 while count < 5:
@@ -563,9 +622,11 @@ end
 ## Functions
 
 ### Function Declaration
+
 Myco supports two syntaxes for function declarations:
 
 #### Traditional Colon Syntax
+
 ```myco
 func functionName(parameter1, parameter2):
     # function body
@@ -574,6 +635,7 @@ end
 ```
 
 #### New Arrow Syntax ⭐ **NEW in v1.3.1**
+
 ```myco
 func functionName(parameter1, parameter2) -> returnType:
     # function body
@@ -582,6 +644,7 @@ end
 ```
 
 #### Type Annotations
+
 ```myco
 # With parameter types
 func add(a: int, b: int) -> int:
@@ -600,14 +663,17 @@ end
 ```
 
 ### Function Call
+
 ```myco
 let result = functionName(argument1, argument2);
 ```
 
 ### Lambda Functions ⭐ **NEW in v1.2.1**
+
 Myco now supports lambda functions (arrow functions) for functional programming:
 
 #### Basic Lambda Syntax
+
 ```myco
 # Single parameter
 let double = x => x * 2;
@@ -623,6 +689,7 @@ let value = getFive();  # 5
 ```
 
 #### Lambda with Variable Capture
+
 ```myco
 let base = 10;
 let addBase = x => x + base;  # Captures 'base' variable
@@ -630,6 +697,7 @@ let result = addBase(5);      # 15
 ```
 
 #### Complex Lambda Expressions
+
 ```myco
 let square = x => x * x;
 let isEven = x => x % 2 == 0;
@@ -639,6 +707,7 @@ let result = complex(3);  # 13
 ```
 
 #### Nested Lambda Calls
+
 ```myco
 let double = x => x * 2;
 let add = (a, b) => a + b;
@@ -646,9 +715,11 @@ let result = add(double(3), double(4));  # 14
 ```
 
 ### Implicit Functions ⭐ **NEW in v1.2.4**
+
 Myco now supports **true implicit functions** in the Python style - functions that don't require explicit type annotations and can return values implicitly.
 
 #### Optional Type Annotations
+
 ```myco
 # No parameter type annotations needed
 func add_numbers(a, b):           # Types are inferred automatically
@@ -667,6 +738,7 @@ end
 ```
 
 #### Implicit Returns
+
 ```myco
 # Functions can return nothing implicitly
 func process_data(x):
@@ -683,6 +755,7 @@ end
 ```
 
 #### Complex Logic
+
 ```myco
 # Recursive functions with implicit types
 func factorial(n):
@@ -709,6 +782,7 @@ end
 ```
 
 #### Benefits
+
 - **Python-like Syntax**: Write functions without verbose type annotations
 - **Flexible Returns**: Functions can return different types or nothing
 - **Cleaner Code**: Less boilerplate, more readable functions
@@ -716,9 +790,11 @@ end
 - **Developer Friendly**: Faster prototyping and development
 
 ### Operator Overloading (Also Available)
+
 Myco also supports operator overloading where operators automatically call appropriate functions:
 
 #### Mathematical Operators
+
 ```myco
 # Addition automatically calls add()
 let sum = 5 + 3;        # Calls add(5, 3)
@@ -737,6 +813,7 @@ let remainder = 17 % 3; # Calls modulo(17, 3)
 ```
 
 #### Comparison & Logical Operators
+
 ```myco
 # Equality automatically calls equals()
 let isEqual = 5 == 5;   # Calls equals(5, 5)
@@ -745,7 +822,8 @@ let isEqual = 5 == 5;   # Calls equals(5, 5)
 let both = (a > 0) and (b > 0);  # Calls logical_and(a > 0, b > 0)
 ```
 
-### Examples
+### Example Functions
+
 ```myco
 # True implicit functions
 func add(a, b):
@@ -768,7 +846,9 @@ let result = add(10, 20);
 ### Array Functions
 
 #### `len(array)`
+
 Returns the length of an array or string.
+
 ```myco
 let numbers = [1, 2, 3, 4];
 let length = len(numbers);  # 4
@@ -778,7 +858,9 @@ let textLength = len(text); # 5
 ```
 
 #### `push(array, element)`
+
 Adds an element to the end of an array.
+
 ```myco
 let fruits = ["apple", "banana"];
 push(fruits, "orange");
@@ -786,7 +868,9 @@ push(fruits, "orange");
 ```
 
 #### `pop(array)`
+
 Removes and returns the last element of an array.
+
 ```myco
 let numbers = [1, 2, 3];
 let last = pop(numbers);  # 3
@@ -794,21 +878,27 @@ let last = pop(numbers);  # 3
 ```
 
 #### `first(array)`
+
 Returns the first element of an array.
+
 ```myco
 let numbers = [10, 20, 30];
 let firstNum = first(numbers);  # 10
 ```
 
 #### `last(array)`
+
 Returns the last element of an array.
+
 ```myco
 let numbers = [10, 20, 30];
 let lastNum = last(numbers);  # 30
 ```
 
 #### `reverse(array)`
+
 Reverses the order of elements in an array.
+
 ```myco
 let numbers = [1, 2, 3, 4];
 reverse(numbers);
@@ -816,21 +906,27 @@ reverse(numbers);
 ```
 
 #### `slice(array, start, end)`
+
 Returns a portion of an array from start to end (exclusive).
+
 ```myco
 let numbers = [1, 2, 3, 4, 5];
 let subset = slice(numbers, 1, 4);  # [2, 3, 4]
 ```
 
 #### `join(array, separator)`
+
 Joins array elements into a string with a separator.
+
 ```myco
 let words = ["Hello", "World"];
 let sentence = join(words, " ");  # "Hello World"
 ```
 
 #### `filter(array, condition)` ⭐ **NEW: Lambda Support**
+
 Filters array elements based on a condition or lambda function.
+
 ```myco
 # Numeric operation codes (legacy)
 let evens = filter(numbers, 1);  # Filter even numbers
@@ -843,7 +939,9 @@ let longWords = filter(words, word => len(word) > 4);
 ```
 
 #### `map(array, operation)` ⭐ **NEW: Lambda Support**
+
 Transforms array elements using an operation or lambda function.
+
 ```myco
 # Numeric operation codes (legacy)
 let doubled = map(numbers, 0);  # Double all numbers
@@ -856,7 +954,9 @@ let wordLengths = map(words, word => len(word));
 ```
 
 #### `reduce(array, operation, initial)` ⭐ **NEW: Lambda Support**
+
 Reduces array to a single value using an operation or lambda function.
+
 ```myco
 # Numeric operation codes (legacy)
 let sum = reduce(numbers, 0, 0);  # Sum all numbers
@@ -871,21 +971,27 @@ let product = reduce(numbers, 1, (acc, x) => acc * x);
 ### String Functions
 
 #### `split(string, delimiter)`
+
 Splits a string into an array using a delimiter.
+
 ```myco
 let text = "apple,banana,cherry";
 let fruits = split(text, ",");  # ["apple", "banana", "cherry"]
 ```
 
 #### `trim(string)`
+
 Removes whitespace from the beginning and end of a string.
+
 ```myco
 let text = "  Hello World  ";
 let cleaned = trim(text);  # "Hello World"
 ```
 
 #### `replace(string, old, new)`
+
 Replaces all occurrences of a substring with another string.
+
 ```myco
 let text = "Hello World";
 let newText = replace(text, "World", "Universe");  # "Hello Universe"
@@ -894,21 +1000,27 @@ let newText = replace(text, "World", "Universe");  # "Hello Universe"
 ### Object Functions
 
 #### `object_keys(object)`
+
 Returns an array of object property names.
+
 ```myco
 let person = {name: "Alice", age: 30};
 let keys = object_keys(person);  # ["name", "age"]
 ```
 
 #### `values(object)`
+
 Returns an array of object property values.
+
 ```myco
 let person = {name: "Alice", age: 30};
 let vals = values(person);  # ["Alice", "30"]
 ```
 
 #### `has_key(object, key)`
+
 Checks if an object has a specific property.
+
 ```myco
 let person = {name: "Alice", age: 30};
 let hasName = has_key(person, "name");    # 1 (true)
@@ -916,14 +1028,18 @@ let hasEmail = has_key(person, "email");  # 0 (false)
 ```
 
 #### `size(object)`
+
 Returns the number of properties in an object.
+
 ```myco
 let person = {name: "Alice", age: 30, city: "NYC"};
 let count = size(person);  # 3
 ```
 
 #### `remove(object, key)`
+
 Removes a property from an object.
+
 ```myco
 let person = {name: "Alice", age: 30, temp: "delete_me"};
 let success = remove(person, "temp");  # 1 (true)
@@ -941,7 +1057,9 @@ let failed = remove(person, "missing");  # 0 (false)
 ### Utility Functions
 
 #### `to_string(value)`
+
 Converts a value to its string representation.
+
 ```myco
 let number = 42;
 let text = to_string(number);  # "42"
@@ -950,14 +1068,18 @@ let text = to_string(number);  # "42"
 ### Set Functions
 
 #### `set_has(set, element)`
+
 Checks if a set contains a specific element.
+
 ```myco
 # Returns 1 (true) if element exists, 0 (false) otherwise
 # Supports both numeric and string elements
 ```
 
 #### `set_add(set, element)`
+
 Adds an element to a set (only if not already present).
+
 ```myco
 # Returns 1 on success (including if element already exists)
 # Automatically maintains uniqueness constraint
@@ -966,6 +1088,7 @@ Adds an element to a set (only if not already present).
 ### Math Library Functions ⭐ **NEW in v1.4.0 - Enhanced with Float Support**
 
 #### Mathematical Constants
+
 ```myco
 let pi = PI();        # 3.141592653589793 (returned as 3141593)
 let e = E();          # 2.718281828459045 (returned as 2718282)
@@ -978,7 +1101,9 @@ let not_a_number = NAN(); # -999999999 (represents NaN)
 #### Basic Mathematical Functions
 
 ##### `abs(number)`
+
 Returns the absolute value of a number. Works with both integers and floats.
+
 ```myco
 let result1 = abs(42);      # 42
 let result2 = abs(-42);     # 42
@@ -988,7 +1113,9 @@ let result5 = abs(0.001);   # 0.001
 ```
 
 ##### `pow(base, exponent)`
+
 Raises a number to a power. Works with both integers and floats.
+
 ```myco
 let result1 = pow(2, 3);      # 8 (2³)
 let result2 = pow(5, 2);      # 25 (5²)
@@ -998,7 +1125,9 @@ let result5 = pow(3.14, 2);   # 9.8596 (π²)
 ```
 
 ##### `sqrt(number)`
+
 Returns the square root of a number (positive numbers only). Works with both integers and floats.
+
 ```myco
 let result1 = sqrt(16);      # 4
 let result2 = sqrt(25);      # 5
@@ -1008,14 +1137,18 @@ let result5 = sqrt(2.25);    # 1.5
 ```
 
 ##### `floor(number)` and `ceil(number)`
+
 Returns the floor or ceiling of a number (for integers, same as input).
+
 ```myco
 let result1 = floor(42);  # 42
 let result2 = ceil(42);   # 42
 ```
 
 ##### `min(numbers...)` and `max(numbers...)`
+
 Returns the minimum or maximum of multiple numbers. Works with both integers and floats.
+
 ```myco
 let min_val = min(5, 3, 8, 1, 9);           # 1
 let max_val = max(5, 3, 8, 1, 9);           # 9
@@ -1027,27 +1160,34 @@ let mixed_min = min(5, 3.14, 2.5, 10);      # 2.5
 #### Random Number Generation
 
 ##### `random()`
+
 Returns a random number between 0.0 and 1.0 (scaled to integer).
+
 ```myco
 let rand1 = random();  # Random value between 0 and 1000000
 let rand2 = random();  # Different random value each time
 ```
 
 ##### `randint(min, max)`
+
 Returns a random integer between min and max (inclusive).
+
 ```myco
 let dice = randint(1, 6);      # Random number 1-6
 let coin = randint(0, 1);      # Random number 0 or 1
 ```
 
 ##### `choice(array)`
+
 Returns a random choice from an array (currently returns 1-100).
+
 ```myco
 let fruits = ["apple", "banana", "cherry"];
 let random_fruit = choice(fruits);  # Random number 1-100
 ```
 
 #### Complex Mathematical Operations
+
 ```myco
 # Combine multiple math functions
 let complex = pow(2, 3) + sqrt(16) + abs(-5);  # 8 + 4 + 5 = 17
@@ -1058,6 +1198,7 @@ let hypotenuse = sqrt(pow(3, 2) + pow(4, 2));  # Pythagorean theorem
 ```
 
 #### Float Mathematics Examples ⭐ **NEW in v1.4.0**
+
 ```myco
 # Scientific calculations with floats
 let pi = 3.14159;
@@ -1082,7 +1223,9 @@ let max_val = max(data[0], data[1], data[2], data[3]);
 ```
 
 #### `set_size(set)`
+
 Returns the number of unique elements in a set.
+
 ```myco
 # Returns integer count of elements
 # Empty sets return 0
@@ -1093,6 +1236,7 @@ Returns the number of unique elements in a set.
 ### Utility Library Functions ⭐ **NEW in v1.3.2**
 
 #### Debugging & Type Checking
+
 ```myco
 # Enhanced debugging with type information
 debug("Hello World");        # DEBUG: string = "Hello World" (length: 11)
@@ -1112,6 +1256,7 @@ let is_object = is_obj({x: 1}); # 1 (true)
 ```
 
 #### String Utilities
+
 ```myco
 # String conversion alias
 let str_value = str(42);     # Same as to_string(42)
@@ -1122,6 +1267,7 @@ let not_found = find("Hello", "Python"); # -1 (not found)
 ```
 
 #### Data Utilities
+
 ```myco
 # Data copying
 let original = 42;
@@ -1133,7 +1279,8 @@ let has_name = has(user, "name");      # 1 (true)
 let has_email = has(user, "email");    # 0 (false)
 ```
 
-#### Benefits
+#### Benefits Of Utilities
+
 - **Clean Function Names**: Easy to remember and use (`debug`, `type`, `is_num`, etc.)
 - **Enhanced Debugging**: Better development experience with detailed type information
 - **Type Safety**: Comprehensive type checking and introspection
@@ -1146,6 +1293,7 @@ let has_email = has(user, "email");    # 0 (false)
 Myco now features a comprehensive library import system that provides namespace protection and organized access to built-in functionality:
 
 ### Import Syntax
+
 ```myco
 use math as m;      # Import math library with alias 'm'
 use util as u;      # Import utility library with alias 'u'
@@ -1155,13 +1303,16 @@ use core as c;      # Import core library with alias 'c'
 ### Available Libraries
 
 #### Math Library (`math`)
+
 **Constants:**
+
 - `m.PI` - Mathematical constant π (3.14159)
 - `m.E` - Euler's number e (2.71828)
 - `m.INF` - Infinity
 - `m.NAN` - Not a Number
 
 **Functions:**
+
 - `m.abs(x)` - Absolute value
 - `m.pow(base, exponent)` - Power function
 - `m.sqrt(x)` - Square root
@@ -1171,7 +1322,9 @@ use core as c;      # Import core library with alias 'c'
 - `m.randint(min, max)` - Random integer in range
 
 #### Utility Library (`util`)
+
 **Functions:**
+
 - `u.debug(value)` - Detailed value inspection
 - `u.type(value)` - Type information
 - `u.is_num(value)` - Check if value is numeric
@@ -1184,18 +1337,23 @@ use core as c;      # Import core library with alias 'c'
 - `u.has(object, key)` - Check object property
 
 #### Core Library (`core`)
+
 **Functions:**
+
 - `c.print(...)` - Print function
 - `c.len(value)` - Length function
 
 #### File I/O Library (`file_io`) ⭐ **NEW in v1.4.0**
+
 **Functions:**
+
 - `f.read_file(filename)` - Read file contents, returns `1` on success, `0` on failure
 - `f.write_file(filename, content)` - Write content to file, returns `1` on success, `0` on failure
 - `f.list_dir(path)` - List directory contents, returns number of entries found
 - `f.exists(path)` - Check if file/directory exists, returns `1` if exists, `0` if not
 
 **Features:**
+
 - **Large File Support**: Handles files up to 2GB in size
 - **Buffer Safety**: 1024-byte filename/path buffers with overflow protection
 - **Cross-Platform**: Works on Windows, macOS, and Linux
@@ -1203,7 +1361,8 @@ use core as c;      # Import core library with alias 'c'
 - **Memory Management**: Automatic cleanup with tracked memory allocation
 - **Content Types**: Supports string literals, variables, and numeric conversion
 
-### Benefits
+### Benefits Of Myco
+
 - **Namespace Protection**: Built-in functions no longer pollute global namespace
 - **Organized Access**: Functions grouped by functionality
 - **Custom Functions**: Users can create their own functions without conflicts
@@ -1211,6 +1370,7 @@ use core as c;      # Import core library with alias 'c'
 - **Professional Structure**: Enterprise-grade organization
 
 ### Example Usage
+
 ```myco
 use math as m;
 use util as u;
@@ -1318,6 +1478,7 @@ let relative = p.relative_path("/home/user", "/home/user/documents"); # "documen
 ```
 
 **Functions:**
+
 - `p.join_path(path1, path2, ...)` - Combine path components safely
 - `p.dirname(path)` - Extract directory name from full path
 - `p.basename(path)` - Extract filename from full path
@@ -1345,6 +1506,7 @@ let all_vars = e.list_env();
 ```
 
 **Functions:**
+
 - `e.get_env(name)` - Get environment variable value
 - `e.set_env(name, value)` - Set environment variable
 - `e.list_env()` - List all environment variables
@@ -1367,6 +1529,7 @@ a.parse_flags();  # Identifies and displays flags (-, --)
 ```
 
 **Functions:**
+
 - `a.get_args()` - Get all command-line arguments
 - `a.get_arg(index)` - Get argument at specific position
 - `a.arg_count()` - Get total number of arguments
@@ -1392,6 +1555,7 @@ proc.change_dir("/home/user/documents");
 ```
 
 **Functions:**
+
 - `proc.execute(command)` - Execute shell command and return output
 - `proc.get_pid()` - Get current process ID
 - `proc.get_cwd()` - Get current working directory
@@ -1417,6 +1581,7 @@ let csv_lines = t.read_csv("data.csv");
 ```
 
 **Functions:**
+
 - `t.read_lines(filename)` - Read file as array of lines
 - `t.write_lines(filename, content)` - Write content as line to file
 - `t.read_csv(filename)` - Read CSV file line by line
@@ -1444,6 +1609,7 @@ let debug_stats = d.get_stats();
 ```
 
 **Functions:**
+
 - `d.warn(message)` - Generate formatted warnings with emojis and counters
 - `d.error(message)` - Generate formatted errors with emojis and counters
 - `d.assert(condition, message)` - Handle assertions with pass/fail reporting
@@ -1453,6 +1619,7 @@ let debug_stats = d.get_stats();
 - `d.set_debug_mode()` - Toggle debug mode on/off
 
 **Professional Features:**
+
 - **Emoji formatting** - ⚠️ for warnings, ❌ for errors, ✅ for assertions, ⏱️ for timing
 - **Counter tracking** - Automatic warning and error counting
 - **Message storage** - Last warning and error messages preserved
@@ -1485,6 +1652,7 @@ let type_stats = t.get_type_stats();
 ```
 
 **Functions:**
+
 - `t.typeof(value)` - Analyze and identify value types
 - `t.is_type(value, expected_type)` - Type checking and validation
 - `t.cast(value, target_type)` - Type casting and conversion
@@ -1496,6 +1664,7 @@ let type_stats = t.get_type_stats();
 - `t.get_type_stats()` - Comprehensive type system statistics
 
 **Enterprise Features:**
+
 - **Type Analysis** - Automatic type identification and validation
 - **Type Casting** - Safe type conversion between compatible types
 - **System Control** - Enable/disable type checking and inference
@@ -1527,6 +1696,7 @@ let polish_stats = p.get_polish_stats();
 ```
 
 **Functions:**
+
 - `p.enhance_lambda(lambda_expression)` - Enhanced lambda function support
 - `p.interpolate_string(template, values)` - String interpolation with variables
 - `p.create_template(template_string)` - Template literal creation
@@ -1537,6 +1707,7 @@ let polish_stats = p.get_polish_stats();
 - `p.get_polish_stats()` - Language polish statistics and reporting
 
 **Modern Features:**
+
 - **Enhanced Lambdas** - Advanced lambda function capabilities
 - **String Interpolation** - Dynamic string construction with variables
 - **Template Literals** - Reusable string templates
@@ -1572,6 +1743,7 @@ t.reset_tests();
 ```
 
 **Functions:**
+
 - `t.describe(suite_name)` - Create and manage test suites
 - `t.it(test_name)` - Create individual test cases
 - `t.expect(value)` - Set test expectations
@@ -1583,6 +1755,7 @@ t.reset_tests();
 - `t.reset_tests()` - Reset test counters and cleanup
 
 **Professional Features:**
+
 - **Test Suites** - Organized test organization and management
 - **Individual Tests** - Granular test case creation and tracking
 - **Assertions** - Multiple assertion types for comprehensive testing
@@ -1613,6 +1786,7 @@ d.reset_data_structures();
 ```
 
 **Functions:**
+
 - `d.create_linked_list(initial_value)` - Create linked list data structure
 - `d.create_binary_tree(root_value)` - Create binary tree data structure
 - `d.create_hash_table(initial_capacity)` - Create hash table data structure
@@ -1623,6 +1797,7 @@ d.reset_data_structures();
 - `d.reset_data_structures()` - Reset all data structure modes
 
 **Enterprise Features:**
+
 - **Linked Lists** - Dynamic linear data structure
 - **Binary Trees** - Hierarchical data organization
 - **Hash Tables** - Fast key-value storage and retrieval
@@ -1632,9 +1807,10 @@ d.reset_data_structures();
 - **Statistics** - Comprehensive data structure usage reporting
 - **Management** - State control and cleanup capabilities
 
-## Examples
+## Examples Of Myco
 
 ### Basic Program
+
 ```myco
 # Simple greeting program
 let name = "Alice";
@@ -1645,6 +1821,7 @@ print("You are " + to_string(age) + " years old.");
 ```
 
 ### Working with Arrays
+
 ```myco
 # Array operations
 let numbers = [1, 2, 3, 4, 5];
@@ -1666,6 +1843,7 @@ print("Reversed:", numbers);
 ```
 
 ### Working with Objects
+
 ```myco
 # Object operations
 let person = {
@@ -1690,6 +1868,7 @@ print("Has phone?", has_key(person, "phone"));
 ```
 
 ### String Processing
+
 ```myco
 # String manipulation
 let text = "  apple,banana,cherry  ";
@@ -1708,6 +1887,7 @@ print("Replaced:", replaced);
 ```
 
 ### Control Flow Example
+
 ```myco
 # Conditional logic and loops
 let scores = [85, 92, 78, 96, 88];
@@ -1735,6 +1915,7 @@ end
 ```
 
 ### Function Example
+
 ```myco
 # Function definition and usage
 func calculateArea(length, width):
@@ -1756,16 +1937,19 @@ displayRectangle(8, 4);
 ### Common Errors
 
 #### Syntax Errors
+
 - Missing semicolons
 - Unmatched braces or brackets
 - Invalid identifiers
 
 #### Runtime Errors
+
 - Accessing undefined variables
 - Array index out of bounds
 - Invalid function calls
 
 #### Type Errors
+
 - Incompatible operations
 - Invalid property access
 
@@ -1791,6 +1975,7 @@ displayRectangle(8, 4);
 **Current Version**: 1.6.0 - Language Maturity & Developer Experience
 
 **Completed Features**:
+
 - Variables and basic data types (numbers, strings, booleans)
 - Arithmetic and logical operators
 - Objects with dot and bracket notation
@@ -1814,6 +1999,7 @@ displayRectangle(8, 4);
 - **Language Maturity (v1.6.0)**: Type system foundation, language polish, testing framework, advanced data structures
 
 **Upcoming Features** (v1.7.0+ roadmap):
+
 - **Package Management**: Package manager with dependency resolution
 - **Package Registry**: Community library ecosystem
 - **Development Tools**: IDE support and enhanced tooling

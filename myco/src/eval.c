@@ -2784,25 +2784,25 @@ MycoArray* create_array(int initial_capacity, int is_string_array) {
     array->is_string_array = is_string_array;
     
     if (is_string_array) {
-        array->str_elements = (char**)tracked_malloc(initial_capacity * sizeof(char*), __FILE__, __LINE__, "create_array_str");
+        array->str_elements = (char**)tracked_malloc(optimal_capacity * sizeof(char*), __FILE__, __LINE__, "create_array_str");
         array->elements = NULL;
         if (!array->str_elements) {
             tracked_free(array, __FILE__, __LINE__, "create_array_str_fail");
             return NULL;
         }
         // Initialize string pointers to NULL
-        for (int i = 0; i < initial_capacity; i++) {
+        for (int i = 0; i < optimal_capacity; i++) {
             array->str_elements[i] = NULL;
         }
     } else {
-        array->elements = (long long*)tracked_malloc(initial_capacity * sizeof(long long), __FILE__, __LINE__, "create_array_num");
+        array->elements = (long long*)tracked_malloc(optimal_capacity * sizeof(long long), __FILE__, __LINE__, "create_array_num");
         array->str_elements = NULL;
         if (!array->elements) {
             tracked_free(array, __FILE__, __LINE__, "create_array_num_fail");
             return NULL;
         }
         // Initialize numbers to 0
-        for (int i = 0; i < initial_capacity; i++) {
+        for (int i = 0; i < optimal_capacity; i++) {
             array->elements[i] = 0;
         }
     }
@@ -7020,6 +7020,7 @@ void eval_evaluate(ASTNode* ast) {
 
 
 
+
     switch (ast->type) {
         case AST_FOR: {
             // FAST PATH: Check if this is the benchmark loop pattern
@@ -7034,8 +7035,6 @@ void eval_evaluate(ASTNode* ast) {
                 update_loop_statistics(1, 1000000, 0);
                 return;
             }
-            
-
             
             // Initialize loop execution state if not already done
             if (!global_loop_state) {
@@ -7074,28 +7073,13 @@ void eval_evaluate(ASTNode* ast) {
                 fprintf(stderr, "Error: Failed to get loop context from pool\n");
                 return;
             }
+            
+
 
             push_loop_context(global_loop_state, context);
             global_loop_state->in_loop_body = 1;
 
-            // Compile loop to bytecode for ultra-fast execution
-            CompiledLoop* compiled_loop = compile_loop_to_bytecode(ast);
-            if (compiled_loop) {
-                // Execute compiled bytecode loop (ultra-fast)
-                long long loop_result = execute_bytecode_loop(compiled_loop, start, end, step);
-                
-                // Clean up compiled loop
-                if (compiled_loop->instructions) {
-                    tracked_free(compiled_loop->instructions, __FILE__, __LINE__, "cleanup_compiled_loop");
-                }
-                tracked_free(compiled_loop, __FILE__, __LINE__, "cleanup_compiled_loop");
-                
-                // Update statistics
-                update_loop_statistics(1, (int)((end - start) / step + 1), 0);
-                return;
-            }
-            
-            // Fallback to AST interpretation if compilation fails
+            // Execute loop using AST interpretation (more reliable than bytecode)
             int iterations = 0;
             while (should_continue_loop(context)) {
                 // Set loop variable value
@@ -7915,8 +7899,14 @@ void eval_evaluate(ASTNode* ast) {
                 }
             } else if (value == -1) {
                 // This is a string concatenation result or string function result
-                // Check if this is actually a string literal assignment (not a concatenation result)
-                if (ast->children[1].type == AST_EXPR && ast->children[1].text && is_string_literal(ast->children[1].text)) {
+                // Check for string concatenation result FIRST (most common case)
+                if (last_concat_result) {
+                    // String concatenation result
+                    set_str_value(var_name, last_concat_result);
+                    // Clear the last_concat_result to prevent reuse in subsequent assignments
+                    tracked_free(last_concat_result, __FILE__, __LINE__, "clear_concat_result");
+                    last_concat_result = NULL;
+                } else if (ast->children[1].type == AST_EXPR && ast->children[1].text && is_string_literal(ast->children[1].text)) {
                     // This is a string literal assignment - use string interning for optimization
                     size_t len = strlen(ast->children[1].text);
                     if (len >= 2) {
@@ -7929,9 +7919,6 @@ void eval_evaluate(ASTNode* ast) {
                     } else {
                         set_str_value(var_name, "");
                     }
-                } else if (last_concat_result) {
-                    // String concatenation result
-                    set_str_value(var_name, last_concat_result);
                 } else {
                     // String function result - check all possible string function results
                     const char* str_result = get_str_value("__last_replace_result");
@@ -8045,7 +8032,22 @@ void eval_evaluate(ASTNode* ast) {
             }
 
             int64_t value = eval_expression(&ast->children[1]);
-            set_var_value(var_name, value);
+            
+            if (value == -1) {
+                // String assignment - handle string concatenation results
+                if (last_concat_result) {
+                    set_str_value(var_name, last_concat_result);
+                    // Clear the last_concat_result to prevent reuse
+                    tracked_free(last_concat_result, __FILE__, __LINE__, "clear_concat_result");
+                    last_concat_result = NULL;
+                } else {
+                    // Fallback: set empty string
+                    set_str_value(var_name, "");
+                }
+            } else {
+                // Numeric assignment
+                set_var_value(var_name, value);
+            }
             return;
         }
 

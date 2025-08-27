@@ -1,12 +1,13 @@
 # Myco Language BNF Grammar Specification
 
-**Version**: v1.6.0 - Language Maturity & Developer Experience   
-**Last Updated**: December 2024   
-**Status**: Complete and Current   
+**Version**: v1.6.0 - Language Maturity & Developer Experience
+**Last Updated**: August 2025
+**Status**: Complete and Current
 
 ---
 
 ## Table of Contents
+
 1. [Program Structure](#program-structure)
 2. [Lexical Elements](#lexical-elements)
 3. [Expressions](#expressions)
@@ -35,6 +36,7 @@
 ## Lexical Elements
 
 ### Identifiers
+
 ```bnf
 <identifier> ::= <letter> (<letter> | <digit> | "_")*
 <letter> ::= "a" | "b" | "c" | "d" | "e" | "f" | "g" | "h" | "i" | "j" | "k" | "l" | "m" | "n" | "o" | "p" | "q" | "r" | "s" | "t" | "u" | "v" | "w" | "x" | "y" | "z" | "A" | "B" | "C" | "D" | "E" | "F" | "G" | "H" | "I" | "J" | "K" | "L" | "M" | "N" | "O" | "P" | "Q" | "R" | "S" | "T" | "U" | "V" | "W" | "X" | "Y" | "Z"
@@ -42,6 +44,7 @@
 ```
 
 ### Literals
+
 ```bnf
 <literal> ::= <number_literal> | <string_literal> | <boolean_literal> | <array_literal> | <object_literal>
 
@@ -68,6 +71,7 @@
 ## Expressions
 
 ### Primary Expressions
+
 ```bnf
 <expression> ::= <primary_expression> | <binary_expression> | <unary_expression> | <assignment_expression> | <function_call_expression>
 
@@ -82,6 +86,7 @@
 ```
 
 ### Binary Expressions
+
 ```bnf
 <binary_expression> ::= <expression> <binary_operator> <expression> | <expression> "?" <expression> ":" <expression>
 
@@ -89,6 +94,7 @@
 ```
 
 ### Unary Expressions
+
 ```bnf
 <unary_expression> ::= <unary_operator> <expression>
 
@@ -96,11 +102,13 @@
 ```
 
 ### Assignment Expressions
+
 ```bnf
 <assignment_expression> ::= <identifier> "=" <expression>
 ```
 
 ### Function Call Expressions
+
 ```bnf
 <function_call_expression> ::= <identifier> "(" <argument_list> ")"
 <argument_list> ::= <expression> ("," <expression>)*
@@ -111,67 +119,77 @@
 ## Statements
 
 ### Expression Statements
+
 ```bnf
 <expression_statement> ::= <expression> ";"
 ```
 
-### Library Import Statements ⭐ **NEW in v1.4.0**
+### Library Import Statements
 
 ```bnf
 <library_import_statement> ::= "use" <identifier> "as" <identifier> ";"
 ```
 
-### Built-in Libraries ⭐ **NEW in v1.5.0**
+### Built-in Libraries
 
 Myco v1.5.0 provides comprehensive system integration through specialized libraries:
 
 #### Path Utilities Library (`path_utils`)
+
 ```bnf
 <path_utils_function> ::= <identifier> "." <path_function> "(" <argument_list> ")"
 <path_function> ::= "join_path" | "dirname" | "basename" | "is_absolute" | "normalize_path" | "relative_path"
 ```
 
 #### Environment Variables Library (`env`)
+
 ```bnf
 <env_function> ::= <identifier> "." <env_function_name> "(" <argument_list> ")"
 <env_function_name> ::= "get_env" | "set_env" | "list_env" | "has_env"
 ```
 
 #### Command-Line Arguments Library (`args`)
+
 ```bnf
 <args_function> ::= <identifier> "." <args_function_name> "(" <argument_list> ")"
 <args_function_name> ::= "get_args" | "get_arg" | "arg_count" | "parse_flags"
 ```
 
 #### Process Execution Library (`process`)
+
 ```bnf
 <process_function> ::= <identifier> "." <process_function_name> "(" <argument_list> ")"
 <process_function_name> ::= "execute" | "get_pid" | "get_cwd" | "change_dir"
 ```
 
 #### Text Processing Library (`text_utils`)
+
 ```bnf
 <text_utils_function> ::= <identifier> "." <text_utils_function_name> "(" <argument_list> ")"
 <text_utils_function_name> ::= "read_lines" | "write_lines" | "read_csv" | "write_csv"
 ```
 
 #### Enhanced Debugging Library (`debug`)
+
 ```bnf
 <debug_function> ::= <identifier> "." <debug_function_name> "(" <argument_list> ")"
 <debug_function_name> ::= "warn" | "error" | "assert" | "start_timer" | "end_timer" | "get_stats" | "set_debug_mode"
 ```
 
 ### Declaration Statements
+
 ```bnf
 <declaration_statement> ::= "let" <identifier> "=" <expression> ";"
 ```
 
 ### Return Statements
+
 ```bnf
 <return_statement> ::= "return" <expression>? ";"
 ```
 
 ### Break and Continue Statements
+
 ```bnf
 <break_statement> ::= "break" ";"
 <continue_statement> ::= "continue" ";"
@@ -182,6 +200,7 @@ Myco v1.5.0 provides comprehensive system integration through specialized librar
 ## Functions
 
 ### Function Declaration
+
 ```bnf
 <function_declaration> ::= "func" <identifier> "(" <parameter_list> ")" <return_type_spec>? ":" <block>
 
@@ -200,13 +219,15 @@ Myco v1.5.0 provides comprehensive system integration through specialized librar
 ## Control Flow
 
 ### If Statements
+
 ```bnf
 <if_statement> ::= "if" <expression> ":" <block> <else_clause>?
 
 <else_clause> ::= "else" ":" <block>
 ```
 
-### Switch Statements ⭐ **NEW in v1.3.2**
+### Switch Statements
+
 ```bnf
 <switch_statement> ::= "switch" <expression> ":" <switch_cases> "end"
 
@@ -221,7 +242,8 @@ Myco v1.5.0 provides comprehensive system integration through specialized librar
 <default_body> ::= <statement>*
 ```
 
-### Try-Catch Statements ⭐ **NEW in v1.3.2**
+### Try-Catch Statements
+
 ```bnf
 <try_catch_statement> ::= "try" ":" <try_body> "catch" <identifier> ":" <catch_body> "end"
 
@@ -231,11 +253,13 @@ Myco v1.5.0 provides comprehensive system integration through specialized librar
 ```
 
 ### For Loops
+
 ```bnf
 <for_statement> ::= "for" <identifier> "in" <expression> ".." <expression> ":" <block>
 ```
 
 ### While Loops
+
 ```bnf
 <while_statement> ::= "while" <expression> ":" <block>
 ```
@@ -245,6 +269,7 @@ Myco v1.5.0 provides comprehensive system integration through specialized librar
 ## Data Structures
 
 ### Arrays
+
 ```bnf
 <array_operation> ::= <array_access> | <array_method_call>
 
@@ -253,6 +278,7 @@ Myco v1.5.0 provides comprehensive system integration through specialized librar
 ```
 
 ### Objects
+
 ```bnf
 <object_operation> ::= <object_access> | <object_method_call>
 
@@ -265,6 +291,7 @@ Myco v1.5.0 provides comprehensive system integration through specialized librar
 ## Built-in Functions
 
 ### Math Library (v1.3.0)
+
 ```bnf
 <math_function> ::= "abs" | "pow" | "sqrt" | "floor" | "ceil" | "min" | "max" | "random" | "randint" | "choice"
 
@@ -272,16 +299,19 @@ Myco v1.5.0 provides comprehensive system integration through specialized librar
 ```
 
 ### Utility Library (v1.3.2)
+
 ```bnf
 <utility_function> ::= "debug" | "type" | "is_num" | "is_str" | "is_arr" | "is_obj" | "str" | "find" | "copy" | "has"
 ```
 
 ### Core Functions
+
 ```bnf
 <core_function> ::= "print" | "to_string" | "input" | "len"
 ```
 
 ### Function Call Grammar
+
 ```bnf
 <builtin_function_call> ::= <math_function> "(" <argument_list> ")" | <utility_function> "(" <argument_list> ")" | <core_function> "(" <argument_list> ")"
 ```
@@ -291,11 +321,13 @@ Myco v1.5.0 provides comprehensive system integration through specialized librar
 ## Comments
 
 ### Single-line Comments
+
 ```bnf
 <single_line_comment> ::= "#" <any_char_except_newline>*
 ```
 
 ### Multi-line Comments
+
 ```bnf
 <multi_line_comment> ::= "'''" <any_char>* "'''"
 ```
@@ -320,6 +352,7 @@ Myco v1.5.0 provides comprehensive system integration through specialized librar
 ## Language Features Summary
 
 ### ✅ **Implemented Features**
+
 - **Basic Syntax**: Variables, expressions, statements
 - **Functions**: Declaration, parameters, return types (optional)
 - **Control Flow**: If-else, loops (for, while), switch/case, try/catch
@@ -332,12 +365,14 @@ Myco v1.5.0 provides comprehensive system integration through specialized librar
 - **Error Handling**: Try-catch blocks with automatic error catching
 
 ### 🔄 **Implicit Functions (v1.2.4)**
+
 - Optional parameter type annotations
 - Optional return type annotations
 - Implicit returns (returns 0 if no return statement)
 - Dynamic return type inference
 
 ### 🧮 **Math Library (v1.3.0)**
+
 - Basic operations: `abs`, `pow`, `sqrt`, `floor`, `ceil`
 - Comparison: `min`, `max`
 - Random: `random`, `randint`, `choice`
@@ -345,12 +380,14 @@ Myco v1.5.0 provides comprehensive system integration through specialized librar
 - **Float Support**: Enhanced with floating-point arithmetic and mixed-type operations
 
 ### 🎯 **Utility Library (v1.3.2)**
+
 - Debugging: `debug()`
 - Type checking: `type()`, `is_num()`, `is_str()`, `is_arr()`, `is_obj()`
 - String utilities: `str()`, `is_str()`, `find()`
 - Data utilities: `copy()`, `has()`
 
 ### 🌊 **Float System (v1.4.0)**
+
 - **Float Literals**: `3.14`, `0.5`, `.25`, `-2.5`
 - **Float Arithmetic**: `+`, `-`, `*`, `/` with automatic type conversion
 - **Mixed Operations**: Integer and float arithmetic with float result
@@ -358,11 +395,13 @@ Myco v1.5.0 provides comprehensive system integration through specialized librar
 - **Float Display**: Proper formatting with 6 significant digits
 
 ### 📚 **Library Import System (v1.4.0)**
+
 - **Import Syntax**: `use <library> as <alias>;`
 - **Namespace Protection**: Built-in functions accessed via `alias.function()`
 - **Available Libraries**: `math`, `utility`, `io`, `path_utils`, `env`, `args`, `process`, `text_utils`, `debug`, `types`, `polish`, `test`, `data`
 
 ### 🔧 **System Integration (v1.5.0)**
+
 - **Path Utilities**: `join_path()`, `dirname()`, `basename()`, `normalize_path()`, `is_absolute()`, `relative_path()`
 - **Environment Variables**: `get_env()`, `set_env()`, `list_env()`, `has_env()`
 - **Command-Line Arguments**: `get_args()`, `get_arg()`, `arg_count()`, `parse_flags()`
@@ -371,6 +410,7 @@ Myco v1.5.0 provides comprehensive system integration through specialized librar
 - **Enhanced Debugging**: `warn()`, `error()`, `assert()`, `start_timer()`, `end_timer()`, `get_stats()`
 
 ### 🎯 **Language Maturity (v1.6.0)**
+
 - **Type System Foundation**: `typeof()`, `is_type()`, `cast()`, `enable_type_checking()`, `disable_type_checking()`, `enable_type_inference()`, `disable_type_inference()`, `set_strict_mode()`, `get_type_stats()`
 - **Language Polish**: `enhance_lambda()`, `interpolate_string()`, `create_template()`, `enable_enhanced_lambdas()`, `disable_enhanced_lambdas()`, `enable_string_interpolation()`, `disable_string_interpolation()`, `get_polish_stats()`
 - **Testing Framework**: `describe()`, `it()`, `expect()`, `assert()`, `assert_equals()`, `start_benchmark()`, `end_benchmark()`, `get_test_stats()`, `reset_tests()`
@@ -392,11 +432,13 @@ Myco v1.5.0 provides comprehensive system integration through specialized librar
 ## Future Extensions
 
 ### ✅ **Completed Features**
+
 - **v1.4.0**: Float Support, Library Import System, True/False Keywords, File I/O
 - **v1.5.0**: System Integration (Path Utilities, Environment Variables, Command-Line Args, Process Execution, Text Processing, Enhanced Debugging)
 - **v1.6.0**: Language Maturity (Type System Foundation, Language Polish, Testing Framework, Advanced Data Structures)
 
 ### 🚀 **Planned for v1.7.0+**
+
 - **Package Management**: Package manager with dependency resolution
 - **Package Registry**: Community library ecosystem
 - **Development Tools**: IDE support and enhanced tooling

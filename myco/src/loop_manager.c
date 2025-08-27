@@ -82,7 +82,7 @@ LoopContext* create_loop_context(const char* var_name, int64_t start, int64_t en
     }
     
     // Initialize context
-            context->loop_var_name = var_name ? tracked_strdup(var_name, __FILE__, __LINE__, "create_loop_context") : NULL;
+    context->loop_var_name = var_name ? tracked_strdup(var_name, __FILE__, __LINE__, "create_loop_context") : NULL;
     context->current_value = start;
     context->start_value = start;
     context->end_value = end;
@@ -91,6 +91,7 @@ LoopContext* create_loop_context(const char* var_name, int64_t start, int64_t en
     context->max_iterations = MAX_LOOP_ITERATIONS;
     context->line = line;
     context->parent = NULL;
+    context->in_use = 0;  // Initialize pool management flag
     
     // Validate range
     if (!validate_loop_range(start, end, step)) {
