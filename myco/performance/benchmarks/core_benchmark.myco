@@ -69,13 +69,21 @@ let array_ok = array_time < 5000;  # <5ms target
 let math_ok = math_time < 5000;  # <5ms target
 let func_ok = func_time < 5000;  # <5ms target
 
+# Convert to numeric results for display
+let loop_result = loop_ok ? 1 : 0;
+let string_result = string_ok ? 1 : 0;
+let array_result = array_ok ? 1 : 0;
+let math_result = math_ok ? 1 : 0;
+let func_result = func_ok ? 1 : 0;
+
 print("\nPerformance Validation: ");
 print("======================");
-print("Loop performance: ", loop_ok ? 1 : 0);
-print("String performance: ", string_ok ? 1 : 0);
-print("Array performance: ", array_ok ? 1 : 0);
-print("Math performance: ", math_ok ? 1 : 0);
-print("Function performance: ", func_ok ? 1 : 0);
+print("Loop performance: ", loop_result);
+print("String performance: ", string_result);
+print("Array performance: ", array_result);
+print("Math performance: ", math_result);
+print("Function performance: ", func_result);
 
 let all_passed = loop_ok and string_ok and array_ok and math_ok and func_ok;
-print("Overall performance: ", all_passed ? 1 : 0);
+let overall_result = all_passed ? 1 : 0;
+print("Overall performance: ", overall_result);
