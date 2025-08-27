@@ -842,6 +842,18 @@ typedef struct {
     int access_count;  // Track access frequency
 } VarCacheEntry;
 
+// Batch memory allocation for variable environment
+#define VAR_BATCH_SIZE 64
+typedef struct {
+    VarEntry* entries;
+    int count;
+    int capacity;
+} VarBatch;
+
+static VarBatch* var_batches = NULL;
+static int var_batch_count = 0;
+static int var_batch_capacity = 0;
+
 static VarCacheEntry var_cache[VAR_CACHE_SIZE] = {0};
 static int var_cache_hits = 0;
 static int var_cache_misses = 0;
@@ -927,6 +939,117 @@ static void invalidate_var_cache() {
         fast_var_table[i].name = NULL;
         fast_var_table[i].index = 0;
     }
+}
+
+// Loop context pool for ultra-fast loop execution
+#define LOOP_CONTEXT_POOL_SIZE 16
+typedef struct {
+    LoopContext* contexts[LOOP_CONTEXT_POOL_SIZE];
+    int used_count;
+    int total_count;
+} LoopContextPool;
+
+static LoopContextPool loop_context_pool = {0};
+static int loop_context_pool_initialized = 0;
+
+// Loop context pool management functions
+static void init_loop_context_pool() {
+    if (loop_context_pool_initialized) return;
+    
+    for (int i = 0; i < LOOP_CONTEXT_POOL_SIZE; i++) {
+        loop_context_pool.contexts[i] = create_loop_context("", 0, 0, 1, 0);
+        if (loop_context_pool.contexts[i]) {
+            loop_context_pool.total_count++;
+        }
+    }
+    loop_context_pool_initialized = 1;
+}
+
+static LoopContext* get_loop_context_from_pool(const char* name, int64_t start, int64_t end, int64_t step, int line) {
+    if (!loop_context_pool_initialized) {
+        init_loop_context_pool();
+    }
+    
+    // Find available context in pool
+    for (int i = 0; i < LOOP_CONTEXT_POOL_SIZE; i++) {
+        if (loop_context_pool.contexts[i] && !loop_context_pool.contexts[i]->in_use) {
+            LoopContext* context = loop_context_pool.contexts[i];
+            context->in_use = 1;
+            context->loop_var_name = (char*)name;
+            context->start_value = start;
+            context->end_value = end;
+            context->step_value = step;
+            context->current_value = start;
+            context->iteration_count = 0;
+            context->line = line;
+            loop_context_pool.used_count++;
+            return context;
+        }
+    }
+    
+    // Fallback: create new context if pool is full
+    return create_loop_context(name, start, end, step, line);
+}
+
+static void return_loop_context_to_pool(LoopContext* context) {
+    if (!context) return;
+    
+    // Reset context for reuse
+    context->in_use = 0;
+    context->current_value = 0;
+    context->iteration_count = 0;
+    context->loop_var_name = NULL;
+    
+    loop_context_pool.used_count--;
+}
+
+// Batch memory allocation functions
+static void init_var_batch_system() {
+    if (var_batches) return;
+    
+    var_batch_capacity = 8;
+    var_batches = (VarBatch*)tracked_malloc(var_batch_capacity * sizeof(VarBatch), __FILE__, __LINE__, "init_var_batches");
+    
+    for (int i = 0; i < var_batch_capacity; i++) {
+        var_batches[i].entries = (VarEntry*)tracked_malloc(VAR_BATCH_SIZE * sizeof(VarEntry), __FILE__, __LINE__, "init_var_batch_entries");
+        var_batches[i].count = 0;
+        var_batches[i].capacity = VAR_BATCH_SIZE;
+    }
+    var_batch_count = var_batch_capacity;
+}
+
+static VarEntry* get_var_entry_from_batch() {
+    if (!var_batches) {
+        init_var_batch_system();
+    }
+    
+    // Find available entry in existing batches
+    for (int i = 0; i < var_batch_count; i++) {
+        if (var_batches[i].count < var_batches[i].capacity) {
+            VarEntry* entry = &var_batches[i].entries[var_batches[i].count];
+            var_batches[i].count++;
+            return entry;
+        }
+    }
+    
+    // Create new batch if all are full
+    if (var_batch_count >= var_batch_capacity) {
+        int new_capacity = var_batch_capacity * 2;
+        VarBatch* new_batches = (VarBatch*)realloc(var_batches, new_capacity * sizeof(VarBatch));
+        if (!new_batches) return NULL;
+        
+        var_batches = new_batches;
+        var_batch_capacity = new_capacity;
+    }
+    
+    var_batches[var_batch_count].entries = (VarEntry*)tracked_malloc(VAR_BATCH_SIZE * sizeof(VarEntry), __FILE__, __LINE__, "new_var_batch_entries");
+    var_batches[var_batch_count].count = 1;
+    var_batches[var_batch_count].capacity = VAR_BATCH_SIZE;
+    
+    VarEntry* entry = &var_batches[var_batch_count].entries[0];
+    var_batch_count++;
+    
+    return entry;
 }
 
 // Forward declaration
@@ -6207,10 +6330,10 @@ void eval_evaluate(ASTNode* ast) {
                 step = eval_expression(&ast->children[3]);
             }
 
-            // Create and push loop context
-            LoopContext* context = create_loop_context(loop_var_name, start, end, step, ast->line);
+            // Get loop context from pool for ultra-fast execution
+            LoopContext* context = get_loop_context_from_pool(loop_var_name, start, end, step, ast->line);
             if (!context) {
-                fprintf(stderr, "Error: Failed to create loop context\n");
+                fprintf(stderr, "Error: Failed to get loop context from pool\n");
                 return;
             }
 
@@ -6274,11 +6397,11 @@ void eval_evaluate(ASTNode* ast) {
                 }
             }
 
-            // Clean up
+            // Clean up and return context to pool
             global_loop_state->in_loop_body = 0;
             LoopContext* popped = pop_loop_context(global_loop_state);
             if (popped) {
-                destroy_loop_context(popped);
+                return_loop_context_to_pool(popped);
             }
 
             // Update statistics

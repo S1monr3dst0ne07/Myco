@@ -14,6 +14,7 @@ typedef struct LoopContext {
     int max_iterations;           // Maximum allowed iterations
     int line;                     // Source line number
     struct LoopContext* parent;   // For nested loops
+    int in_use;                   // Pool management flag
 } LoopContext;
 
 // Loop execution state
