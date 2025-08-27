@@ -9163,7 +9163,7 @@ static long long call_debug_function(const char* func_name, ASTNode* args_node) 
         int assertion_passed = 1; // Placeholder
         
         if (assertion_passed) {
-            printf("✅ ASSERTION PASSED: %s\n", message);
+            printf("ASSERTION PASSED: %s\n", message);
             return 1;
         } else {
             fprintf(stderr, "❌ ASSERTION FAILED: %s\n", message);
@@ -9429,7 +9429,7 @@ static long long call_language_polish_function(const char* func_name, ASTNode* a
         }
         
         // For now, we'll simulate enhanced lambda processing
-        printf("🚀 Enhanced lambda processing: %s\n", lambda_node->text);
+        printf("Enhanced lambda processing: %s\n", lambda_node->text);
         
         // Return enhancement result (placeholder)
         return 1; // Lambda enhancement completed
@@ -9455,7 +9455,7 @@ static long long call_language_polish_function(const char* func_name, ASTNode* a
         }
         
         // For now, we'll simulate string interpolation
-        printf("📝 String interpolation: %s with %s\n", template_node->text, values_node->text);
+        printf("String interpolation: %s with %s\n", template_node->text, values_node->text);
         
         // Return interpolation result (placeholder)
         return 1; // String interpolation completed
@@ -9474,7 +9474,7 @@ static long long call_language_polish_function(const char* func_name, ASTNode* a
         }
         
         // For now, we'll simulate template creation
-        printf("📋 Template creation: %s\n", template_node->text);
+        printf("Template creation: %s\n", template_node->text);
         
         // Return template creation result (placeholder)
         return 1; // Template creation completed
@@ -9575,7 +9575,7 @@ static long long call_testing_framework_function(const char* func_name, ASTNode*
         strncpy(current_test_suite, suite_name, sizeof(current_test_suite) - 1);
         current_test_suite[sizeof(current_test_suite) - 1] = '\0';
         
-        printf("\n🧪 TEST SUITE: %s\n", suite_name);
+        printf("\nTEST SUITE: %s\n", suite_name);
         printf("=");
         for (int i = 0; i < strlen(suite_name) + 10; i++) printf("=");
         printf("\n");
@@ -9615,7 +9615,7 @@ static long long call_testing_framework_function(const char* func_name, ASTNode*
         current_test_name[sizeof(current_test_name) - 1] = '\0';
         
         test_count++;
-        printf("  📋 Test %d: %s\n", test_count, test_name);
+        printf("  Test %d: %s\n", test_count, test_name);
         
         return test_count;
         
@@ -9633,7 +9633,7 @@ static long long call_testing_framework_function(const char* func_name, ASTNode*
         }
         
         // For now, we'll simulate expectation checking
-        printf("    ✅ Expectation: %s\n", value_node->text);
+        printf("    Expectation: %s\n", value_node->text);
         
         // Return expectation result (placeholder)
         return 1; // Expectation check completed
