@@ -137,7 +137,7 @@ end
 
 # For loop test
 let loop_sum = 0;
-for i in 1:5:
+for i in 1..5:
     loop_sum = loop_sum + i;
 end
 

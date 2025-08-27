@@ -3,7 +3,7 @@
 > A whimsical, mystical programming language rooted deep in the forest floor.  
 > 🌿 Think C meets Lua — but with mushrooms.
 
-Discord: https://discord.gg/CR8xcKb3zM
+Discord: <https://discord.gg/CR8xcKb3zM>
 
 **Current Version**: v1.6.0 - Language Maturity & Developer Experience
 

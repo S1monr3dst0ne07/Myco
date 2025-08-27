@@ -232,7 +232,7 @@ Myco v1.5.0 provides comprehensive system integration through specialized librar
 
 ### For Loops
 ```bnf
-<for_statement> ::= "for" <identifier> "in" <expression> ":" <block>
+<for_statement> ::= "for" <identifier> "in" <expression> ".." <expression> ":" <block>
 ```
 
 ### While Loops

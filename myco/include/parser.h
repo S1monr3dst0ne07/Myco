@@ -14,7 +14,7 @@ typedef enum {
 
 // Enhanced for loop types
 typedef enum {
-    AST_FOR_RANGE,        // for i in 1:10:
+    AST_FOR_RANGE,        // for i in 1..10:
     AST_FOR_ARRAY,        // for item in array:
     AST_FOR_STEP,         // for i in 1:10:2:
     AST_FOR_DOWNTO        // for i in 10:1:-1:

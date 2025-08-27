@@ -464,7 +464,7 @@ end
 
 #### For Loop
 ```myco
-for i in start:end:
+for i in start..end:
     # code block
 end
 ```
@@ -544,7 +544,7 @@ while count < 5:
     count = count + 1;
 end
 
-for i in 0:10:
+for i in 0..10:
     print("Number:", i);
 end
 ```
@@ -1704,7 +1704,7 @@ let total = 0;
 let count = len(scores);
 
 # Calculate total
-for i in 0:count:
+for i in 0..count:
     total = total + scores[i];
 end
 

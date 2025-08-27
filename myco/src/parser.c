@@ -1247,7 +1247,97 @@ static ASTNode* parse_statement(Token* tokens, int* current, int token_count) {
             }
             (*current)++; // Skip 'in'
 
-            // Parse range start
+            // Check if this is a range formed by a float literal ending with '.' followed by any token
+            if (tokens[*current].type == TOKEN_FLOAT) {
+                char* first_text = tokens[*current].text;
+                int first_len = strlen(first_text);
+                
+                if (first_len > 0 && first_text[first_len - 1] == '.') {
+                    // This is a float ending with '.', treat it as a range start
+
+                    
+                    // Create a range start node from the first part (without the trailing dot)
+                    char* start_text = (char*)malloc(first_len);
+                    strncpy(start_text, first_text, first_len - 1);
+                    start_text[first_len - 1] = '\0';
+                    
+                    ASTNode* range_start = (ASTNode*)tracked_malloc(sizeof(ASTNode), __FILE__, __LINE__, "parse_statement_for");
+                    range_start->type = AST_EXPR;
+                    range_start->text = start_text;
+                    range_start->children = NULL;
+                    range_start->child_count = 0;
+                    range_start->next = NULL;
+                    
+                    // Skip the first float token
+                    (*current)++;
+                    
+                    // Check if the next token is a dot (forming ..)
+                    if (tokens[*current].type == TOKEN_DOT) {
+
+                        (*current)++; // Skip the second dot
+                    }
+                    
+
+                    
+                    // Parse range end
+                    ASTNode* range_end = parse_expression(tokens, current);
+                    if (!range_end) {
+                        fprintf(stderr, "DEBUG: Failed to parse range end\n");
+                        parser_free_ast(node);
+                        tracked_free(loop_var, __FILE__, __LINE__, "parse_statement_for");
+                        tracked_free(range_start, __FILE__, __LINE__, "parse_statement_for");
+                        return NULL;
+                    }
+                    
+                    // Parse final colon (required for all for loops)
+                    if (tokens[*current].type != TOKEN_COLON) {
+                        fprintf(stderr, "Error: Expected ':' after range end at line %d\n", tokens[*current].line);
+                        parser_free_ast(node);
+                        tracked_free(loop_var, __FILE__, __LINE__, "parse_statement_for");
+                        tracked_free(range_start, __FILE__, __LINE__, "parse_statement_for");
+                        tracked_free(range_end, __FILE__, __LINE__, "parse_statement_for");
+                        return NULL;
+                    }
+                    (*current)++; // Skip final ':'
+                    
+                    // Parse loop body
+                    ASTNode* loop_body = parse_block(tokens, current, token_count);
+                    if (!loop_body) {
+                        parser_free_ast(node);
+                        tracked_free(loop_var, __FILE__, __LINE__, "parse_statement_for");
+                        tracked_free(range_start, __FILE__, __LINE__, "parse_statement_for");
+                        tracked_free(range_end, __FILE__, __LINE__, "parse_statement_for");
+                        return NULL;
+                    }
+                    
+                    // Add children: [loop_var, start, end, body]
+                    node->children = (ASTNode*)tracked_malloc(4 * sizeof(ASTNode), __FILE__, __LINE__, "parse_statement_for");
+                    if (!node->children) {
+                        parser_free_ast(node);
+                        tracked_free(loop_var, __FILE__, __LINE__, "parse_statement_for");
+                        tracked_free(range_start, __FILE__, __LINE__, "parse_statement_for");
+                        tracked_free(range_end, __FILE__, __LINE__, "parse_statement_for");
+                        tracked_free(loop_body, __FILE__, __LINE__, "parse_statement_for");
+                        return NULL;
+                    }
+                    
+                    node->children[0] = *loop_var;
+                    node->children[1] = *range_start;
+                    node->children[2] = *range_end;
+                    node->children[3] = *loop_body;
+                    node->child_count = 4;
+                    
+                    // Clean up temporary nodes
+                    tracked_free(loop_var, __FILE__, __LINE__, "parse_statement_for");
+                    tracked_free(range_start, __FILE__, __LINE__, "parse_statement_for");
+                    tracked_free(range_end, __FILE__, __LINE__, "parse_statement_for");
+                    tracked_free(loop_body, __FILE__, __LINE__, "parse_statement_for");
+                    
+                    return node;
+                }
+            }
+            
+            // Parse range start normally
             ASTNode* range_start = parse_expression(tokens, current);
             if (!range_start) {
                 parser_free_ast(node);
@@ -1255,15 +1345,27 @@ static ASTNode* parse_statement(Token* tokens, int* current, int token_count) {
                 return NULL;
             }
 
-            // Parse range separator (first colon)
-            if (tokens[*current].type != TOKEN_COLON) {
-                fprintf(stderr, "Error: Expected ':' after range start at line %d\n", tokens[*current].line);
+            // Parse range separator (two dots)
+            if (tokens[*current].type == TOKEN_DOT) {
+                // Handle explicit dot-dot syntax
+                (*current)++; // Skip first '.'
+                
+                // Check for second dot
+                if (tokens[*current].type != TOKEN_DOT) {
+                    fprintf(stderr, "Error: Expected '..' after range start at line %d\n", tokens[*current].line);
+                    parser_free_ast(node);
+                    tracked_free(loop_var, __FILE__, __LINE__, "parse_statement_for");
+                    tracked_free(range_start, __FILE__, __LINE__, "parse_statement_for");
+                    return NULL;
+                }
+                (*current)++; // Skip second '.'
+            } else {
+                fprintf(stderr, "Error: Expected range separator after range start at line %d\n", tokens[*current].line);
                 parser_free_ast(node);
                 tracked_free(loop_var, __FILE__, __LINE__, "parse_statement_for");
                 tracked_free(range_start, __FILE__, __LINE__, "parse_statement_for");
                 return NULL;
             }
-            (*current)++; // Skip ':'
 
             // Parse range end
             ASTNode* range_end = parse_expression(tokens, current);
