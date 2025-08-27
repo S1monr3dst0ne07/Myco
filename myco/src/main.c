@@ -105,7 +105,7 @@ int main(int argc, char* argv[]) {
     fseek(file, 0, SEEK_SET);
     
     // Allocate buffer and read file
-    char* source_code = malloc(file_size + 1);
+    char* source_code = tracked_malloc(file_size + 1, __FILE__, __LINE__, "main_source_code");
     if (!source_code) {
         fprintf(stderr, "Error: Memory allocation failed\n");
         fclose(file);
@@ -128,7 +128,7 @@ int main(int argc, char* argv[]) {
     Token* tokens = lexer_tokenize(source_code);
     if (!tokens) {
         fprintf(stderr, "Error: Lexical analysis failed\n");
-        free(source_code);
+        tracked_free(source_code, __FILE__, __LINE__, "main_lexical_error");
         return 1;
     }
     
@@ -159,8 +159,8 @@ int main(int argc, char* argv[]) {
     ASTNode* ast = parser_parse(tokens);
     if (!ast) {
         fprintf(stderr, "Error: Parsing failed\n");
-        free(tokens);
-        free(source_code);
+        tracked_free(tokens, __FILE__, __LINE__, "main_parsing_error");
+        tracked_free(source_code, __FILE__, __LINE__, "main_parsing_error");
         return 1;
     }
     
@@ -191,8 +191,8 @@ int main(int argc, char* argv[]) {
     
     // Cleanup
     parser_free_ast(ast);
-    free(tokens);
-    free(source_code);
+    tracked_free(tokens, __FILE__, __LINE__, "main_cleanup");
+    tracked_free(source_code, __FILE__, __LINE__, "main_cleanup");
     
     #if DEBUG_MEMORY_TRACKING
     cleanup_all_environments();

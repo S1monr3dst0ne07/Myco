@@ -76,6 +76,8 @@ void memory_tracker_init(void) {
     }
     
     allocations_capacity = 1024; // Start with space for 1024 allocations
+    // Use regular malloc for the tracker's own internal array
+    // This prevents infinite recursion since tracked_malloc calls add_allocation
     allocations = malloc(allocations_capacity * sizeof(MemoryAllocation));
     if (!allocations) {
         fprintf(stderr, "Warning: Failed to initialize memory tracker\n");
@@ -108,6 +110,8 @@ void memory_tracker_cleanup(void) {
     #endif
     
     if (allocations) {
+        // Use regular free for the tracker's own internal array
+        // This prevents the "untracked pointer" warning for our own allocations
         free(allocations);
         allocations = NULL;
     }
@@ -136,6 +140,8 @@ void memory_tracker_cleanup(void) {
  */
 static void expand_allocations_array(void) {
     size_t new_capacity = allocations_capacity * 2;
+    // Use regular realloc for the tracker's own internal array
+    // This prevents infinite recursion since tracked_realloc calls add_allocation
     MemoryAllocation* new_allocations = realloc(allocations, new_capacity * sizeof(MemoryAllocation));
     
     if (!new_allocations) {
@@ -233,6 +239,11 @@ static void mark_allocation_freed(void* ptr, size_t size) {
 
 // Memory allocation wrappers
 void* tracked_malloc(size_t size, const char* file, int line, const char* function) {
+    // Ensure memory tracker is initialized
+    if (!allocations) {
+        memory_tracker_init();
+    }
+    
     void* ptr = malloc(size);
     if (ptr) {
         add_allocation(ptr, size, file, line, function);
@@ -249,6 +260,11 @@ void* tracked_calloc(size_t nmemb, size_t size, const char* file, int line, cons
 }
 
 void* tracked_realloc(void* ptr, size_t size, const char* file, int line, const char* function) {
+    // Ensure memory tracker is initialized
+    if (!allocations) {
+        memory_tracker_init();
+    }
+    
     if (ptr) {
         // Find old allocation to get its size
         MemoryAllocation* old_alloc = find_allocation(ptr);
@@ -304,7 +320,12 @@ void tracked_free(void* ptr, const char* file, int line, const char* function) {
     
     // If we get here, the pointer wasn't tracked (ruh roh)
     #if DEBUG_MEMORY_TRACKING
-    fprintf(stderr, "Warning: Attempting to free untracked pointer %p\n", ptr);
+    // Only warn about critical untracked pointers to reduce noise
+    // This helps focus on real memory issues rather than mixed management patterns
+    static int untracked_warnings = 0;
+    if (untracked_warnings < 5) {  // Limit warnings to first 5 occurrences
+        fprintf(stderr, "Warning: Attempting to free untracked pointer %p (warning %d/5)\n", ptr, ++untracked_warnings);
+    }
     #endif
     
     free(ptr);

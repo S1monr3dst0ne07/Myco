@@ -1,3 +1,9 @@
+Myco Performance Report
+Generated: Wed Aug 27 09:33:14 EDT 2025
+========================
+
+Performance Summary:
+-------------------
 Memory tracker initialized with capacity for 1024 allocations
 Implicit function system initialized with 14 operators
 Library system initialized
@@ -53,3 +59,17 @@ Warning: Attempting to free untracked pointer 0x15400a200
 All environments cleaned up
 Memory tracker cleaned up
 Warning: Attempting to free untracked pointer 0x15370ef20
+
+Performance Validation:
+---------------------
+Performance Validation: 
+======================
+Loop performance: 1
+String performance: 1
+Array performance: 1
+Math performance: 1
+Function performance: 1
+Overall performance: 1
+Library system cleaned up
+Warning: Attempting to free untracked pointer 0x153706b40
+Warning: Attempting to free untracked pointer 0x153706b90

@@ -181,8 +181,8 @@ static ASTNode* parse_primary(Token* tokens, int* current) {
                         // Parse the value expression
                         ASTNode* value_expr = parse_expression(tokens, current);
                         if (!value_expr) {
-                            free(obj_name);
-                            free(prop_name);
+                            tracked_free(obj_name, __FILE__, __LINE__, "parse_primary_object_assign");
+                            tracked_free(prop_name, __FILE__, __LINE__, "parse_primary_object_assign");
                             tracked_free(node, __FILE__, __LINE__, "parse_primary_object_assign");
                             return NULL;
                         }
@@ -229,10 +229,10 @@ static ASTNode* parse_primary(Token* tokens, int* current) {
                         // Parse the value expression
                         ASTNode* value_expr = parse_expression(tokens, current);
                         if (!value_expr) {
-                            free(obj_name);
-                            free(prop1_name);
-                            free(prop2_name);
-                            free(prop3_name);
+                            tracked_free(obj_name, __FILE__, __LINE__, "parse_primary_4level_assign");
+                            tracked_free(prop1_name, __FILE__, __LINE__, "parse_primary_4level_assign");
+                            tracked_free(prop2_name, __FILE__, __LINE__, "parse_primary_4level_assign");
+                            tracked_free(prop3_name, __FILE__, __LINE__, "parse_primary_4level_assign");
                             tracked_free(node, __FILE__, __LINE__, "parse_primary_4level_assign");
                             return NULL;
                         }
@@ -307,12 +307,12 @@ static ASTNode* parse_primary(Token* tokens, int* current) {
                 
                 // Parse the value expression
                 ASTNode* value_expr = parse_expression(tokens, current);
-                if (!value_expr) {
-                    free(obj_name);
-                    free(prop_name);
-                    tracked_free(node, __FILE__, __LINE__, "parse_primary_object_assign");
-                    return NULL;
-                }
+                                        if (!value_expr) {
+                            tracked_free(obj_name, __FILE__, __LINE__, "parse_primary_object_assign");
+                            tracked_free(prop_name, __FILE__, __LINE__, "parse_primary_object_assign");
+                            tracked_free(node, __FILE__, __LINE__, "parse_primary_object_assign");
+                            return NULL;
+                        }
                 
                 // Create object assignment node
                 node->type = AST_OBJECT_ASSIGN;
@@ -367,7 +367,7 @@ static ASTNode* parse_primary(Token* tokens, int* current) {
                 }
                 
                 // Create a negative number by combining '-' and the number
-                char* negative_num = (char*)malloc(strlen(tokens[*current].text) + 2);
+                char* negative_num = (char*)tracked_malloc(strlen(tokens[*current].text) + 2, __FILE__, __LINE__, "parse_primary_unary_minus");
                 sprintf(negative_num, "-%s", tokens[*current].text);
                 
                 node->type = AST_EXPR;
@@ -387,7 +387,7 @@ static ASTNode* parse_primary(Token* tokens, int* current) {
         case TOKEN_STRING:
             node->type = AST_EXPR;
             // Wrap the string literal in quotes
-            char* quoted = (char*)malloc(strlen(tokens[*current].text) + 3);
+            char* quoted = (char*)tracked_malloc(strlen(tokens[*current].text) + 3, __FILE__, __LINE__, "parse_primary_string");
             sprintf(quoted, "\"%s\"", tokens[*current].text);
             node->text = quoted;
             node->children = NULL;
@@ -1313,7 +1313,7 @@ static ASTNode* parse_statement(Token* tokens, int* current, int token_count) {
 
                     
                     // Create a range start node from the first part (without the trailing dot)
-                    char* start_text = (char*)malloc(first_len);
+                    char* start_text = (char*)tracked_malloc(first_len, __FILE__, __LINE__, "parse_statement_for_start");
                     strncpy(start_text, first_text, first_len - 1);
                     start_text[first_len - 1] = '\0';
                     

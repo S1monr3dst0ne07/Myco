@@ -32,6 +32,7 @@
 
 #define _POSIX_C_SOURCE 200809L
 #include "loop_manager.h"
+#include "memory_tracker.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -74,7 +75,7 @@ static LoopStatistics global_loop_stats = {0};
  * - Loop will terminate naturally
  */
 LoopContext* create_loop_context(const char* var_name, int64_t start, int64_t end, int64_t step, int line) {
-    LoopContext* context = (LoopContext*)malloc(sizeof(LoopContext));
+    LoopContext* context = (LoopContext*)tracked_malloc(sizeof(LoopContext), __FILE__, __LINE__, "create_loop_context");
     if (!context) {
         fprintf(stderr, "Error: Failed to allocate loop context\n");
         return NULL;
@@ -171,14 +172,14 @@ int validate_loop_range(int64_t start, int64_t end, int64_t step) {
  * and ensures proper loop flow control.
  */
 LoopExecutionState* create_loop_execution_state(void) {
-    LoopExecutionState* state = (LoopExecutionState*)malloc(sizeof(LoopExecutionState));
+    LoopExecutionState* state = (LoopExecutionState*)tracked_malloc(sizeof(LoopExecutionState), __FILE__, __LINE__, "init_loop_execution_state");
     if (!state) {
         fprintf(stderr, "Error: Failed to allocate loop execution state\n");
         return NULL;
     }
     
     // Initialize state
-    state->active_loops = (LoopContext*)malloc(MAX_LOOP_DEPTH * sizeof(LoopContext*));
+    state->active_loops = (LoopContext*)tracked_malloc(MAX_LOOP_DEPTH * sizeof(LoopContext*), __FILE__, __LINE__, "init_active_loops");
     if (!state->active_loops) {
         free(state);
         return NULL;

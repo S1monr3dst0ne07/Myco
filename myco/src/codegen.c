@@ -39,6 +39,7 @@
 #include <string.h>
 #include "parser.h"
 #include "lexer.h"
+#include "memory_tracker.h"
 
 /*******************************************************************************
  * MODULE MANAGEMENT
@@ -89,7 +90,7 @@ static ASTNode* cg_load_module(const char* path) {
     const char* p = path;
     if (p[0] == '"') { p++; }
     int plen = (int)strlen(p);
-    char* fixed = (char*)malloc(plen + 1);
+    char* fixed = (char*)tracked_malloc(plen + 1, __FILE__, __LINE__, "codegen_fix_path");
     strcpy(fixed, p);
     // strip trailing quote if from string token
     if (fixed[plen-1] == '"') fixed[plen-1] = '\0';
@@ -100,7 +101,7 @@ static ASTNode* cg_load_module(const char* path) {
     if (!f) { free(fixed); return NULL; }
     fseek(f, 0, SEEK_END);
     long sz = ftell(f); fseek(f, 0, SEEK_SET);
-    char* buf = (char*)malloc(sz + 1);
+    char* buf = (char*)tracked_malloc(sz + 1, __FILE__, __LINE__, "codegen_buffer");
     fread(buf, 1, sz, f); buf[sz] = '\0'; fclose(f);
     Token* toks = lexer_tokenize(buf);
     free(buf);
