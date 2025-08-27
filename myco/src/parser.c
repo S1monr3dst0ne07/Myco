@@ -888,7 +888,61 @@ static ASTNode* parse_expression(Token* tokens, int* current) {
         }
     }
 
-
+    // Check for ternary operator: condition ? true_expr : false_expr
+    if (tokens[*current].type == TOKEN_QUESTION) {
+        (*current)++; // Skip '?'
+        
+        ASTNode* true_expr = parse_expression(tokens, current);
+        if (!true_expr) {
+            parser_free_ast(left);
+            return NULL;
+        }
+        
+        if (tokens[*current].type != TOKEN_COLON) {
+            fprintf(stderr, "Error: Expected ':' after '?' in ternary operator at line %d\n", tokens[*current].line);
+            parser_free_ast(left);
+            parser_free_ast(true_expr);
+            return NULL;
+        }
+        (*current)++; // Skip ':'
+        
+        ASTNode* false_expr = parse_expression(tokens, current);
+        if (!false_expr) {
+            parser_free_ast(left);
+            parser_free_ast(true_expr);
+            return NULL;
+        }
+        
+        // Create ternary operator node
+        ASTNode* ternary_node = (ASTNode*)tracked_malloc(sizeof(ASTNode), __FILE__, __LINE__, "parse_expression_ternary");
+        if (!ternary_node) {
+            fprintf(stderr, "Error: Memory allocation failed for ternary operator\n");
+            parser_free_ast(left);
+            parser_free_ast(true_expr);
+            parser_free_ast(false_expr);
+            return NULL;
+        }
+        
+        ternary_node->type = AST_TERNARY;
+        ternary_node->text = tracked_strdup("?:", __FILE__, __LINE__, "parser");
+        ternary_node->implicit_function = NULL;
+        ternary_node->children = (ASTNode*)tracked_malloc(3 * sizeof(ASTNode), __FILE__, __LINE__, "parse_expression_ternary");
+        ternary_node->child_count = 3;
+        ternary_node->next = NULL;
+        ternary_node->line = tokens[*current - 3].line; // Line of the '?' token
+        
+        // Children: [condition, true_expr, false_expr]
+        ternary_node->children[0] = *left;
+        ternary_node->children[1] = *true_expr;
+        ternary_node->children[2] = *false_expr;
+        
+        // Free the original nodes since we've moved their content
+        tracked_free(left, __FILE__, __LINE__, "parse_expression_ternary_move");
+        tracked_free(true_expr, __FILE__, __LINE__, "parse_expression_ternary_move");
+        tracked_free(false_expr, __FILE__, __LINE__, "parse_expression_ternary_move");
+        
+        left = ternary_node;
+    }
 
     return left;
 }

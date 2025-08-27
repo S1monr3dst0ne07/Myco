@@ -192,6 +192,18 @@ static void generate_expression(FILE* file, ASTNode* ast) {
                 }
             }
             break;
+            
+        case AST_TERNARY:
+            if (ast->child_count == 3) {
+                fprintf(file, "(");
+                generate_expression(file, &ast->children[0]);
+                fprintf(file, " ? ");
+                generate_expression(file, &ast->children[1]);
+                fprintf(file, " : ");
+                generate_expression(file, &ast->children[2]);
+                fprintf(file, ")");
+            }
+            break;
     }
 }
 

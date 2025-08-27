@@ -232,6 +232,17 @@ let or = a || b;    # Logical OR
 let not = !a;       # Logical NOT
 ```
 
+### Ternary Operator
+```myco
+let age = 18;
+let status = age >= 18 ? "adult" : "minor";  # "adult"
+
+let score = 85;
+let grade = score >= 90 ? "A" : 
+            score >= 80 ? "B" : 
+            score >= 70 ? "C" : "F";  # "B"
+```
+
 ## Objects
 
 ### Object Creation

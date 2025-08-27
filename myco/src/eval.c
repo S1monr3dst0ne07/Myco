@@ -5908,6 +5908,28 @@ void eval_evaluate(ASTNode* ast) {
             return;
         }
 
+        case AST_TERNARY: {
+            // Ternary operator: condition ? true_expr : false_expr
+            if (ast->child_count != 3) {
+                fprintf(stderr, "Error: Invalid ternary operator structure at line %d\n", ast->line);
+                return;
+            }
+            
+            // Evaluate condition
+            int64_t condition_result = eval_expression(&ast->children[0]);
+            
+            // Evaluate appropriate expression based on condition
+            if (condition_result) {
+                // Condition is true, evaluate true expression
+                eval_expression(&ast->children[1]);
+            } else {
+                // Condition is false, evaluate false expression
+                eval_expression(&ast->children[2]);
+            }
+            
+            return;
+        }
+
         case AST_LAMBDA: {
             // Lambda functions are stored as variables and evaluated when called
             // Store the lambda AST for later execution

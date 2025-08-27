@@ -332,6 +332,7 @@ Token* lexer_tokenize(const char* source) {
             case '*': tokens[token_count].type = TOKEN_OPERATOR; tokens[token_count].text = tracked_strdup("*", __FILE__, __LINE__, "lexer_mult"); break;
             case '/': tokens[token_count].type = TOKEN_OPERATOR; tokens[token_count].text = tracked_strdup("/", __FILE__, __LINE__, "lexer_div"); break;
             case '%': tokens[token_count].type = TOKEN_OPERATOR; tokens[token_count].text = tracked_strdup("%", __FILE__, __LINE__, "lexer_mod"); break;
+            case '?': tokens[token_count].type = TOKEN_QUESTION; tokens[token_count].text = tracked_strdup("?", __FILE__, __LINE__, "lexer_question"); break;
             case ':': tokens[token_count].type = TOKEN_COLON; tokens[token_count].text = tracked_strdup(":", __FILE__, __LINE__, "lexer_colon"); break;
             case ';': tokens[token_count].type = TOKEN_SEMICOLON; tokens[token_count].text = tracked_strdup(";", __FILE__, __LINE__, "lexer_semicolon"); break;
             case '(': tokens[token_count].type = TOKEN_LPAREN; tokens[token_count].text = tracked_strdup("(", __FILE__, __LINE__, "lexer_lparen"); break;

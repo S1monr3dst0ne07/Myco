@@ -83,7 +83,7 @@
 
 ### Binary Expressions
 ```bnf
-<binary_expression> ::= <expression> <binary_operator> <expression>
+<binary_expression> ::= <expression> <binary_operator> <expression> | <expression> "?" <expression> ":" <expression>
 
 <binary_operator> ::= "+" | "-" | "*" | "/" | "%" | "==" | "!=" | "<" | ">" | "<=" | ">=" | "and" | "or"
 ```
