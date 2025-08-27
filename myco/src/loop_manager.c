@@ -82,7 +82,7 @@ LoopContext* create_loop_context(const char* var_name, int64_t start, int64_t en
     }
     
     // Initialize context
-    context->loop_var_name = var_name ? strdup(var_name) : NULL;
+            context->loop_var_name = var_name ? tracked_strdup(var_name, __FILE__, __LINE__, "create_loop_context") : NULL;
     context->current_value = start;
     context->start_value = start;
     context->end_value = end;
@@ -117,9 +117,9 @@ void destroy_loop_context(LoopContext* context) {
     if (!context) return;
     
     if (context->loop_var_name) {
-        free((void*)context->loop_var_name);
+        tracked_free((void*)context->loop_var_name, __FILE__, __LINE__, "destroy_loop_context");
     }
-    free(context);
+    tracked_free(context, __FILE__, __LINE__, "destroy_loop_context");
 }
 
 /**
@@ -181,7 +181,7 @@ LoopExecutionState* create_loop_execution_state(void) {
     // Initialize state
     state->active_loops = (LoopContext*)tracked_malloc(MAX_LOOP_DEPTH * sizeof(LoopContext*), __FILE__, __LINE__, "init_active_loops");
     if (!state->active_loops) {
-        free(state);
+        tracked_free(state, __FILE__, __LINE__, "init_active_loops_fail");
         return NULL;
     }
     
@@ -206,9 +206,9 @@ void destroy_loop_execution_state(LoopExecutionState* state) {
     }
     
     if (state->active_loops) {
-        free(state->active_loops);
+        tracked_free(state->active_loops, __FILE__, __LINE__, "destroy_loop_execution_state");
     }
-    free(state);
+    tracked_free(state, __FILE__, __LINE__, "destroy_loop_execution_state");
 }
 
 // Push a loop context onto the stack

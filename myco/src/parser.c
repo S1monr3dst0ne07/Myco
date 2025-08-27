@@ -1102,14 +1102,14 @@ static ASTNode* parse_statement(Token* tokens, int* current, int token_count) {
         if (tokens[*current].type != TOKEN_AS) {
             fprintf(stderr, "Error: Expected 'as' after module path at line %d\n", tokens[*current].line);
             tracked_free(node, __FILE__, __LINE__, "parse_statement_use_as_error");
-            free(path);
+            tracked_free(path, __FILE__, __LINE__, "parse_statement_use_as_error");
             return NULL;
         }
         (*current)++; // skip 'as'
         if (tokens[*current].type != TOKEN_IDENTIFIER) {
             fprintf(stderr, "Error: Expected identifier after 'as' at line %d\n", tokens[*current].line);
             tracked_free(node, __FILE__, __LINE__, "parse_statement_use_alias_error");
-            free(path);
+            tracked_free(path, __FILE__, __LINE__, "parse_statement_use_alias_error");
             return NULL;
         }
         char* alias = tracked_strdup(tokens[*current].text, __FILE__, __LINE__, "parser");
@@ -1131,7 +1131,7 @@ static ASTNode* parse_statement(Token* tokens, int* current, int token_count) {
         (*current)++; // Skip 'default'
         if (tokens[*current].type != TOKEN_COLON) {
             fprintf(stderr, "Error: Expected ':' after default at line %d\n", tokens[*current].line);
-            free(node);
+            tracked_free(node, __FILE__, __LINE__, "parse_statement_default_error");
             return NULL;
         }
         (*current)++; // Skip ':'
@@ -1338,7 +1338,7 @@ static ASTNode* parse_statement(Token* tokens, int* current, int token_count) {
                     // Check if the next token is a float starting with '.'
                     if (tokens[*current].type == TOKEN_FLOAT && tokens[*current].text[0] == '.') {
                         // Extract the numeric part after the dot
-                        char* end_text = strdup(tokens[*current].text + 1); // Skip the leading '.'
+                        char* end_text = tracked_strdup(tokens[*current].text + 1, __FILE__, __LINE__, "parse_statement_for_end"); // Skip the leading '.'
                         
                         range_end = (ASTNode*)tracked_malloc(sizeof(ASTNode), __FILE__, __LINE__, "parse_statement_for");
                         range_end->type = AST_EXPR;

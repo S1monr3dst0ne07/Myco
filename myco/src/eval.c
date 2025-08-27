@@ -2042,7 +2042,7 @@ static int scope_stack_capacity = 0;
 static void push_scope() {
     if (scope_stack_size >= scope_stack_capacity) {
         int new_capacity = scope_stack_capacity ? scope_stack_capacity * 2 : 8;
-        ScopeEntry* new_stack = (ScopeEntry*)realloc(scope_stack, new_capacity * sizeof(ScopeEntry));
+        ScopeEntry* new_stack = (ScopeEntry*)tracked_realloc(scope_stack, new_capacity * sizeof(ScopeEntry), __FILE__, __LINE__, "expand_scope_stack");
         if (!new_stack) {
             fprintf(stderr, "Error: Failed to expand scope stack\n");
             return;
@@ -2194,7 +2194,7 @@ static void register_function(const char* name, ASTNode* fn) {
     // Expand capacity if needed
     if (functions_size >= functions_cap) {
         int new_cap = functions_cap ? functions_cap * 2 : 8;
-        FuncEntry* new_funcs = (FuncEntry*)realloc(functions, new_cap * sizeof(FuncEntry));
+        FuncEntry* new_funcs = (FuncEntry*)tracked_realloc(functions, new_cap * sizeof(FuncEntry), __FILE__, __LINE__, "expand_functions_env");
         if (!new_funcs) {
             // Handle realloc failure
             return;
@@ -2368,7 +2368,7 @@ void set_float_value(const char* name, double value) {
     // Expand capacity if needed
     if (var_env_size >= var_env_capacity) {
         int new_capacity = var_env_capacity ? var_env_capacity * 2 : 8;
-        VarEntry* new_env = (VarEntry*)realloc(var_env, new_capacity * sizeof(VarEntry));
+        VarEntry* new_env = (VarEntry*)tracked_realloc(var_env, new_capacity * sizeof(VarEntry), __FILE__, __LINE__, "set_float_value");
         if (!new_env) {
             // Handle realloc failure
             return;
@@ -2416,7 +2416,7 @@ void set_var_value(const char* name, long long value) {
     // Expand capacity if needed
     if (var_env_size >= var_env_capacity) {
         int new_capacity = var_env_capacity ? var_env_capacity * 2 : 8;
-        VarEntry* new_env = (VarEntry*)realloc(var_env, new_capacity * sizeof(VarEntry));
+        VarEntry* new_env = (VarEntry*)tracked_realloc(var_env, new_capacity * sizeof(VarEntry), __FILE__, __LINE__, "set_var_value");
         if (!new_env) {
             // Handle realloc failure
             return;
@@ -2460,7 +2460,7 @@ void set_array_value(const char* name, MycoArray* array) {
     // Expand capacity if needed
     if (var_env_size >= var_env_capacity) {
         int new_capacity = var_env_capacity ? var_env_capacity * 2 : 8;
-        VarEntry* new_env = (VarEntry*)realloc(var_env, new_capacity * sizeof(VarEntry));
+        VarEntry* new_env = (VarEntry*)tracked_realloc(var_env, new_capacity * sizeof(VarEntry), __FILE__, __LINE__, "set_array_value");
         if (!new_env) {
             // Handle realloc failure
             return;
@@ -2537,7 +2537,7 @@ static void set_str_value(const char* name, const char* value) {
         if (strcmp(str_env[i].name, name) == 0) {
             // Update existing variable
             if (str_env[i].value) {
-                free(str_env[i].value);
+                tracked_free(str_env[i].value, __FILE__, __LINE__, "set_str_value_update");
                 str_env[i].value = NULL; // Prevent double-free
             }
             // Create a safe copy of the value
@@ -2615,7 +2615,7 @@ void set_lambda_value(const char* name, ASTNode* lambda_ast) {
     // Expand capacity if needed
     if (var_env_size >= var_env_capacity) {
         int new_capacity = var_env_capacity ? var_env_capacity * 2 : 8;
-        VarEntry* new_env = (VarEntry*)realloc(var_env, new_capacity * sizeof(VarEntry));
+        VarEntry* new_env = (VarEntry*)tracked_realloc(var_env, new_capacity * sizeof(VarEntry), __FILE__, __LINE__, "set_lambda_value");
         if (!new_env) {
             // Handle realloc failure
             return;
@@ -3012,7 +3012,7 @@ MycoObject* create_object_from_literal(ASTNode* ast) {
                     clean_str[strlen(clean_str) - 1] = '\0'; // Remove last quote
                     object_set_property_typed(obj, prop_name, clean_str, PROP_TYPE_STRING);
                 } else {
-                    object_set_property_typed(obj, prop_name, strdup(""), PROP_TYPE_STRING);
+                    object_set_property_typed(obj, prop_name, tracked_strdup("", __FILE__, __LINE__, "object_set_property_empty"), PROP_TYPE_STRING);
                 }
             } else {
                 // Evaluate as expression (number)
@@ -3336,7 +3336,7 @@ void set_object_value(const char* name, MycoObject* obj) {
     // Expand capacity if needed
     if (var_env_size >= var_env_capacity) {
         int new_capacity = var_env_capacity ? var_env_capacity * 2 : 8;
-        VarEntry* new_env = (VarEntry*)realloc(var_env, new_capacity * sizeof(VarEntry));
+        VarEntry* new_env = (VarEntry*)tracked_realloc(var_env, new_capacity * sizeof(VarEntry), __FILE__, __LINE__, "set_object_value");
         if (!new_env) {
             // Handle realloc failure
             return;
@@ -3462,7 +3462,7 @@ static void register_module(const char* alias, ASTNode* ast) {
     // Expand capacity if needed
     if (modules_size >= modules_cap) {
         int new_cap = modules_cap ? modules_cap * 2 : 4;
-        ModuleEntry* new_modules = (ModuleEntry*)realloc(modules, new_cap * sizeof(ModuleEntry));
+        ModuleEntry* new_modules = (ModuleEntry*)tracked_realloc(modules, new_cap * sizeof(ModuleEntry), __FILE__, __LINE__, "expand_modules_env");
         if (!new_modules) {
             // Handle realloc failure
             return;
@@ -3613,7 +3613,7 @@ static long long eval_user_function_call(ASTNode* fn, ASTNode* args_node) {
         // This ensures function parameters override global variables
         if (var_env_size >= var_env_capacity) {
             int new_capacity = var_env_capacity ? var_env_capacity * 2 : 8;
-            VarEntry* new_env = (VarEntry*)realloc(var_env, new_capacity * sizeof(VarEntry));
+            VarEntry* new_env = (VarEntry*)tracked_realloc(var_env, new_capacity * sizeof(VarEntry), __FILE__, __LINE__, "eval_user_function_call");
             if (!new_env) {
                 fprintf(stderr, "Error: Failed to expand variable environment\n");
                         return 0;
@@ -3821,14 +3821,14 @@ long long eval_expression(ASTNode* ast) {
                             
                             // Also store it in the global variable for easier access with interning
                             if (last_concat_result) {
-                                free(last_concat_result);
+                                tracked_free(last_concat_result, __FILE__, __LINE__, "string_concat_cleanup");
                             }
                             last_concat_result = intern_string(result_str);
                             
                             // Clean up
-                            if (left != -1 && left_str) free(left_str);
-                            if (right != -1 && right_str) free(right_str);
-                            free(result_str);
+                                    if (left != -1 && left_str) tracked_free(left_str, __FILE__, __LINE__, "string_concat_cleanup");
+        if (right != -1 && right_str) tracked_free(right_str, __FILE__, __LINE__, "string_concat_cleanup");
+        tracked_free(result_str, __FILE__, __LINE__, "string_concat_cleanup");
                             
                             // Return special value to indicate this is a concatenated string
                             return -1;
@@ -3836,8 +3836,8 @@ long long eval_expression(ASTNode* ast) {
                     }
                     
                     // Clean up on failure
-                    if (left != -1 && left_str) free(left_str);
-                    if (right != -1 && right_str) free(right_str);
+                            if (left != -1 && left_str) tracked_free(left_str, __FILE__, __LINE__, "string_concat_cleanup");
+        if (right != -1 && right_str) tracked_free(right_str, __FILE__, __LINE__, "string_concat_cleanup");
                     
                     // Fall back to numeric addition
                     if (left == -1) {
@@ -4593,7 +4593,7 @@ long long eval_expression(ASTNode* ast) {
                             // String variable - get its value
                             const char* str_val = get_str_value(array_node->text);
                             if (str_val) {
-                                array_push(array, strdup(str_val));
+                                array_push(array, tracked_strdup(str_val, __FILE__, __LINE__, "array_push_string"));
                                 return (long long)array->size;
                             }
                         } else if (value_to_add == 1) {
@@ -4653,7 +4653,7 @@ long long eval_expression(ASTNode* ast) {
                         set_str_value("__last_first_result", "");
                         set_str_value("__last_last_result", "");
                         set_str_value("__last_tostring_result", "");
-                        set_str_value("__last_pop_result", strdup(last_str));
+                        set_str_value("__last_pop_result", tracked_strdup(last_str, __FILE__, __LINE__, "pop_result"));
                         
                         // Remove the last element
                         array->size--;
@@ -4710,7 +4710,7 @@ long long eval_expression(ASTNode* ast) {
                     for (int i = 0; i < slice_size; i++) {
                         const char* str_elem = array_get_string(source_array, (int)start_idx + i);
                         if (str_elem) {
-                            array_push(result_array, strdup(str_elem));
+                            array_push(result_array, tracked_strdup(str_elem, __FILE__, __LINE__, "array_push_string_element"));
                         }
                     }
                         } else {
@@ -4904,7 +4904,7 @@ long long eval_expression(ASTNode* ast) {
                 char* token = strtok_r(str_copy, delimiter, &saveptr);
                 
                 while (token != NULL) {
-                    array_push(result_array, strdup(token));
+                    array_push(result_array, tracked_strdup(token, __FILE__, __LINE__, "array_push_split_token"));
                     token = strtok_r(NULL, delimiter, &saveptr);
                 }
                 
@@ -5065,7 +5065,7 @@ long long eval_expression(ASTNode* ast) {
             // Perform the replacement
             if (strlen(old_string) == 0) {
                 // Can't replace empty string, return original
-                set_str_value("__last_replace_result", strdup(source_string));
+                set_str_value("__last_replace_result", tracked_strdup(source_string, __FILE__, __LINE__, "replace_result"));
                 return -1;
             }
             
@@ -5082,7 +5082,7 @@ long long eval_expression(ASTNode* ast) {
             
             if (count == 0) {
                 // No replacements needed
-                set_str_value("__last_replace_result", strdup(source_string));
+                set_str_value("__last_replace_result", tracked_strdup(source_string, __FILE__, __LINE__, "replace_result"));
                 return -1;
             }
             
@@ -5149,7 +5149,7 @@ long long eval_expression(ASTNode* ast) {
                         for (int i = 0; i < obj->property_count; i++) {
                             if (obj->property_names[i]) {
 
-                                array_push(keys_array, strdup(obj->property_names[i]));
+                                array_push(keys_array, tracked_strdup(obj->property_names[i], __FILE__, __LINE__, "object_keys_name"));
                             }
                         }
                         
@@ -5230,18 +5230,18 @@ long long eval_expression(ASTNode* ast) {
                                         ((str_value[0] >= 'A' && str_value[0] <= 'Z') || 
                                          (str_value[0] >= 'a' && str_value[0] <= 'z') ||
                                          str_value[0] == ' ' || str_value[0] == '_')) {
-                                        array_push(values_array, strdup(str_value));
+                                        array_push(values_array, tracked_strdup(str_value, __FILE__, __LINE__, "values_array_string"));
                         } else {
                                         // Convert number to string
                                         char num_str[32];
                                         snprintf(num_str, sizeof(num_str), "%lld", (long long)prop_value);
-                                        array_push(values_array, strdup(num_str));
+                                        array_push(values_array, tracked_strdup(num_str, __FILE__, __LINE__, "values_array_number"));
                                     }
                                 } else {
                                     // Convert number to string
                                     char num_str[32];
                                     snprintf(num_str, sizeof(num_str), "%lld", (long long)prop_value);
-                                    array_push(values_array, strdup(num_str));
+                                                                            array_push(values_array, tracked_strdup(num_str, __FILE__, __LINE__, "values_array_number"));
                                 }
                             } else {
                                 // Keep as numeric array
@@ -5360,7 +5360,7 @@ long long eval_expression(ASTNode* ast) {
                             strncpy(temp_str, str_literal + 1, len - 2);
                             temp_str[len - 2] = '\0';
                             int result = set_has(set, (void*)temp_str) ? 1 : 0;
-                            free(temp_str);
+                            tracked_free(temp_str, __FILE__, __LINE__, "set_has_string_cleanup");
                             return result;
                         }
                     }
@@ -5414,7 +5414,7 @@ long long eval_expression(ASTNode* ast) {
                             strncpy(temp_str, str_literal + 1, len - 2);
                             temp_str[len - 2] = '\0';
                             int result = set_add(set, (void*)temp_str) ? 1 : 0;
-                            free(temp_str);
+                            tracked_free(temp_str, __FILE__, __LINE__, "set_add_string_cleanup");
                             return result;
                         }
                     }
@@ -6039,7 +6039,7 @@ long long eval_expression(ASTNode* ast) {
                                                     // Store the result string in a temporary variable
 
                         // Store the result string in a temporary variable
-                        set_str_value("__last_first_result", strdup(first_str));
+                        set_str_value("__last_first_result", tracked_strdup(first_str, __FILE__, __LINE__, "first_result"));
                         // Clear other results to avoid conflicts
                         set_str_value("__last_last_result", "");
                         set_str_value("__last_tostring_result", "");
@@ -6143,7 +6143,7 @@ long long eval_expression(ASTNode* ast) {
                                                     // Store the result string in a temporary variable
 
                         // Store the result string in a temporary variable
-                        set_str_value("__last_last_result", strdup(last_str));
+                        set_str_value("__last_last_result", tracked_strdup(last_str, __FILE__, __LINE__, "last_result"));
                         // Clear other results to avoid conflicts
                         set_str_value("__last_first_result", "");
                         set_str_value("__last_tostring_result", "");
@@ -6904,7 +6904,7 @@ long long eval_expression(ASTNode* ast) {
                             upper[i] = toupper(upper[i]);
                         }
                         set_str_value(obj_name, upper);
-                        free(upper);
+                        tracked_free(upper, __FILE__, __LINE__, "string_operation_cleanup");
                     }
                 }
                 return 0;
@@ -6917,7 +6917,7 @@ long long eval_expression(ASTNode* ast) {
                             lower[i] = tolower(lower[i]);
                         }
                         set_str_value(obj_name, lower);
-                        free(lower);
+                        tracked_free(lower, __FILE__, __LINE__, "string_operation_cleanup");
                     }
                 }
                 return 0;
@@ -6942,7 +6942,7 @@ long long eval_expression(ASTNode* ast) {
                         }
                         
                         set_str_value(obj_name, trimmed);
-                        free(trimmed);
+                        tracked_free(trimmed, __FILE__, __LINE__, "string_operation_cleanup");
                     }
                 }
                 return 0;
@@ -7861,7 +7861,7 @@ void eval_evaluate(ASTNode* ast) {
                                     object_set_property_typed(obj, prop_name, clean_str, PROP_TYPE_STRING);
                                 } else {
                                     // Empty string
-                                    object_set_property_typed(obj, prop_name, strdup(""), PROP_TYPE_STRING);
+                                    object_set_property_typed(obj, prop_name, tracked_strdup("", __FILE__, __LINE__, "object_set_property_empty"), PROP_TYPE_STRING);
                                 }
                             } else {
                                 // Evaluate the property value as a simple expression (number)
@@ -7909,7 +7909,7 @@ void eval_evaluate(ASTNode* ast) {
                     // Use string interning to avoid duplicate allocations
                     char* interned_str = intern_string(clean_str);
                     set_str_value(var_name, interned_str);
-                    free(clean_str);
+                    tracked_free(clean_str, __FILE__, __LINE__, "string_operation_cleanup");
                 } else {
                     set_str_value(var_name, "");
                 }
@@ -7936,37 +7936,37 @@ void eval_evaluate(ASTNode* ast) {
                     // String function result - check all possible string function results
                     const char* str_result = get_str_value("__last_replace_result");
                     if (str_result) {
-                        set_str_value(var_name, strdup(str_result));
+                        set_str_value(var_name, tracked_strdup(str_result, __FILE__, __LINE__, "string_function_result"));
                     } else {
                         // Check for trim() function result 
                         str_result = get_str_value("__last_trim_result");
                         if (str_result) {
-                            set_str_value(var_name, strdup(str_result));
+                            set_str_value(var_name, tracked_strdup(str_result, __FILE__, __LINE__, "string_function_result"));
                         } else {
                             // Check for join() function result 
                             str_result = get_str_value("__last_join_result");
                             if (str_result) {
-                                set_str_value(var_name, strdup(str_result));
+                                set_str_value(var_name, tracked_strdup(str_result, __FILE__, __LINE__, "string_function_result"));
                             } else {
                                 // Check for first() function result 
                                 str_result = get_str_value("__last_first_result");
                                 if (str_result && strlen(str_result) > 0) {
-                                    set_str_value(var_name, strdup(str_result));
+                                    set_str_value(var_name, tracked_strdup(str_result, __FILE__, __LINE__, "string_function_result"));
                                 } else {
                                     // Check for last() function result
                                     str_result = get_str_value("__last_last_result");
                                     if (str_result && strlen(str_result) > 0) {
-                                        set_str_value(var_name, strdup(str_result));
+                                        set_str_value(var_name, tracked_strdup(str_result, __FILE__, __LINE__, "string_function_result"));
                                     } else {
                                         // Check for pop() function result
                                         str_result = get_str_value("__last_pop_result");
                                         if (str_result && strlen(str_result) > 0) {
-                                            set_str_value(var_name, strdup(str_result));
+                                            set_str_value(var_name, tracked_strdup(str_result, __FILE__, __LINE__, "string_function_result"));
                                         } else {
                                             // Check for to_string result
                                             str_result = get_str_value("__last_tostring_result");
                                             if (str_result && strlen(str_result) > 0) {
-                                                set_str_value(var_name, strdup(str_result));
+                                                set_str_value(var_name, tracked_strdup(str_result, __FILE__, __LINE__, "string_function_result"));
                                             } else {
                                                 set_str_value(var_name, "");
                                             }
@@ -8526,7 +8526,7 @@ void eval_reset_environments() {
     
     // Reset scope stack
     if (scope_stack) {
-        free(scope_stack);
+        tracked_free(scope_stack, __FILE__, __LINE__, "cleanup_scope_stack");
         scope_stack = NULL;
     }
     scope_stack_size = 0;

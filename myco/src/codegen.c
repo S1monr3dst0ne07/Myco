@@ -72,9 +72,9 @@ static int cg_modules_cap = 0;
 static void cg_register_module(const char* alias, ASTNode* ast) {
     if (cg_modules_size >= cg_modules_cap) {
         cg_modules_cap = cg_modules_cap ? cg_modules_cap * 2 : 4;
-        cg_modules = (CGModule*)realloc(cg_modules, cg_modules_cap * sizeof(CGModule));
+        cg_modules = (CGModule*)tracked_realloc(cg_modules, cg_modules_cap * sizeof(CGModule), __FILE__, __LINE__, "cg_register_module");
     }
-    cg_modules[cg_modules_size].alias = strdup(alias);
+            cg_modules[cg_modules_size].alias = tracked_strdup(alias, __FILE__, __LINE__, "cg_register_module");
     cg_modules[cg_modules_size].module_ast = ast;
     cg_modules_size++;
 }
@@ -98,17 +98,17 @@ static ASTNode* cg_load_module(const char* path) {
     const char* openp = fixed;
     if (fixed[0] == '.' && fixed[1] == '/') openp = fixed + 2;
     FILE* f = fopen(openp, "r");
-    if (!f) { free(fixed); return NULL; }
+    if (!f) { tracked_free(fixed, __FILE__, __LINE__, "cg_load_module_file_error"); return NULL; }
     fseek(f, 0, SEEK_END);
     long sz = ftell(f); fseek(f, 0, SEEK_SET);
     char* buf = (char*)tracked_malloc(sz + 1, __FILE__, __LINE__, "codegen_buffer");
     fread(buf, 1, sz, f); buf[sz] = '\0'; fclose(f);
     Token* toks = lexer_tokenize(buf);
-    free(buf);
-    if (!toks) { free(fixed); return NULL; }
+    tracked_free(buf, __FILE__, __LINE__, "cg_load_module_buffer_cleanup");
+    if (!toks) { tracked_free(fixed, __FILE__, __LINE__, "cg_load_module_tokens_error"); return NULL; }
     ASTNode* ast = parser_parse(toks);
     lexer_free_tokens(toks);
-    free(fixed);
+    tracked_free(fixed, __FILE__, __LINE__, "cg_load_module_fixed_cleanup");
     return ast;
 }
 
@@ -350,7 +350,7 @@ int codegen_generate(ASTNode* ast, const char* input_file, int keep_output) {
     fprintf(file, "    return 0;\n}\n");
     fclose(file);
 
-    char* base_name = strdup(input_file);
+    char* base_name = tracked_strdup(input_file, __FILE__, __LINE__, "generate_function");
     char* ext = strrchr(base_name, '.');
     if (ext) *ext = '\0';
 
@@ -410,11 +410,11 @@ int codegen_generate(ASTNode* ast, const char* input_file, int keep_output) {
 
     if (!ok) {
         fprintf(stderr, "Error: Compilation failed. Set MYCO_CC/MYCO_CFLAGS/MYCO_LDFLAGS to customize compiler.\n");
-        free(base_name);
+        tracked_free(base_name, __FILE__, __LINE__, "generate_function_cleanup");
         return 1;
     }
 
     if (!keep_output) remove("output.c");
-    free(base_name);
+    tracked_free(base_name, __FILE__, __LINE__, "generate_function_final_cleanup");
     return 0;
 } 
