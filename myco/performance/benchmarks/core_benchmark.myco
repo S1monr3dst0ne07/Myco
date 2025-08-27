@@ -71,11 +71,11 @@ let func_ok = func_time < 5000;  # <5ms target
 
 print("\nPerformance Validation: ");
 print("======================");
-print("Loop performance: ", loop_ok ? "PASS" : "FAIL");
-print("String performance: ", string_ok ? "PASS" : "FAIL");
-print("Array performance: ", array_ok ? "PASS" : "FAIL");
-print("Math performance: ", math_ok ? "PASS" : "FAIL");
-print("Function performance: ", func_ok ? "PASS" : "FAIL");
+print("Loop performance: ", loop_ok ? 1 : 0);
+print("String performance: ", string_ok ? 1 : 0);
+print("Array performance: ", array_ok ? 1 : 0);
+print("Math performance: ", math_ok ? 1 : 0);
+print("Function performance: ", func_ok ? 1 : 0);
 
 let all_passed = loop_ok and string_ok and array_ok and math_ok and func_ok;
-print("Overall performance: ", all_passed ? "PASS" : "FAIL");
+print("Overall performance: ", all_passed ? 1 : 0);

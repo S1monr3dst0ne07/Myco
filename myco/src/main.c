@@ -116,13 +116,9 @@ int main(int argc, char* argv[]) {
     source_code[bytes_read] = '\0';
     fclose(file);
     
-    #if DEBUG_MEMORY_TRACKING
     if (build_mode) {
         printf("Building executable from %s...\n", input_file);
-    } else {
-        printf("Interpreting %s...\n", input_file);
     }
-    #endif
     
     /*******************************************************************************
      * INTERPRETATION PIPELINE

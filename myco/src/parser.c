@@ -923,12 +923,14 @@ static ASTNode* parse_expression(Token* tokens, int* current) {
             return NULL;
         }
         
+        // Initialize the AST node first
+        init_ast_node(ternary_node);
+        
+        // Set ternary-specific fields
         ternary_node->type = AST_TERNARY;
         ternary_node->text = tracked_strdup("?:", __FILE__, __LINE__, "parser");
-        ternary_node->implicit_function = NULL;
         ternary_node->children = (ASTNode*)tracked_malloc(3 * sizeof(ASTNode), __FILE__, __LINE__, "parse_expression_ternary");
         ternary_node->child_count = 3;
-        ternary_node->next = NULL;
         ternary_node->line = tokens[*current - 3].line; // Line of the '?' token
         
         // Children: [condition, true_expr, false_expr]

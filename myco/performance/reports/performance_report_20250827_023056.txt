@@ -1,0 +1,82 @@
+Myco Performance Report
+Generated: Wed Aug 27 02:30:56 EDT 2025
+========================
+
+Performance Summary:
+-------------------
+Memory tracker initialized with capacity for 1024 allocations
+Interpreting /Users/Ivy/Documents/GitHub/myco/myco/performance/benchmarks/core_benchmark.myco...
+Implicit function system initialized with 14 operators
+Library system initialized
+Core Performance Benchmark Suite Starting...
+    Benchmark started: Loop iteration (1M)
+    Benchmark completed: 104.16 ms
+Loop iteration (1M): 104163 microseconds, Final sum: 500000500000
+    Benchmark started: String concatenation (10K)
+Memory tracker expanded to capacity 2048
+Memory tracker expanded to capacity 4096
+Memory tracker expanded to capacity 8192
+Memory tracker expanded to capacity 16384
+Memory tracker expanded to capacity 32768
+Memory tracker expanded to capacity 65536
+    Benchmark completed: 67.14 ms
+String concatenation (10K): 67141 microseconds, String length: 0
+    Benchmark started: Array creation (100K)
+    Benchmark completed: 11.70 ms
+Array creation (100K): 11695 microseconds, Array length: 100000
+    Benchmark started: Math operations (100K)
+    Benchmark completed: 34.21 ms
+Math operations (100K): 34206 microseconds, Final result: 166669166650000
+    Benchmark started: Function calls (100K)
+    Benchmark completed: 30.35 ms
+Function calls (100K): 30349 microseconds
+
+Core Performance Results: 
+========================
+Loop iteration (1M): 104163 microseconds
+String concatenation (10K): 67141 microseconds
+Array operations (100K): 11695 microseconds
+Math operations (100K): 34206 microseconds
+Function calls (100K): 30349 microseconds
+Total benchmark time: 247554 microseconds
+Total benchmark time: 247milliseconds
+
+Performance Validation: 
+======================
+Loop performance: 
+String performance: 
+Array performance: 
+Math performance: 
+Function performance: 
+Overall performance: 
+Library system cleaned up
+Warning: Attempting to free untracked pointer 0x13f706a20
+Warning: Attempting to free untracked pointer 0x13f706a70
+Warning: Attempting to free untracked pointer 0x13f707150
+Warning: Attempting to free untracked pointer 0x13f7078b0
+Warning: Attempting to free untracked pointer 0x13f707900
+Warning: Attempting to free untracked pointer 0x13f7086a0
+Warning: Attempting to free untracked pointer 0x13f7086f0
+Warning: Attempting to free untracked pointer 0x13f709360
+Warning: Attempting to free untracked pointer 0x13f7093b0
+Warning: Attempting to free untracked pointer 0x13f70a740
+Warning: Attempting to free untracked pointer 0x13f70a890
+Cleaning up all environments...
+Warning: Attempting to free untracked pointer 0x14bfff400
+All environments cleaned up
+Memory tracker cleaned up
+Warning: Attempting to free untracked pointer 0x13f70e600
+
+Performance Validation:
+---------------------
+Performance Validation: 
+======================
+Loop performance: 
+String performance: 
+Array performance: 
+Math performance: 
+Function performance: 
+Overall performance: 
+Library system cleaned up
+Warning: Attempting to free untracked pointer 0x13f706a20
+Warning: Attempting to free untracked pointer 0x13f706a70

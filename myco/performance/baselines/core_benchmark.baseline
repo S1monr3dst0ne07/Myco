@@ -1,0 +1,10 @@
+# Core Performance Benchmark Baseline
+# Format: operation_name: time_microseconds
+# Last updated: 2025-08-27
+
+loop_iteration_1m: 104163
+string_concatenation_10k: 67141
+array_creation_100k: 11695
+math_operations_100k: 34206
+function_calls_100k: 30349
+total_time: 247554
