@@ -1,0 +1,14 @@
+print("Starting memory debug test")
+print("Memory tracker should be initialized now")
+
+// Simple operations to test memory tracking
+let x = 42
+let y = "Hello World"
+let arr = [1, 2, 3]
+
+print("Variables created successfully")
+print("x =", x)
+print("y =", y)
+print("arr length =", len(arr))
+
+print("Test completed - checking memory cleanup")

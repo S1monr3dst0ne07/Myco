@@ -239,9 +239,10 @@ static void mark_allocation_freed(void* ptr, size_t size) {
 
 // Memory allocation wrappers
 void* tracked_malloc(size_t size, const char* file, int line, const char* function) {
-    // Ensure memory tracker is initialized
+    // Memory tracker should be initialized by main program
     if (!allocations) {
-        memory_tracker_init();
+        fprintf(stderr, "Error: Memory tracker not initialized. Call memory_tracker_init() first.\n");
+        return NULL;
     }
     
     void* ptr = malloc(size);
@@ -260,9 +261,10 @@ void* tracked_calloc(size_t nmemb, size_t size, const char* file, int line, cons
 }
 
 void* tracked_realloc(void* ptr, size_t size, const char* file, int line, const char* function) {
-    // Ensure memory tracker is initialized
+    // Memory tracker should be initialized by main program
     if (!allocations) {
-        memory_tracker_init();
+        fprintf(stderr, "Error: Memory tracker not initialized. Call memory_tracker_init() first.\n");
+        return NULL;
     }
     
     if (ptr) {

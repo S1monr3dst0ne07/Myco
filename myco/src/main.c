@@ -196,7 +196,6 @@ int main(int argc, char* argv[]) {
     
     #if DEBUG_MEMORY_TRACKING
     cleanup_all_environments();
-    memory_tracker_cleanup();
     #endif
     
     // Cleanup implicit function system
@@ -205,6 +204,11 @@ int main(int argc, char* argv[]) {
     // Cleanup loop execution state
     extern void cleanup_loop_execution_state(void);
     cleanup_loop_execution_state();
+    
+    #if DEBUG_MEMORY_TRACKING
+    // Memory tracker cleanup must be LAST after all other cleanup functions
+    memory_tracker_cleanup();
+    #endif
     
     return 0;
 } 
