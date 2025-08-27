@@ -854,6 +854,21 @@ static VarBatch* var_batches = NULL;
 static int var_batch_count = 0;
 static int var_batch_capacity = 0;
 
+// String pool management for ultra-fast string operations
+#define STRING_POOL_SIZE 256
+#define STRING_BUFFER_SIZE 64
+typedef struct {
+    char* buffer;
+    int length;
+    int used;
+    char* data;
+} StringPoolEntry;
+
+static StringPoolEntry* string_pool = NULL;
+static int string_pool_initialized = 0;
+static int string_pool_hits = 0;
+static int string_pool_misses = 0;
+
 static VarCacheEntry var_cache[VAR_CACHE_SIZE] = {0};
 static int var_cache_hits = 0;
 static int var_cache_misses = 0;
@@ -1050,6 +1065,169 @@ static VarEntry* get_var_entry_from_batch() {
     var_batch_count++;
     
     return entry;
+}
+
+// String pool management functions
+static void init_string_pool() {
+    if (string_pool_initialized) return;
+    
+    string_pool = (StringPoolEntry*)tracked_malloc(STRING_POOL_SIZE * sizeof(StringPoolEntry), __FILE__, __LINE__, "init_string_pool");
+    
+    for (int i = 0; i < STRING_POOL_SIZE; i++) {
+        string_pool[i].buffer = (char*)tracked_malloc(STRING_BUFFER_SIZE, __FILE__, __LINE__, "init_string_pool_buffer");
+        string_pool[i].length = 0;
+        string_pool[i].used = 0;
+        string_pool[i].data = string_pool[i].buffer;
+    }
+    string_pool_initialized = 1;
+}
+
+static char* get_string_from_pool(const char* str, int length) {
+    if (!string_pool_initialized) {
+        init_string_pool();
+    }
+    
+    // Check if string already exists in pool
+    for (int i = 0; i < STRING_POOL_SIZE; i++) {
+        if (string_pool[i].used && string_pool[i].length == length) {
+            if (strncmp(string_pool[i].data, str, length) == 0) {
+                string_pool_hits++;
+                return string_pool[i].data;
+            }
+        }
+    }
+    
+    // Find available slot in pool
+    for (int i = 0; i < STRING_POOL_SIZE; i++) {
+        if (!string_pool[i].used) {
+            if (length < STRING_BUFFER_SIZE) {
+                strncpy(string_pool[i].buffer, str, length);
+                string_pool[i].buffer[length] = '\0';
+                string_pool[i].length = length;
+                string_pool[i].used = 1;
+                string_pool[i].data = string_pool[i].buffer;
+                string_pool_misses++;
+                return string_pool[i].data;
+            }
+        }
+    }
+    
+    // Fallback: allocate new string if pool is full
+    string_pool_misses++;
+    return tracked_strdup(str, __FILE__, __LINE__, "fallback_string_alloc");
+}
+
+static void clear_string_pool() {
+    if (!string_pool_initialized) return;
+    
+    for (int i = 0; i < STRING_POOL_SIZE; i++) {
+        string_pool[i].used = 0;
+        string_pool[i].length = 0;
+    }
+}
+
+// String concatenation optimization
+typedef struct {
+    const char* str;
+    int length;
+} StringPart;
+
+static char* optimized_string_concat(StringPart* parts, int part_count) {
+    if (part_count == 0) return NULL;
+    if (part_count == 1) return tracked_strdup(parts[0].str, __FILE__, __LINE__, "single_string_concat");
+    
+    // Pre-calculate total length
+    int total_length = 0;
+    for (int i = 0; i < part_count; i++) {
+        total_length += parts[i].length;
+    }
+    
+    // Allocate exact size needed
+    char* result = (char*)tracked_malloc(total_length + 1, __FILE__, __LINE__, "optimized_concat_result");
+    if (!result) return NULL;
+    
+    // Copy all parts in one pass
+    int pos = 0;
+    for (int i = 0; i < part_count; i++) {
+        memcpy(result + pos, parts[i].str, parts[i].length);
+        pos += parts[i].length;
+    }
+    result[total_length] = '\0';
+    
+    return result;
+}
+
+// String interning system for repeated literals
+#define STRING_INTERN_SIZE 512
+typedef struct {
+    char* str;
+    int length;
+    int hash;
+    int used;
+} InternedString;
+
+static InternedString* string_intern_table = NULL;
+static int string_intern_initialized = 0;
+static int string_intern_hits = 0;
+static int string_intern_misses = 0;
+
+static void init_string_intern() {
+    if (string_intern_initialized) return;
+    
+    string_intern_table = (InternedString*)tracked_malloc(STRING_INTERN_SIZE * sizeof(InternedString), __FILE__, __LINE__, "init_string_intern");
+    
+    for (int i = 0; i < STRING_INTERN_SIZE; i++) {
+        string_intern_table[i].str = NULL;
+        string_intern_table[i].length = 0;
+        string_intern_table[i].hash = 0;
+        string_intern_table[i].used = 0;
+    }
+    string_intern_initialized = 1;
+}
+
+static char* intern_string(const char* str) {
+    if (!string_intern_initialized) {
+        init_string_intern();
+    }
+    
+    if (!str) return NULL;
+    
+    int length = strlen(str);
+    if (length == 0) return "";
+    
+    // Simple hash function
+    int hash = 0;
+    for (int i = 0; i < length; i++) {
+        hash = (hash * 31 + str[i]) % STRING_INTERN_SIZE;
+    }
+    
+    // Check if string is already interned
+    int index = hash;
+    for (int i = 0; i < STRING_INTERN_SIZE; i++) {
+        int check_index = (index + i) % STRING_INTERN_SIZE;
+        
+        if (!string_intern_table[check_index].used) {
+            // New string, intern it
+            string_intern_table[check_index].str = tracked_strdup(str, __FILE__, __LINE__, "intern_string");
+            string_intern_table[check_index].length = length;
+            string_intern_table[check_index].hash = hash;
+            string_intern_table[check_index].used = 1;
+            string_intern_misses++;
+            return string_intern_table[check_index].str;
+        }
+        
+        if (string_intern_table[check_index].hash == hash && 
+            string_intern_table[check_index].length == length &&
+            strcmp(string_intern_table[check_index].str, str) == 0) {
+            // String already interned
+            string_intern_hits++;
+            return string_intern_table[check_index].str;
+        }
+    }
+    
+    // Table is full, fallback to regular allocation
+    string_intern_misses++;
+    return tracked_strdup(str, __FILE__, __LINE__, "fallback_intern");
 }
 
 // Forward declaration
@@ -3083,24 +3261,27 @@ long long eval_expression(ASTNode* ast) {
                         right_str = tracked_strdup(temp_str, __FILE__, __LINE__, "eval");
                     }
                     
-                    // Concatenate strings
+                    // Optimized string concatenation using string pool and interning
                     if (left_str && right_str) {
-                        size_t total_len = strlen(left_str) + strlen(right_str) + 1;
-                        char* result_str = (char*)malloc(total_len);
+                        // Use optimized concatenation with pre-calculated lengths
+                        StringPart parts[2];
+                        parts[0].str = left_str;
+                        parts[0].length = strlen(left_str);
+                        parts[1].str = right_str;
+                        parts[1].length = strlen(right_str);
+                        
+                        char* result_str = optimized_string_concat(parts, 2);
                         if (result_str) {
-                            strcpy(result_str, left_str);
-                            strcat(result_str, right_str);
-                            
                             // Store the concatenated string in a temporary variable
                             char temp_var_name[64];
                             snprintf(temp_var_name, sizeof(temp_var_name), "__temp_concat_%p", (void*)ast);
                             set_str_value(temp_var_name, result_str);
                             
-                            // Also store it in the global variable for easier access
+                            // Also store it in the global variable for easier access with interning
                             if (last_concat_result) {
                                 free(last_concat_result);
                             }
-                            last_concat_result = tracked_strdup(result_str, __FILE__, __LINE__, "eval");
+                            last_concat_result = intern_string(result_str);
                             
                             // Clean up
                             if (left != -1 && left_str) free(left_str);
@@ -7163,12 +7344,14 @@ void eval_evaluate(ASTNode* ast) {
             
             // Check if this is actually a string literal assignment
             if (ast->children[1].type == AST_EXPR && ast->children[1].text && is_string_literal(ast->children[1].text)) {
-                // This is a string literal assignment - store in string environment
+                // This is a string literal assignment - use string interning for optimization
                 size_t len = strlen(ast->children[1].text);
                 if (len >= 2) {
                     char* clean_str = tracked_strdup(ast->children[1].text + 1, __FILE__, __LINE__, "eval"); // Skip first quote
                     clean_str[len - 2] = '\0'; // Remove last quote
-                    set_str_value(var_name, clean_str);
+                    // Use string interning to avoid duplicate allocations
+                    char* interned_str = intern_string(clean_str);
+                    set_str_value(var_name, interned_str);
                     free(clean_str);
                 } else {
                     set_str_value(var_name, "");
@@ -7177,12 +7360,14 @@ void eval_evaluate(ASTNode* ast) {
                 // This is a string concatenation result or string function result
                 // Check if this is actually a string literal assignment (not a concatenation result)
                 if (ast->children[1].type == AST_EXPR && ast->children[1].text && is_string_literal(ast->children[1].text)) {
-                    // This is a string literal assignment - extract the value without quotes
+                    // This is a string literal assignment - use string interning for optimization
                     size_t len = strlen(ast->children[1].text);
                     if (len >= 2) {
                         char* clean_str = tracked_strdup(ast->children[1].text + 1, __FILE__, __LINE__, "eval");
                         clean_str[len - 2] = '\0';
-                        set_str_value(var_name, clean_str);
+                        // Use string interning to avoid duplicate allocations
+                        char* interned_str = intern_string(clean_str);
+                        set_str_value(var_name, interned_str);
                         tracked_free(clean_str, __FILE__, __LINE__, "eval");
                     } else {
                         set_str_value(var_name, "");
