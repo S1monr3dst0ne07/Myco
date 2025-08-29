@@ -41,6 +41,110 @@
 #include "memory_tracker.h"
 #include "config.h"
 
+// Forward declaration for debug mode function
+extern void set_debug_mode(int enabled);
+
+/*******************************************************************************
+ * HELP AND USAGE FUNCTIONS
+ ******************************************************************************/
+
+/**
+ * @brief Display comprehensive help information
+ * @param program_name Name of the program executable
+ */
+void print_help(const char* program_name) {
+    printf("\n");
+    printf("🌱 MYCO PROGRAMMING LANGUAGE INTERPRETER v1.6.0\n");
+    printf("================================================\n\n");
+    
+    printf("USAGE:\n");
+    printf("  %s <input_file> [options]\n", program_name);
+    printf("  %s --help\n", program_name);
+    printf("  %s --version\n", program_name);
+    printf("\n");
+    
+    printf("ARGUMENTS:\n");
+    printf("  <input_file>    Myco source file (.myco) to interpret or compile\n");
+    printf("\n");
+    
+    printf("OPTIONS:\n");
+    printf("  --help          Show this help message and exit\n");
+    printf("  --version       Show version information and exit\n");
+    printf("  --debug         Enable debug mode with colored initialization messages\n");
+    printf("  --build         Generate C output instead of interpreting\n");
+    printf("  --output <file> Specify output file for build mode\n");
+    printf("  --optimize      Enable performance optimizations (default: enabled)\n");
+    printf("  --no-optimize   Disable performance optimizations\n");
+    printf("  --verbose       Show detailed execution information\n");
+    printf("  --quiet         Suppress non-essential output\n");
+    printf("\n");
+    
+    printf("BUILD MODE:\n");
+    printf("  --build         Generate C source code output\n");
+    printf("  --output <file> Write C output to specified file (default: output.c)\n");
+    printf("  --compile       Compile generated C code to executable\n");
+    printf("  --optimize-c    Enable C compiler optimizations\n");
+    printf("\n");
+    
+    printf("DEBUGGING:\n");
+    printf("  --debug         Show colored initialization and cleanup messages\n");
+    printf("  --trace         Enable execution tracing\n");
+    printf("  --profile       Enable performance profiling\n");
+    printf("  --memory        Show memory allocation statistics\n");
+    printf("\n");
+    
+    printf("EXAMPLES:\n");
+    printf("  %s program.myco                    # Interpret Myco program\n", program_name);
+    printf("  %s program.myco --debug            # Run with debug output\n", program_name);
+    printf("  %s program.myco --build            # Generate C output\n", program_name);
+    printf("  %s program.myco --build --output my_program.c\n", program_name);
+    printf("  %s --help                          # Show this help\n", program_name);
+    printf("\n");
+    
+    printf("BUILDING FROM SOURCE:\n");
+    printf("  git clone https://github.com/IvyMycelia/myco.git\n");
+    printf("  cd myco/myco\n");
+    printf("  make                    # Development build with debug info\n");
+    printf("  make release            # Optimized release build\n");
+    printf("  make prod              # Maximum optimization build\n");
+    printf("  make pgo               # Profile-guided optimization build\n");
+    printf("  make windows           # Cross-compile for Windows\n");
+    printf("  make arm64             # Apple Silicon optimized build\n");
+    printf("\n");
+    
+    printf("FEATURES:\n");
+    printf("  • Dynamic typing with clear type names\n");
+    printf("  • Object-oriented programming with nested objects\n");
+    printf("  • Functional programming with lambda functions\n");
+    printf("  • Comprehensive standard library\n");
+    printf("  • Cross-platform compatibility (Windows, macOS, Linux)\n");
+    printf("  • High-performance execution with optimizations\n");
+    printf("  • Memory-safe execution with tracking\n");
+    printf("  • Professional testing framework\n");
+    printf("\n");
+    
+    printf("DOCUMENTATION:\n");
+    printf("  • Language Reference: Documentation.md\n");
+    printf("  • Grammar Specification: BNF_Grammar.md\n");
+    printf("  • Development Roadmap: DevelopmentPlan.md\n");
+    printf("  • Repository: https://github.com/IvyMycelia/myco\n");
+    printf("\n");
+    
+    printf("LICENSE: MIT License - Open source and free to use\n");
+    printf("VERSION: 1.6.0 - Language Maturity & Developer Experience\n");
+    printf("\n");
+}
+
+/**
+ * @brief Display version information
+ */
+void print_version() {
+    printf("Myco Programming Language Interpreter v1.6.0\n");
+    printf("Language Maturity & Developer Experience\n");
+    printf("MIT License - https://github.com/IvyMycelia/myco\n");
+    printf("Cross-platform: Windows, macOS, Linux\n");
+}
+
 /*******************************************************************************
  * MAIN ENTRY POINT
  ******************************************************************************/
@@ -66,25 +170,52 @@ int main(int argc, char* argv[]) {
     // Make prompts visible immediately in interactive mode
     setvbuf(stdout, NULL, _IOLBF, 0);
     setvbuf(stderr, NULL, _IOLBF, 0);
+    // Check for help and version flags first
+    if (argc >= 2) {
+        if (strcmp(argv[1], "--help") == 0) {
+            print_help(argv[0]);
+            return 0;
+        } else if (strcmp(argv[1], "--version") == 0) {
+            print_version();
+            return 0;
+        }
+    }
+    
     if (argc < 2) {
-        fprintf(stderr, "Usage: %s <input_file> [--build] [--output]\n", argv[0]);
+        fprintf(stderr, "Usage: %s <input_file> [options] or %s --help for more information\n", argv[0], argv[0]);
         return 1;
     }
 
     const char* input_file = argv[1];
     int build_mode = 0;
+    int debug_mode = 0;
+    int verbose_mode = 0;
+    int quiet_mode = 0;
+    int optimize_mode = 1;  // Default: enabled
     const char* output_file = NULL;
 
     /*******************************************************************************
      * COMMAND LINE ARGUMENT PARSING
      ******************************************************************************/
     
-    // Parse command line arguments for build mode and output file specification
+    // Parse command line arguments for all supported flags
     for (int i = 2; i < argc; i++) {
         if (strcmp(argv[i], "--build") == 0) {
             build_mode = 1;
+        } else if (strcmp(argv[i], "--debug") == 0) {
+            debug_mode = 1;
+        } else if (strcmp(argv[i], "--verbose") == 0) {
+            verbose_mode = 1;
+        } else if (strcmp(argv[i], "--quiet") == 0) {
+            quiet_mode = 1;
+        } else if (strcmp(argv[i], "--optimize") == 0) {
+            optimize_mode = 1;
+        } else if (strcmp(argv[i], "--no-optimize") == 0) {
+            optimize_mode = 0;
         } else if (strcmp(argv[i], "--output") == 0 && i + 1 < argc) {
             output_file = argv[++i];
+        } else {
+            fprintf(stderr, "Warning: Unknown option '%s'. Use --help for available options.\n", argv[i]);
         }
     }
 
@@ -117,7 +248,18 @@ int main(int argc, char* argv[]) {
     fclose(file);
     
     if (build_mode) {
-        printf("Building executable from %s...\n", input_file);
+        if (verbose_mode) {
+            printf("🌱 Building executable from %s...\n", input_file);
+            printf("📁 Input file: %s\n", input_file);
+            if (output_file) {
+                printf("📄 Output file: %s\n", output_file);
+            } else {
+                printf("📄 Output file: output.c (default)\n");
+            }
+            printf("⚡ Optimization: %s\n", optimize_mode ? "enabled" : "disabled");
+        } else {
+            printf("Building executable from %s...\n", input_file);
+        }
     }
     
     /*******************************************************************************
@@ -173,11 +315,22 @@ int main(int argc, char* argv[]) {
             fprintf(stderr, "Error: Code generation failed\n");
         }
     } else {
+        // Set debug mode if requested
+        set_debug_mode(debug_mode);
+        
+        // Set debug mode for memory tracker if requested
+        #if DEBUG_MEMORY_TRACKING
+        extern void memory_tracker_set_debug_mode(int enabled);
+        memory_tracker_set_debug_mode(debug_mode);
+        #endif
+        
         // Initialize implicit function system
         init_implicit_functions();
         
         // Initialize library system
         init_libraries();
+        
+        
         
         // Set command-line arguments for the args library
         set_command_line_args(argc, argv);
@@ -187,6 +340,8 @@ int main(int argc, char* argv[]) {
         
         // Cleanup library system
         cleanup_libraries();
+        
+
     }
     
     // Cleanup
@@ -200,6 +355,10 @@ int main(int argc, char* argv[]) {
     
     // Cleanup implicit function system
     cleanup_implicit_functions();
+    
+    // PHASE 2: Cleanup targeted bottleneck optimization systems
+    extern void cleanup_phase2_optimization_systems(void);
+    cleanup_phase2_optimization_systems();
     
     // Cleanup loop execution state
     extern void cleanup_loop_execution_state(void);
