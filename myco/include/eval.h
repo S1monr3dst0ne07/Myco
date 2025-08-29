@@ -99,6 +99,10 @@ void eval_clear_module_asts();
 void eval_clear_function_asts();
 void cleanup_all_environments(void);
 
+// String value management functions
+const char* get_str_value(const char* name);
+void set_str_value(const char* name, const char* value);
+
 // Implicit function system prototypes
 void init_implicit_functions(void);
 char* get_implicit_function(const char* operator, int left_type, int right_type);
@@ -162,5 +166,29 @@ void cleanup_testing_framework(void);
 // Advanced Data Structures Library (v1.6.0) function declarations
 void init_data_structures(void);
 void cleanup_data_structures(void);
+
+// PHASE 1: HYBRID INTERPRETER/COMPILER REVOLUTION
+// Native Code Generation System function declarations
+void init_native_code_generation(void);
+void cleanup_native_code_generation(void);
+
+// UNIVERSAL PERFORMANCE OPTIMIZATION: Universal memory and string pool functions
+void init_universal_memory_pool(void);
+void cleanup_universal_memory_pool(void);
+void init_universal_string_pool(void);
+void cleanup_universal_string_pool(void);
+
+// PHASE 2: Bytecode compilation system functions
+void init_bytecode_compilation_system(void);
+void cleanup_bytecode_compilation_system(void);
+
+// PHASE 2: Targeted Bottleneck Optimization cleanup
+void cleanup_phase2_optimization_systems(void);
+
+// PHASE 2: Ultra-fast optimization function declarations
+char* ultra_fast_string_concat(const char* str1, const char* str2);
+int ultra_fast_string_search(const char* haystack, const char* needle);
+void ultra_fast_array_sort(int* array, int size);
+long long ultra_fast_nested_loop(int start1, int end1, int start2, int end2);
 
 #endif // EVAL_H 

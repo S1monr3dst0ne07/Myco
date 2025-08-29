@@ -58,6 +58,22 @@ make
 # Single-line comment
 ```
 
+#### Multi-line Comments
+
+```myco
+'''
+This is a multi-line comment
+that spans multiple lines.
+Useful for documenting functions,
+explaining complex logic, or
+providing detailed descriptions.
+'''
+
+# You can also use multiple single-line comments
+# for shorter multi-line documentation
+# This approach is also valid
+```
+
 ### Statements
 
 All statements end with a semicolon:
@@ -143,6 +159,32 @@ let is_object = is_obj({x:1});  # Returns: 1 (True)
 let name = "Alice";
 let message = "Hello, World!";
 let empty = "";
+```
+
+#### String Escape Sequences
+
+```myco
+# Newline
+let multiline = "Line 1\nLine 2\nLine 3";
+
+# Tab
+let tabbed = "Name\tAge\tCity";
+
+# Quote escaping
+let quoted = "He said \"Hello World!\"";
+
+# Backslash
+let path = "C:\\Users\\Name\\Documents";
+
+# Carriage return
+let carriage = "Start\rEnd";
+
+# Common escape sequences:
+# \n - Newline
+# \t - Tab
+# \" - Double quote
+# \\ - Backslash
+# \r - Carriage return
 ```
 
 ### Booleans
@@ -522,6 +564,21 @@ end
 while condition:
     # code block
 end
+
+# Example: Countdown
+let countdown = 5;
+while countdown > 0:
+    print(countdown);
+    countdown = countdown - 1;
+end
+print("Blast off!");
+
+# Example: Input validation
+let user_input = 0;
+while user_input < 1 or user_input > 10:
+    user_input = input("Enter a number between 1 and 10: ");
+end
+print("Valid input:", user_input);
 ```
 
 #### For Loop
@@ -1931,6 +1988,133 @@ end
 displayRectangle(5, 3);
 displayRectangle(8, 4);
 ```
+
+## Troubleshooting Guide
+
+### Common Issues and Solutions
+
+#### Performance Issues
+
+**Problem**: Myco programs run slowly
+**Solutions**:
+- Use `--debug` flag to identify bottlenecks
+- Check for unnecessary loops or calculations
+- Use built-in functions instead of custom implementations
+- Profile with `debug.start_timer()` and `debug.end_timer()`
+
+**Problem**: Memory usage is high
+**Solutions**:
+- Check for memory leaks with `debug.get_stats()`
+- Use appropriate data structures (arrays vs objects)
+- Avoid creating large temporary objects
+
+#### Syntax and Parsing Issues
+
+**Problem**: "Expected semicolon" errors
+**Solution**: Ensure all statements end with semicolons
+```myco
+let x = 5;        # Correct
+print("Hello");   # Correct
+let y = 10        # Missing semicolon - ERROR
+```
+
+**Problem**: "Invalid object assignment structure" errors
+**Solution**: This usually indicates a parser issue with complex expressions
+```myco
+# Use simpler syntax or break into multiple statements
+let obj = {name: "test"};  # Correct
+obj.name = "new";          # Correct
+```
+
+#### Runtime Issues
+
+**Problem**: "Undefined variable" errors
+**Solutions**:
+- Check variable spelling and case
+- Ensure variables are declared before use
+- Use `debug()` to inspect variable environment
+
+**Problem**: Array index out of bounds
+**Solutions**:
+- Check array length before access: `if index < len(array):`
+- Use safe access: `let value = array[index] or 0;`
+- Validate user input for array indices
+
+**Problem**: Division by zero
+**Solutions**:
+- Use try-catch blocks
+- Check denominators before division
+- Provide default values
+
+#### Type System Issues
+
+**Problem**: Type mismatches
+**Solutions**:
+- Use `type()` function to check variable types
+- Use type checking functions: `is_num()`, `is_str()`, `is_arr()`, `is_obj()`
+- Convert types explicitly when needed
+
+**Problem**: String vs numeric confusion
+**Solutions**:
+- Use `str()` to convert numbers to strings
+- Use `type()` to verify data types
+- Check if variables are strings with `is_str()`
+
+### Debugging Techniques
+
+#### Using Built-in Debug Functions
+
+```myco
+# Start performance profiling
+debug.start_timer();
+
+# Your code here
+for i in 1..1000000:
+    let result = i * 2;
+end
+
+# End profiling and get results
+let elapsed = debug.end_timer();
+print("Execution time:", elapsed, "ms");
+
+# Get memory statistics
+let stats = debug.get_stats();
+print("Memory stats:", stats);
+```
+
+#### Print Debugging
+
+```myco
+# Add print statements at key points
+print("DEBUG: Entering function with x =", x);
+let result = complex_calculation(x);
+print("DEBUG: Calculation result =", result);
+```
+
+#### Variable Inspection
+
+```myco
+# Check variable types and values
+print("Variable x:", x, "Type:", type(x));
+print("Array length:", len(my_array));
+print("Object keys:", my_object);
+```
+
+### Performance Optimization Tips
+
+1. **Use Built-in Functions**: Built-in functions are optimized
+2. **Avoid Unnecessary Loops**: Use array methods when possible
+3. **Minimize String Operations**: Batch string operations
+4. **Use Appropriate Data Structures**: Arrays for indexed data, objects for named properties
+5. **Profile Your Code**: Use timing functions to identify bottlenecks
+
+### Best Practices for Error Prevention
+
+1. **Always validate input**: Check user input and function parameters
+2. **Use try-catch blocks**: Wrap risky operations in error handling
+3. **Check array bounds**: Validate indices before array access
+4. **Handle edge cases**: Consider what happens with empty arrays, null values, etc.
+5. **Test thoroughly**: Use the comprehensive unit test suite as a reference
 
 ## Error Handling
 

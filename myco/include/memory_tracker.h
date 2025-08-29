@@ -51,4 +51,7 @@ MemoryStats get_memory_stats(void);
 // Enable/disable memory tracking
 void enable_memory_tracking(int enable);
 
+// Debug mode control
+void memory_tracker_set_debug_mode(int enabled);
+
 #endif // MEMORY_TRACKER_H

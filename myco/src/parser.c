@@ -307,12 +307,12 @@ static ASTNode* parse_primary(Token* tokens, int* current) {
                 
                 // Parse the value expression
                 ASTNode* value_expr = parse_expression(tokens, current);
-                                        if (!value_expr) {
+                if (!value_expr) {
                             tracked_free(obj_name, __FILE__, __LINE__, "parse_primary_object_assign");
                             tracked_free(prop_name, __FILE__, __LINE__, "parse_primary_object_assign");
-                            tracked_free(node, __FILE__, __LINE__, "parse_primary_object_assign");
-                            return NULL;
-                        }
+                    tracked_free(node, __FILE__, __LINE__, "parse_primary_object_assign");
+                    return NULL;
+                }
                 
                 // Create object assignment node
                 node->type = AST_OBJECT_ASSIGN;
@@ -1353,7 +1353,7 @@ static ASTNode* parse_statement(Token* tokens, int* current, int token_count) {
                         range_end = parse_expression(tokens, current);
                     }
                     if (!range_end) {
-                        fprintf(stderr, "DEBUG: Failed to parse range end\n");
+            
                         parser_free_ast(node);
                         tracked_free(loop_var, __FILE__, __LINE__, "parse_statement_for");
                         tracked_free(range_start, __FILE__, __LINE__, "parse_statement_for");
@@ -1408,7 +1408,7 @@ static ASTNode* parse_statement(Token* tokens, int* current, int token_count) {
                 }
             }
             
-            // Parse range start normally
+            // Parse range start or array variable
             ASTNode* range_start = parse_expression(tokens, current);
             if (!range_start) {
                 parser_free_ast(node);
@@ -1416,6 +1416,57 @@ static ASTNode* parse_statement(Token* tokens, int* current, int token_count) {
                 return NULL;
             }
 
+            // Check if this is an array loop (for i in array:) or range loop (for i in start..end:)
+            int is_array_loop = 0;
+            
+            // If the range start is just an identifier, it might be an array variable
+            if (range_start->type == AST_EXPR && range_start->text && 
+                tokens[*current].type != TOKEN_DOT) {
+                // This could be an array loop - check if the next token is a colon
+                if (tokens[*current].type == TOKEN_COLON) {
+                    is_array_loop = 1;
+    
+                }
+            }
+            
+            if (is_array_loop) {
+                // This is an array loop: for i in array:
+                (*current)++; // Skip the colon
+                
+                // Parse loop body
+                ASTNode* loop_body = parse_block(tokens, current, token_count);
+                if (!loop_body) {
+                    parser_free_ast(node);
+                    tracked_free(loop_var, __FILE__, __LINE__, "parse_statement_for");
+                    tracked_free(range_start, __FILE__, __LINE__, "parse_statement_for");
+                    return NULL;
+                }
+                
+                // Add children: [loop_var, array_var, body]
+                node->children = (ASTNode*)tracked_malloc(3 * sizeof(ASTNode), __FILE__, __LINE__, "parse_statement_for");
+                if (!node->children) {
+                    parser_free_ast(node);
+                    tracked_free(loop_var, __FILE__, __LINE__, "parse_statement_for");
+                    tracked_free(range_start, __FILE__, __LINE__, "parse_statement_for");
+                    tracked_free(loop_body, __FILE__, __LINE__, "parse_statement_for");
+                    return NULL;
+                }
+                
+                node->children[0] = *loop_var;
+                node->children[1] = *range_start;  // This is the array variable
+                node->children[2] = *loop_body;
+                node->child_count = 3;
+                node->for_type = AST_FOR_ARRAY;  // Mark as array loop
+                
+                // Clean up temporary nodes
+                tracked_free(loop_var, __FILE__, __LINE__, "parse_statement_for");
+                tracked_free(range_start, __FILE__, __LINE__, "parse_statement_for");
+                tracked_free(loop_body, __FILE__, __LINE__, "parse_statement_for");
+                
+                return node;
+            }
+            
+            // This is a range loop: for i in start..end:
             // Parse range separator (two dots)
             if (tokens[*current].type == TOKEN_DOT) {
                 // Handle explicit dot-dot syntax

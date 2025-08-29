@@ -54,8 +54,8 @@ LoopStatistics* get_loop_statistics(void);
 void update_loop_statistics(int loops_executed, int iterations, int had_errors);
 
 // Safety constants
-#define MAX_LOOP_ITERATIONS 1000000
+#define MAX_LOOP_ITERATIONS 1000000000  // Increased to 1 billion iterations
 #define MAX_LOOP_DEPTH 100
-#define MAX_LOOP_RANGE 1000000
+#define MAX_LOOP_RANGE 1000000000       // Increased to 1 billion range
 
 #endif // LOOP_MANAGER_H

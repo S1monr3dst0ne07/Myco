@@ -37,6 +37,26 @@
 #include <string.h>
 #include <assert.h>
 
+// ANSI color codes for debug output
+#define RED "\033[31m"
+#define GREEN "\033[32m"
+#define YELLOW "\033[33m"
+#define BLUE "\033[34m"
+#define MAGENTA "\033[35m"
+#define CYAN "\033[36m"
+#define RESET "\033[0m"
+
+// Global debug mode flag
+static int memory_tracker_debug_mode = 0;
+
+/**
+ * @brief Set the memory tracker debug mode
+ * @param enabled 1 to enable debug mode, 0 to disable
+ */
+void memory_tracker_set_debug_mode(int enabled) {
+    memory_tracker_debug_mode = enabled;
+}
+
 /*******************************************************************************
  * MEMORY TRACKING STATE
  ******************************************************************************/
@@ -89,7 +109,10 @@ void memory_tracker_init(void) {
     memset(&stats, 0, sizeof(MemoryStats));
     next_allocation_id = 1;
     
-    printf("Memory tracker initialized with capacity for %zu allocations\n", allocations_capacity);
+    if (memory_tracker_debug_mode) {
+        printf("%sMemory tracker initialized with capacity for %zu allocations%s\n", 
+               CYAN, allocations_capacity, RESET);
+    }
 }
 
 /**
@@ -105,9 +128,9 @@ void memory_tracker_init(void) {
  * to prevent memory leaks in the tracking system itself.
  */
 void memory_tracker_cleanup(void) {
-    #if DEBUG_MEMORY_TRACKING
-    printf("Memory tracker cleaned up\n");
-    #endif
+    if (memory_tracker_debug_mode) {
+        printf("%sMemory tracker cleaned up%s\n", GREEN, RESET);
+    }
     
     if (allocations) {
         // Use regular free for the tracker's own internal array
@@ -156,7 +179,10 @@ static void expand_allocations_array(void) {
     allocations = new_allocations;
     allocations_capacity = new_capacity;
     
-    printf("Memory tracker expanded to capacity %zu\n", new_capacity);
+    if (memory_tracker_debug_mode) {
+        printf("%sMemory tracker expanded to capacity %zu%s\n", 
+               YELLOW, new_capacity, RESET);
+    }
 }
 
 /**
