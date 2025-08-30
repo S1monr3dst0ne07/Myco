@@ -149,6 +149,17 @@ static ASTNode* parse_primary(Token* tokens, int* current) {
             (*current)++;
             break;
             
+        case TOKEN_TYPE_MARKER:
+        case TOKEN_STRING_TYPE:
+            // Treat type markers as identifiers for use in expressions
+            node->type = AST_EXPR;
+            node->text = tracked_strdup(tokens[*current].text, __FILE__, __LINE__, "parser");
+            node->children = NULL;
+            node->child_count = 0;
+            node->next = NULL;
+            (*current)++;
+            break;
+            
         case TOKEN_IDENTIFIER:
             // Check if this is a chained property assignment: obj.prop1.prop2... = value
             // Scan ahead to detect the pattern: identifier (.identifier)* = 
@@ -1436,11 +1447,11 @@ static ASTNode* parse_statement(Token* tokens, int* current, int token_count) {
                 // Parse loop body
                 ASTNode* loop_body = parse_block(tokens, current, token_count);
                 if (!loop_body) {
-                    parser_free_ast(node);
-                    tracked_free(loop_var, __FILE__, __LINE__, "parse_statement_for");
-                    tracked_free(range_start, __FILE__, __LINE__, "parse_statement_for");
-                    return NULL;
-                }
+                parser_free_ast(node);
+                tracked_free(loop_var, __FILE__, __LINE__, "parse_statement_for");
+                tracked_free(range_start, __FILE__, __LINE__, "parse_statement_for");
+                return NULL;
+            }
                 
                 // Add children: [loop_var, array_var, body]
                 node->children = (ASTNode*)tracked_malloc(3 * sizeof(ASTNode), __FILE__, __LINE__, "parse_statement_for");

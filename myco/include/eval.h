@@ -98,6 +98,7 @@ void eval_set_base_dir(const char* dir);
 void eval_clear_module_asts();
 void eval_clear_function_asts();
 void cleanup_all_environments(void);
+void reset_test_environment(void);
 
 // String value management functions
 const char* get_str_value(const char* name);

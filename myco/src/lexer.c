@@ -56,6 +56,12 @@ static MycoTokenType get_keyword_type(const char* text) {
     if (strcmp(text, "use") == 0) return TOKEN_USE;
     if (strcmp(text, "as") == 0) return TOKEN_AS;
     if (strcmp(text, "int") == 0) return TOKEN_TYPE_MARKER;
+    if (strcmp(text, "str") == 0) return TOKEN_STRING_TYPE;
+    if (strcmp(text, "float") == 0) return TOKEN_TYPE_MARKER;
+    if (strcmp(text, "double") == 0) return TOKEN_TYPE_MARKER;
+    if (strcmp(text, "bool") == 0) return TOKEN_TYPE_MARKER;
+    if (strcmp(text, "arr") == 0) return TOKEN_TYPE_MARKER;
+    if (strcmp(text, "obj") == 0) return TOKEN_TYPE_MARKER;
     if (strcmp(text, "string") == 0) return TOKEN_STRING_TYPE;
     return TOKEN_IDENTIFIER;
 }

@@ -1997,6 +1997,7 @@ displayRectangle(8, 4);
 
 **Problem**: Myco programs run slowly
 **Solutions**:
+
 - Use `--debug` flag to identify bottlenecks
 - Check for unnecessary loops or calculations
 - Use built-in functions instead of custom implementations
@@ -2004,6 +2005,7 @@ displayRectangle(8, 4);
 
 **Problem**: Memory usage is high
 **Solutions**:
+
 - Check for memory leaks with `debug.get_stats()`
 - Use appropriate data structures (arrays vs objects)
 - Avoid creating large temporary objects
@@ -2012,6 +2014,7 @@ displayRectangle(8, 4);
 
 **Problem**: "Expected semicolon" errors
 **Solution**: Ensure all statements end with semicolons
+
 ```myco
 let x = 5;        # Correct
 print("Hello");   # Correct
@@ -2020,6 +2023,7 @@ let y = 10        # Missing semicolon - ERROR
 
 **Problem**: "Invalid object assignment structure" errors
 **Solution**: This usually indicates a parser issue with complex expressions
+
 ```myco
 # Use simpler syntax or break into multiple statements
 let obj = {name: "test"};  # Correct
@@ -2030,18 +2034,21 @@ obj.name = "new";          # Correct
 
 **Problem**: "Undefined variable" errors
 **Solutions**:
+
 - Check variable spelling and case
 - Ensure variables are declared before use
 - Use `debug()` to inspect variable environment
 
 **Problem**: Array index out of bounds
 **Solutions**:
+
 - Check array length before access: `if index < len(array):`
 - Use safe access: `let value = array[index] or 0;`
 - Validate user input for array indices
 
 **Problem**: Division by zero
 **Solutions**:
+
 - Use try-catch blocks
 - Check denominators before division
 - Provide default values
@@ -2050,12 +2057,14 @@ obj.name = "new";          # Correct
 
 **Problem**: Type mismatches
 **Solutions**:
+
 - Use `type()` function to check variable types
 - Use type checking functions: `is_num()`, `is_str()`, `is_arr()`, `is_obj()`
 - Convert types explicitly when needed
 
 **Problem**: String vs numeric confusion
 **Solutions**:
+
 - Use `str()` to convert numbers to strings
 - Use `type()` to verify data types
 - Check if variables are strings with `is_str()`
